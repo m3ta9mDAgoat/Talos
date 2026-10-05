@@ -14,17 +14,19 @@ Talos starts with `LIVE_TRADING_ENABLED=false` and uses the lifecycle:
 
 A strategy does not choose capital or bypass the risk engine.
 
-## Current v0.2 vertical slice
+## Current v0.3 vertical slice
 
 Implemented now:
 - FastAPI backend and React/TypeScript dashboard shell.
 - Source/raw-event/signal database models.
 - Telegram source connector using a dedicated account through Telethon.
-- Historical Telegram import endpoint.
+- Telegram access test, incremental historical import, on-demand latest-message sync and message browser.
+- Stored-message parsing into persisted normalized signals with edit metadata and idempotent upserts.
 - Generic Arabic/English spot-signal parser with confidence/review behavior.
 - Standard entry/target/stop signal schema.
 - Single-signal backtest supporting entry zones, TP hits, price stops, higher-timeframe candle-close stops, MFE and MAE.
-- Basic Sources and Signal Lab UI.
+- Sources UI with Test Access, Import History, Sync New Messages, View Messages and Parse Signals actions.
+- Basic Signal Lab UI.
 - One portable production Docker image for Render/VPS/local migration.
 
 See `docs/MILESTONES.md` for the build order.
@@ -65,3 +67,16 @@ The script outputs a Telethon `StringSession`. Treat it like a password and put 
 The root `Dockerfile` builds the React app and serves it from FastAPI as one portable container. `render.yaml` contains no Talos business logic; moving later to a VPS or local Docker host does not require rewriting the application.
 
 For Render free hosting, use external PostgreSQL/Redis URLs rather than relying on local ephemeral disk for persistent state.
+
+
+## Telegram source workflow (v0.3)
+
+For every configured Telegram source:
+
+1. **Test Access** verifies that the dedicated Talos account can resolve and read the chat.
+2. **Import History** imports the next chronological batch (1,000 by default) and advances a stored cursor. Repeat until the UI reports history complete.
+3. **Sync New Messages** fetches the latest batch and deduplicates it. This is intentionally on-demand on Render Free because the service can sleep.
+4. **View Messages** shows the latest raw archived messages from PostgreSQL.
+5. **Parse Signals** runs the deterministic Telegram parser over the latest revision of each stored message and upserts normalized signals. Edited messages are tagged in signal metadata.
+
+Private channels work when the dedicated Talos Telegram account is already a member. Public usernames, `t.me` links, private invite links (when already joined), and numeric peer IDs are accepted.
