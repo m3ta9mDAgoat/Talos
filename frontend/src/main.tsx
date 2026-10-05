@@ -63,7 +63,9 @@ function Sources() {
   const [error, setError] = useState('');
 
   const refresh = () => apiGet<Source[]>('/api/v1/sources').then(setSources).catch(e => setError(String(e)));
-  useEffect(refresh, []);
+  useEffect(() => {
+  void refresh();
+}, []);
 
   async function addSource(e: React.FormEvent) {
     e.preventDefault(); setError('');
