@@ -62,6 +62,7 @@ class ParseStoredResult(BaseModel):
     ignored: int
     created: int
     updated: int
+    classification: dict[str, int] = Field(default_factory=dict)
 
 
 class StoredSignalRead(BaseModel):

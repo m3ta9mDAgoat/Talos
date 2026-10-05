@@ -10,6 +10,7 @@ from app.db.session import get_db
 from app.models.raw_event import RawEventRecord
 from app.models.signal import SignalRecord
 from app.models.source import SourceRecord
+from app.schemas.analysis import FullImportStatus
 from app.schemas.source import (
     ImportResult,
     ParseStoredResult,
@@ -19,6 +20,8 @@ from app.schemas.source import (
     SourceRead,
     StoredSignalRead,
 )
+from app.services.full_import import start as start_full_import
+from app.services.full_import import status as full_import_status
 from app.services.ingestion import persist_events
 from app.services.source_service import create_source, list_sources
 from app.services.stored_signal_service import parse_stored_messages
@@ -94,8 +97,7 @@ async def import_history(
         from app.plugins.datasources.telegram import TelegramSource
 
         cursor = int((source.config or {}).get("history_cursor_id") or 0)
-        connector = TelegramSource()
-        events = list(await connector.historical(channel=source.identifier, limit=limit, min_id=cursor, reverse=True))
+        events = list(await TelegramSource().historical(channel=source.identifier, limit=limit, min_id=cursor, reverse=True))
         inserted, skipped = persist_events(db, source.identifier, events)
         max_id = max((int(event.external_id or 0) for event in events), default=cursor)
         history_complete = len(events) < limit
@@ -121,6 +123,20 @@ async def import_history(
         history_cursor_id=max_id,
         history_complete=history_complete,
     )
+
+
+@router.post("/{source_id}/import-full", response_model=FullImportStatus)
+def import_full(source_id: int, db: Session = Depends(get_db)) -> FullImportStatus:
+    source = _get_source(db, source_id)
+    _require_telegram(source)
+    return FullImportStatus(**start_full_import(source_id))
+
+
+@router.get("/{source_id}/import-full/status", response_model=FullImportStatus)
+def import_full_status(source_id: int, db: Session = Depends(get_db)) -> FullImportStatus:
+    source = _get_source(db, source_id)
+    _require_telegram(source)
+    return FullImportStatus(**full_import_status(source_id))
 
 
 @router.post("/{source_id}/sync", response_model=ImportResult)
@@ -175,8 +191,8 @@ def get_messages(
             ingested_at=row.ingested_at,
             event_type=row.event_type,
             text=row.text,
-            edit_date=row.metadata_json.get("edit_date"),
-            metadata=row.metadata_json,
+            edit_date=(row.metadata_json or {}).get("edit_date"),
+            metadata=row.metadata_json or {},
         )
         for row in rows
     ]
@@ -185,7 +201,7 @@ def get_messages(
 @router.post("/{source_id}/parse-signals", response_model=ParseStoredResult)
 def parse_source_signals(
     source_id: int,
-    limit: int = Query(default=1000, ge=1, le=5000),
+    limit: int = Query(default=5000, ge=1, le=10000),
     db: Session = Depends(get_db),
 ) -> ParseStoredResult:
     source = _get_source(db, source_id)
@@ -226,9 +242,9 @@ def get_source_signals(
             status=row.status,
             entry=row.entry,
             stop=row.stop,
-            targets=row.targets,
+            targets=row.targets or [],
             raw_text=row.raw_text,
-            metadata=row.metadata_json,
+            metadata=row.metadata_json or {},
         )
         for row in rows
     ]

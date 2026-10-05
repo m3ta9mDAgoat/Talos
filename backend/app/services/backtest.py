@@ -32,7 +32,7 @@ def _bucket_start(ts: datetime, timeframe: str) -> int:
     return epoch - (epoch % seconds)
 
 
-def _candle_close_stop_events(candles: list[Candle], timeframe: str) -> dict[datetime, float]:
+def _candle_close_stop_events(candles: list[Candle], timeframe: str, input_timeframe: str) -> dict[datetime, float]:
     """Return the last observed candle close for each aligned higher-timeframe bucket.
 
     This is correct when the input series is continuous and has a finer timeframe.
@@ -41,7 +41,15 @@ def _candle_close_stop_events(candles: list[Candle], timeframe: str) -> dict[dat
     last_by_bucket: dict[int, Candle] = {}
     for candle in candles:
         last_by_bucket[_bucket_start(candle.timestamp, timeframe)] = candle
-    return {c.timestamp: c.close for c in last_by_bucket.values()}
+    input_seconds = _seconds(input_timeframe)
+    stop_seconds = _seconds(timeframe)
+    complete: dict[datetime, float] = {}
+    for bucket, candle in last_by_bucket.items():
+        # OHLC timestamps are candle-open timestamps. Only treat a higher-timeframe
+        # candle as closed when the last input candle reaches its boundary.
+        if int(candle.timestamp.timestamp()) + input_seconds >= bucket + stop_seconds:
+            complete[candle.timestamp] = candle.close
+    return complete
 
 
 def _entry_fill(entry: EntrySpec | None, candle: Candle, side: Side) -> float | None:
@@ -126,7 +134,7 @@ class SignalBacktester:
                     warnings.append(
                         f"Input timeframe {candle_timeframe} is coarser than stop timeframe {signal.stop.timeframe}."
                     )
-                close_stop_events = _candle_close_stop_events(active_candles, signal.stop.timeframe)
+                close_stop_events = _candle_close_stop_events(active_candles, signal.stop.timeframe, candle_timeframe)
             except ValueError as exc:
                 warnings.append(str(exc))
 

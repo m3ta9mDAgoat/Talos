@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from app.api.routes import backtests, signals, sources, system
+from app.api.routes import analysis, backtests, signals, sources, system
 from app.core.config import settings
 from app.db.init_db import init_db
 
@@ -17,7 +17,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title=settings.app_name, version="0.3.0", lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,10 +29,11 @@ app.add_middleware(
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "app": settings.app_name, "env": settings.app_env, "version": "0.3.0"}
+    return {"status": "ok", "app": settings.app_name, "env": settings.app_env, "version": "1.0.0"}
 
 
 app.include_router(system.router, prefix="/api/v1")
+app.include_router(analysis.router, prefix="/api/v1")
 app.include_router(sources.router, prefix="/api/v1")
 app.include_router(signals.router, prefix="/api/v1")
 app.include_router(backtests.router, prefix="/api/v1")

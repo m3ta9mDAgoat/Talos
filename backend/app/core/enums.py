@@ -58,3 +58,15 @@ class ExecutionMode(StrEnum):
     BACKTEST = "backtest"
     PAPER = "paper"
     LIVE = "live"
+
+
+class MessageClass(StrEnum):
+    NEW_SIGNAL = "new_signal"
+    SIGNAL_UPDATE = "signal_update"
+    RESULT_UPDATE = "result_update"
+    MARKET_COMMENTARY = "market_commentary"
+    NEWS = "news"
+    ADMIN = "admin"
+    CHATTER = "chatter"
+    MEDIA_ONLY = "media_only"
+    UNKNOWN = "unknown"
