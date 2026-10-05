@@ -71,6 +71,7 @@ type FullImport = {
   cursor_id: number;
   history_complete: boolean;
   batches: number;
+  estimated_total?: number | null;
   last_error?: string | null;
 };
 
@@ -173,6 +174,7 @@ function AnalysisSummary({ run, trades }: { run: AnalysisRun; trades: AnalysisTr
     {run.status === 'running' && <div className="progress"><div style={{ width: `${Math.max(2, run.progress * 100)}%` }} /></div>}
     {run.error && <p className="error">{run.error}</p>}
     {run.status === 'complete' && <>
+      {s.history_complete === false && <p className="warning-inline">Preview only: channel history was partial when this analysis ran.</p>}
       <div className="mini-grid">
         <Metric label="Signals tested" value={fmt(s.signals_eligible)} />
         <Metric label="Trades" value={fmt(s.trades)} />
@@ -205,9 +207,16 @@ function Sources() {
   const [runs, setRuns] = useState<Record<number, AnalysisRun | null>>({});
   const [trades, setTrades] = useState<Record<number, AnalysisTrade[]>>({});
   const [reviews, setReviews] = useState<Record<number, ReviewMessage[]>>({});
-  const [settings, setSettings] = useState({ timeframe: '15m', horizon_days: 14, fee_bps: 10, slippage_bps: 5, portfolio_fraction: 0.10, require_stop: true, exclude_edited: true, conservative_intrabar: true, max_signals: 500 });
+  const [settings, setSettings] = useState({ timeframe: '1h', horizon_days: 14, fee_bps: 10, slippage_bps: 5, portfolio_fraction: 0.10, require_stop: true, exclude_edited: true, conservative_intrabar: true, max_signals: 500 });
 
-  const refresh = () => apiGet<Source[]>('/api/v1/sources').then(setSources).catch(e => setError(String(e)));
+  const refresh = async () => {
+    try {
+      const rows = await apiGet<Source[]>('/api/v1/sources');
+      setSources(rows);
+      const statuses = await Promise.all(rows.map(async source => [source.id, await apiGet<FullImport>(`/api/v1/sources/${source.id}/import-full/status`).catch(() => null)] as const));
+      setImports(Object.fromEntries(statuses.filter(([, value]) => value !== null)) as Record<number, FullImport>);
+    } catch (e) { setError(String(e)); }
+  };
   useEffect(() => { void refresh(); }, []);
 
   function setActionState(sourceId: number, state: ActionState) { setAction(prev => ({ ...prev, [sourceId]: state })); }
@@ -226,23 +235,35 @@ function Sources() {
     } catch (e) { setActionState(source.id, { error: String(e) }); await refresh(); }
   }
 
-  async function pollImport(sourceId: number) {
-    try {
-      const result = await apiGet<FullImport>(`/api/v1/sources/${sourceId}/import-full/status`);
-      setImports(prev => ({ ...prev, [sourceId]: result }));
-      if (result.running) window.setTimeout(() => void pollImport(sourceId), 1800);
-      else if (result.history_complete) setActionState(sourceId, { message: `Full history complete: ${result.inserted_total.toLocaleString()} stored messages.` });
-      else if (result.last_error) setActionState(sourceId, { error: result.last_error });
-    } catch (e) { setActionState(sourceId, { error: String(e) }); }
+  async function runImportLoop(sourceId: number, initial?: FullImport) {
+    let state = initial ?? await apiGet<FullImport>(`/api/v1/sources/${sourceId}/import-full/status`);
+    let transientFailures = 0;
+    while (!state.history_complete) {
+      try {
+        state = await apiPost<FullImport>(`/api/v1/sources/${sourceId}/import-full/step?batch_size=1000`, {});
+        transientFailures = 0;
+        setImports(prev => ({ ...prev, [sourceId]: state }));
+        const totalText = state.estimated_total ? ` / ~${state.estimated_total.toLocaleString()}` : '';
+        setActionState(sourceId, { loading: `Importing history: ${state.inserted_total.toLocaleString()}${totalText} messages… batch ${state.batches}` });
+        if (state.last_error) throw new Error(state.last_error);
+      } catch (e) {
+        transientFailures += 1;
+        if (transientFailures > 6) { setActionState(sourceId, { error: `Import paused after retries: ${String(e)}. Click Import Full History to resume safely.` }); return; }
+        setActionState(sourceId, { loading: `Temporary fetch/server issue. Retrying automatically (${transientFailures}/6)…` });
+        await new Promise(resolve => window.setTimeout(resolve, Math.min(10000, transientFailures * 1500)));
+      }
+    }
+    setActionState(sourceId, { message: `Full history complete: ${state.inserted_total.toLocaleString()} stored messages in ${state.batches} batches.` });
+    await refresh();
   }
 
   async function importFull(source: Source) {
-    setActionState(source.id, { loading: 'Starting full-history import…' });
+    setActionState(source.id, { loading: 'Preparing resumable full-history import…' });
     try {
       const result = await apiPost<FullImport>(`/api/v1/sources/${source.id}/import-full`, {});
       setImports(prev => ({ ...prev, [source.id]: result }));
-      setActionState(source.id, { message: 'Import runs in batches automatically. You can leave this page open.' });
-      window.setTimeout(() => void pollImport(source.id), 600);
+      if (result.history_complete) { setActionState(source.id, { message: `History already complete: ${result.inserted_total.toLocaleString()} messages.` }); return; }
+      await runImportLoop(source.id, result);
     } catch (e) { setActionState(source.id, { error: String(e) }); }
   }
 
@@ -313,14 +334,14 @@ function Sources() {
       <p className="hint">Private channel: the dedicated Talos Telegram account must already be a member.</p>{error && <p className="error">{error}</p>}
     </section>
 
-    <section className="panel settings-strip"><h2>Analysis defaults</h2><div className="settings-grid"><label>Timeframe<select value={settings.timeframe} onChange={e => setSettings({ ...settings, timeframe: e.target.value })}><option>5m</option><option>15m</option><option>30m</option><option>1h</option></select></label><label>Horizon days<input type="number" value={settings.horizon_days} onChange={e => setSettings({ ...settings, horizon_days: Number(e.target.value) })} /></label><label>Fee bps<input type="number" value={settings.fee_bps} onChange={e => setSettings({ ...settings, fee_bps: Number(e.target.value) })} /></label><label>Slippage bps<input type="number" value={settings.slippage_bps} onChange={e => setSettings({ ...settings, slippage_bps: Number(e.target.value) })} /></label><label>Capital/trade<input type="number" step="0.01" min="0.01" max="1" value={settings.portfolio_fraction} onChange={e => setSettings({ ...settings, portfolio_fraction: Number(e.target.value) })} /></label><label className="check"><input type="checkbox" checked={settings.require_stop} onChange={e => setSettings({ ...settings, require_stop: e.target.checked })} />Require stop</label><label className="check"><input type="checkbox" checked={settings.exclude_edited} onChange={e => setSettings({ ...settings, exclude_edited: e.target.checked })} />Exclude edited</label></div></section>
+    <section className="panel settings-strip"><h2>Analysis defaults</h2><div className="settings-grid"><label>Timeframe<select value={settings.timeframe} onChange={e => setSettings({ ...settings, timeframe: e.target.value })}><option>5m</option><option>15m</option><option>30m</option><option>1h</option></select></label><label>Horizon days<input type="number" value={settings.horizon_days} onChange={e => setSettings({ ...settings, horizon_days: Number(e.target.value) })} /></label><label>Fee bps<input type="number" value={settings.fee_bps} onChange={e => setSettings({ ...settings, fee_bps: Number(e.target.value) })} /></label><label>Slippage bps<input type="number" value={settings.slippage_bps} onChange={e => setSettings({ ...settings, slippage_bps: Number(e.target.value) })} /></label><label>Capital/trade<input type="number" step="0.01" min="0.01" max="1" value={settings.portfolio_fraction} onChange={e => setSettings({ ...settings, portfolio_fraction: Number(e.target.value) })} /></label><label className="check"><input type="checkbox" checked={settings.require_stop} onChange={e => setSettings({ ...settings, require_stop: e.target.checked })} />Require stop</label><label className="check"><input type="checkbox" checked={settings.exclude_edited} onChange={e => setSettings({ ...settings, exclude_edited: e.target.checked })} />Exclude edited</label></div><p className="hint">Start with 1h for a fast full-channel profitability scan. Re-run promising channels at 15m or 5m for higher intrabar precision.</p></section>
 
     <section className="panel"><h2>Configured sources</h2>{sources.length === 0 ? <p>No sources yet.</p> : <div className="source-list">{sources.map(source => {
       const connection = sourceConnectionLabel(source); const state = action[source.id] ?? {}; const imp = imports[source.id]; const run = runs[source.id];
       return <div className="source-card" key={source.id}>
         <div className="source-head"><div><strong>{source.name}</strong><code>{source.identifier}</code></div><span className={`pill ${connection.cls}`}>{connection.text}</span></div>
-        <div className="source-meta"><span>History: {imp?.history_complete || source.config?.history_complete ? 'complete' : 'partial / not imported'}</span>{imp && <span>{imp.inserted_total.toLocaleString()} messages · {imp.batches} batches</span>}</div>
-        {imp?.running && <div className="progress indeterminate"><div /></div>}
+        <div className="source-meta"><span>History: {imp?.history_complete || source.config?.history_complete ? 'complete' : 'partial / resumable'}</span>{imp && <span>{imp.inserted_total.toLocaleString()}{imp.estimated_total ? ` / ~${imp.estimated_total.toLocaleString()}` : ''} messages · {imp.batches} batches</span>}</div>
+        {state.loading?.startsWith('Import') && <div className="progress"><div style={{ width: `${imp?.estimated_total ? Math.min(100, (imp.inserted_total / imp.estimated_total) * 100) : 15}%` }} /></div>}
         <div className="actions"><button onClick={() => void testAccess(source)}>Test Access</button><button className="accent" onClick={() => void importFull(source)}>Import Full History</button><button onClick={() => void syncLatest(source)}>Sync New</button><button onClick={() => void viewMessages(source)}>Messages</button><button onClick={() => void parseSignals(source)}>Classify + Parse</button><button onClick={() => void reviewQueue(source)}>Review uncertain</button><button className="analyze" onClick={() => void analyze(source)}>Analyze Profitability</button><button onClick={() => void loadLatestAnalysis(source)}>Load Last Analysis</button></div>
         {state.loading && <p className="statusline">{state.loading}</p>}{state.message && <p className="success">{state.message}</p>}{state.error && <p className="error">{state.error}</p>}
         {run && <AnalysisSummary run={run} trades={trades[source.id] ?? []} />}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -20,11 +21,12 @@ from app.schemas.source import (
     SourceRead,
     StoredSignalRead,
 )
-from app.services.full_import import start as start_full_import
+from app.services.full_import import prepare as prepare_full_import
 from app.services.full_import import status as full_import_status
+from app.services.full_import import step as step_full_import
 from app.services.ingestion import persist_events
 from app.services.source_service import create_source, list_sources
-from app.services.stored_signal_service import parse_stored_messages
+from app.services.stored_signal_service import parse_stored_messages_for_source
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 
@@ -129,7 +131,18 @@ async def import_history(
 async def import_full(source_id: int, db: Session = Depends(get_db)) -> FullImportStatus:
     source = _get_source(db, source_id)
     _require_telegram(source)
-    return FullImportStatus(**start_full_import(source_id))
+    return FullImportStatus(**(await prepare_full_import(source_id)))
+
+
+@router.post("/{source_id}/import-full/step", response_model=FullImportStatus)
+async def import_full_step(
+    source_id: int,
+    batch_size: int = Query(default=1000, ge=100, le=2000),
+    db: Session = Depends(get_db),
+) -> FullImportStatus:
+    source = _get_source(db, source_id)
+    _require_telegram(source)
+    return FullImportStatus(**(await step_full_import(source_id, batch_size=batch_size)))
 
 
 @router.get("/{source_id}/import-full/status", response_model=FullImportStatus)
@@ -199,14 +212,15 @@ def get_messages(
 
 
 @router.post("/{source_id}/parse-signals", response_model=ParseStoredResult)
-def parse_source_signals(
+async def parse_source_signals(
     source_id: int,
-    limit: int = Query(default=5000, ge=1, le=10000),
+    limit: int = Query(default=5000, ge=1, le=50000),
     db: Session = Depends(get_db),
 ) -> ParseStoredResult:
     source = _get_source(db, source_id)
     _require_telegram(source)
-    counts = parse_stored_messages(db, source, limit=limit)
+    counts = await asyncio.to_thread(parse_stored_messages_for_source, source_id, limit)
+    source = _get_source(db, source_id)
     source.config = {
         **(source.config or {}),
         "last_parse_at": datetime.now(timezone.utc).isoformat(),

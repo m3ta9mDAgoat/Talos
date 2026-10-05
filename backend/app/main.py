@@ -17,7 +17,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version="1.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,7 +29,7 @@ app.add_middleware(
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "app": settings.app_name, "env": settings.app_env, "version": "1.0.0"}
+    return {"status": "ok", "app": settings.app_name, "env": settings.app_env, "version": "1.1.0"}
 
 
 app.include_router(system.router, prefix="/api/v1")

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class AnalyzeSourceRequest(BaseModel):
-    timeframe: str = "15m"
+    timeframe: str = "1h"
     horizon_days: int = Field(default=14, ge=1, le=90)
     fee_bps: float = Field(default=10.0, ge=0, le=200)
     slippage_bps: float = Field(default=5.0, ge=0, le=200)
@@ -57,6 +57,7 @@ class FullImportStatus(BaseModel):
     cursor_id: int = 0
     history_complete: bool = False
     batches: int = 0
+    estimated_total: int | None = None
     last_error: str | None = None
     updated_at: str | None = None
 

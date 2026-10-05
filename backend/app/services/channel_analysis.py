@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-from collections import Counter, defaultdict
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from app.core.enums import MarketType, Side, SignalStatus, StopTrigger
+from app.core.enums import MarketType, Side, SignalStatus
 from app.db.session import SessionLocal
 from app.models.analysis import AnalysisRunRecord, SignalBacktestRecord
 from app.models.signal import SignalRecord
@@ -50,8 +50,16 @@ def _signal_from_record(row: SignalRecord) -> NormalizedSignal:
     )
 
 
-def _save_run(run_id: int, *, status: str | None = None, stage: str | None = None, progress: float | None = None,
-              summary: dict[str, Any] | None = None, error: str | None = None, completed: bool = False) -> None:
+def _save_run(
+    run_id: int,
+    *,
+    status: str | None = None,
+    stage: str | None = None,
+    progress: float | None = None,
+    summary: dict[str, Any] | None = None,
+    error: str | None = None,
+    completed: bool = False,
+) -> None:
     with SessionLocal() as db:
         row = db.get(AnalysisRunRecord, run_id)
         if not row:
@@ -117,7 +125,86 @@ async def _fetch_with_fallback(signal: NormalizedSignal, cfg: AnalyzeSourceReque
     return None, [], errors
 
 
+async def _analyze_one(item: dict[str, Any], cfg: AnalyzeSourceRequest, semaphore: asyncio.Semaphore) -> dict[str, Any]:
+    signal_id = int(item["id"])
+    signal: NormalizedSignal = item["signal"]
+
+    if signal.market_type != MarketType.SPOT or signal.side != Side.BUY:
+        return {
+            "kind": "unsupported",
+            "signal_id": signal_id,
+            "signal": signal,
+            "record": {
+                "status": "unsupported",
+                "return_pct": None,
+                "exchange": None,
+                "market_symbol": None,
+                "result_json": {"reason": "V1 profitability analysis executes long spot BUY signals only."},
+            },
+        }
+
+    async with semaphore:
+        candidate, candles, fetch_errors = await _fetch_with_fallback(signal, cfg)
+
+    if not candles or candidate is None:
+        return {
+            "kind": "no_market_data",
+            "signal_id": signal_id,
+            "signal": signal,
+            "record": {
+                "status": "no_market_data",
+                "return_pct": None,
+                "exchange": None,
+                "market_symbol": None,
+                "result_json": {"errors": fetch_errors[-6:]},
+            },
+        }
+
+    result = signal_backtester.run(
+        signal,
+        candles,
+        candle_timeframe=cfg.timeframe,
+        conservative_intrabar=cfg.conservative_intrabar,
+    )
+    ret = trade_return_pct(
+        signal,
+        result,
+        final_price=candles[-1].close if candles else None,
+        fee_bps=cfg.fee_bps,
+        slippage_bps=cfg.slippage_bps,
+    )
+    payload = result.model_dump(mode="json")
+    payload.update(
+        {
+            "fetch_errors": fetch_errors[-6:],
+            "timeframe": cfg.timeframe,
+            "horizon_days": cfg.horizon_days,
+            "fee_bps": cfg.fee_bps,
+            "slippage_bps": cfg.slippage_bps,
+            "final_price": candles[-1].close if candles else None,
+        }
+    )
+    return {
+        "kind": "tested",
+        "signal_id": signal_id,
+        "signal": signal,
+        "candidate": candidate,
+        "backtest": result,
+        "return_pct": ret,
+        "record": {
+            "status": "tested" if result.entry_triggered else "entry_not_triggered",
+            "return_pct": ret,
+            "exchange": candidate.exchange,
+            "market_symbol": candidate.symbol,
+            "result_json": payload,
+        },
+    }
+
+
 async def _run(run_id: int) -> None:
+    # Give FastAPI a chance to send the 202-style run response before any heavy work.
+    await asyncio.sleep(0)
+
     with SessionLocal() as db:
         run = db.get(AnalysisRunRecord, run_id)
         if not run:
@@ -134,29 +221,26 @@ async def _run(run_id: int) -> None:
         db.commit()
         source_id = source.id
         source_identifier = source.identifier
+        history_complete = bool((source.config or {}).get("history_complete", False))
 
     try:
-        # Reclassify and parse every stored message. This is idempotent and means an
-        # improved parser can be re-run without re-scraping Telegram.
-        parse_counts = parse_all_stored_messages(source_id)
+        # Parsing is synchronous DB/CPU work. Offload it so it cannot freeze the
+        # FastAPI event loop and turn progress/API requests into proxy 502 pages.
+        parse_counts = await asyncio.to_thread(parse_all_stored_messages, source_id)
         _save_run(run_id, stage="loading_signals", progress=0.08)
 
         with SessionLocal() as db:
-            query = (
+            rows = (
                 db.query(SignalRecord)
                 .filter(SignalRecord.source_id == source_identifier)
                 .filter(SignalRecord.status == SignalStatus.PARSED.value)
                 .filter(SignalRecord.side == Side.BUY.value)
                 .order_by(SignalRecord.timestamp.asc())
+                .limit(cfg.max_signals)
+                .all()
             )
-            rows = query.limit(cfg.max_signals).all()
-            # Detach row data from this session before network work.
             signal_rows = [
-                {
-                    "id": r.id,
-                    "signal": _signal_from_record(r),
-                    "metadata": dict(r.metadata_json or {}),
-                }
+                {"id": r.id, "signal": _signal_from_record(r), "metadata": dict(r.metadata_json or {})}
                 for r in rows
             ]
 
@@ -176,6 +260,10 @@ async def _run(run_id: int) -> None:
                 continue
             eligible.append(item)
 
+        with SessionLocal() as db:
+            db.query(SignalBacktestRecord).filter(SignalBacktestRecord.analysis_run_id == run_id).delete()
+            db.commit()
+
         total = max(1, len(eligible))
         returns: list[float] = []
         stop_hits = 0
@@ -185,104 +273,70 @@ async def _run(run_id: int) -> None:
         target_hits: Counter[int] = Counter()
         target_denominators: Counter[int] = Counter()
         exchange_usage: Counter[str] = Counter()
-        errors: list[str] = []
         mfe_values: list[float] = []
         mae_values: list[float] = []
 
-        with SessionLocal() as db:
-            db.query(SignalBacktestRecord).filter(SignalBacktestRecord.analysis_run_id == run_id).delete()
-            db.commit()
+        # Limited concurrency keeps the UI responsive and overlaps requests across
+        # exchanges without turning Talos into a rate-limit cannon.
+        semaphore = asyncio.Semaphore(4)
+        tasks = [asyncio.create_task(_analyze_one(item, cfg, semaphore)) for item in eligible]
+        pending_rows: list[SignalBacktestRecord] = []
 
-        for idx, item in enumerate(eligible, start=1):
-            signal_id = int(item["id"])
-            signal: NormalizedSignal = item["signal"]
-            progress = 0.10 + 0.86 * (idx - 1) / total
-            _save_run(run_id, stage=f"market_data:{signal.symbol}", progress=progress)
+        completed_count = 0
+        for future in asyncio.as_completed(tasks):
+            outcome = await future
+            completed_count += 1
+            signal: NormalizedSignal = outcome["signal"]
+            record = outcome["record"]
+            kind = outcome["kind"]
 
-            if signal.market_type != MarketType.SPOT or signal.side != Side.BUY:
+            if kind == "unsupported":
                 unsupported += 1
-                with SessionLocal() as db:
-                    db.add(SignalBacktestRecord(
-                        analysis_run_id=run_id,
-                        source_id=source_id,
-                        signal_id=signal_id,
-                        timestamp=signal.timestamp,
-                        symbol=signal.symbol,
-                        status="unsupported",
-                        result_json={"reason": "V1 profitability analysis executes long spot BUY signals only."},
-                    ))
-                    db.commit()
-                continue
-
-            candidate, candles, fetch_errors = await _fetch_with_fallback(signal, cfg)
-            if not candles or candidate is None:
+            elif kind == "no_market_data":
                 data_missing += 1
-                with SessionLocal() as db:
-                    db.add(SignalBacktestRecord(
-                        analysis_run_id=run_id,
-                        source_id=source_id,
-                        signal_id=signal_id,
-                        timestamp=signal.timestamp,
-                        symbol=signal.symbol,
-                        status="no_market_data",
-                        result_json={"errors": fetch_errors[-6:]},
-                    ))
-                    db.commit()
-                continue
+            else:
+                result = outcome["backtest"]
+                candidate = outcome["candidate"]
+                exchange_usage[candidate.exchange] += 1
+                if result.entry_triggered:
+                    entry_triggered += 1
+                if result.stop_hit:
+                    stop_hits += 1
+                if result.mfe_pct is not None:
+                    mfe_values.append(result.mfe_pct)
+                if result.mae_pct is not None:
+                    mae_values.append(result.mae_pct)
+                for i, hit in enumerate(result.targets, start=1):
+                    target_denominators[i] += 1 if result.entry_triggered else 0
+                    if hit.hit:
+                        target_hits[i] += 1
+                if outcome.get("return_pct") is not None:
+                    returns.append(float(outcome["return_pct"]))
 
-            result = signal_backtester.run(
-                signal,
-                candles,
-                candle_timeframe=cfg.timeframe,
-                conservative_intrabar=cfg.conservative_intrabar,
-            )
-            exchange_usage[candidate.exchange] += 1
-            if result.entry_triggered:
-                entry_triggered += 1
-            if result.stop_hit:
-                stop_hits += 1
-            if result.mfe_pct is not None:
-                mfe_values.append(result.mfe_pct)
-            if result.mae_pct is not None:
-                mae_values.append(result.mae_pct)
-            for i, hit in enumerate(result.targets, start=1):
-                target_denominators[i] += 1 if result.entry_triggered else 0
-                if hit.hit:
-                    target_hits[i] += 1
-
-            ret = trade_return_pct(
-                signal,
-                result,
-                final_price=candles[-1].close if candles else None,
-                fee_bps=cfg.fee_bps,
-                slippage_bps=cfg.slippage_bps,
-            )
-            if ret is not None:
-                returns.append(ret)
-
-            payload = result.model_dump(mode="json")
-            payload.update({
-                "fetch_errors": fetch_errors[-6:],
-                "timeframe": cfg.timeframe,
-                "horizon_days": cfg.horizon_days,
-                "fee_bps": cfg.fee_bps,
-                "slippage_bps": cfg.slippage_bps,
-                "final_price": candles[-1].close if candles else None,
-            })
-            with SessionLocal() as db:
-                db.add(SignalBacktestRecord(
+            pending_rows.append(
+                SignalBacktestRecord(
                     analysis_run_id=run_id,
                     source_id=source_id,
-                    signal_id=signal_id,
+                    signal_id=int(outcome["signal_id"]),
                     timestamp=signal.timestamp,
                     symbol=signal.symbol,
-                    exchange=candidate.exchange,
-                    market_symbol=candidate.symbol,
-                    status="tested" if result.entry_triggered else "entry_not_triggered",
-                    return_pct=ret,
-                    result_json=payload,
-                ))
-                db.commit()
+                    exchange=record["exchange"],
+                    market_symbol=record["market_symbol"],
+                    status=record["status"],
+                    return_pct=record["return_pct"],
+                    result_json=record["result_json"],
+                )
+            )
+
+            if len(pending_rows) >= 20 or completed_count == len(eligible):
+                with SessionLocal() as db:
+                    db.add_all(pending_rows)
+                    db.commit()
+                pending_rows = []
+
+            if completed_count == 1 or completed_count % 5 == 0 or completed_count == len(eligible):
+                progress = 0.10 + 0.86 * completed_count / total
+                _save_run(run_id, stage=f"market_data:{completed_count}/{len(eligible)}", progress=progress)
 
         metrics = summarize_returns(returns, cfg.portfolio_fraction)
         target_rates = {
@@ -293,6 +347,7 @@ async def _run(run_id: int) -> None:
         summary: dict[str, Any] = {
             "source_id": source_id,
             "source_identifier": source_identifier,
+            "history_complete": history_complete,
             "parser": parse_counts,
             "signals_parsed": len(signal_rows),
             "signals_eligible": len(eligible),
@@ -320,8 +375,8 @@ async def _run(run_id: int) -> None:
             },
             **metrics,
         }
-        if errors:
-            summary["warnings"] = errors[-20:]
+        if not history_complete:
+            summary["warnings"] = ["Channel history is still partial. Treat this run as a preview, not the final channel score."]
         _save_run(run_id, status="complete", stage="complete", progress=1.0, summary=summary, completed=True)
     except Exception as exc:
-        _save_run(run_id, status="error", stage="error", error=str(exc), completed=True)
+        _save_run(run_id, status="error", stage="error", error=f"{type(exc).__name__}: {exc}", completed=True)

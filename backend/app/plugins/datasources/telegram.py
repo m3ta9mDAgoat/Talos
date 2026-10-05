@@ -77,6 +77,19 @@ class TelegramSource(DataSource):
             )
         return await self.client.get_entity(self.normalize_identifier(identifier))
 
+    async def total_messages(self, *, channel: str) -> int | None:
+        """Return Telegram's current message-count estimate for progress UI."""
+        await self.client.connect()
+        try:
+            if not await self.client.is_user_authorized():
+                raise RuntimeError("TELEGRAM_SESSION_STRING is not authorized")
+            entity = await self._resolve_entity(channel)
+            result = await self.client.get_messages(entity, limit=0)
+            total = getattr(result, "total", None)
+            return int(total) if total is not None else None
+        finally:
+            await self.client.disconnect()
+
     async def access_info(self, *, channel: str) -> dict[str, Any]:
         await self.client.connect()
         try:

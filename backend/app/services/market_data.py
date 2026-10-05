@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
-
 
 from app.schemas.backtest import Candle
 
@@ -17,20 +17,20 @@ class ResolvedMarket:
 
 
 class CCXTMarketDataResolver:
-    """Public market-data adapter with exchange fallback.
-
-    No API keys are required for the historical backtest path. Live execution is a
-    separate adapter and remains disabled by default.
-    """
+    """Public historical market-data adapter with exchange fallback and caching."""
 
     def __init__(self) -> None:
         self._instances: dict[str, Any] = {}
         self._markets: dict[str, dict[str, Any]] = {}
-        self._locks: dict[str, asyncio.Lock] = {}
+        self._market_locks: dict[str, asyncio.Lock] = {}
+        self._fetch_locks: dict[str, asyncio.Lock] = {}
+        self._candle_cache: OrderedDict[tuple, list[Candle]] = OrderedDict()
+        self._cache_max = 128
 
     def _exchange(self, exchange_id: str):
         if exchange_id not in self._instances:
             import ccxt
+
             cls = getattr(ccxt, exchange_id, None)
             if cls is None:
                 raise ValueError(f"Unsupported CCXT exchange: {exchange_id}")
@@ -40,7 +40,7 @@ class CCXTMarketDataResolver:
     async def _load_markets(self, exchange_id: str) -> dict[str, Any]:
         if exchange_id in self._markets:
             return self._markets[exchange_id]
-        lock = self._locks.setdefault(exchange_id, asyncio.Lock())
+        lock = self._market_locks.setdefault(exchange_id, asyncio.Lock())
         async with lock:
             if exchange_id in self._markets:
                 return self._markets[exchange_id]
@@ -56,29 +56,47 @@ class CCXTMarketDataResolver:
         candidates = [clean]
         if len(parts) == 2:
             base, quote = parts
-            # Some channels use USD generically while spot venues quote USDT/USDC.
             if quote == "USD":
                 candidates += [f"{base}/USDT", f"{base}/USDC"]
         return list(dict.fromkeys(candidates))
 
     async def resolve(self, symbol: str, exchanges: list[str]) -> list[ResolvedMarket]:
+        # Load all venue market maps concurrently once per process. After warm-up this
+        # becomes an in-memory dictionary lookup.
+        loaded = await asyncio.gather(
+            *(self._load_markets(exchange_id) for exchange_id in exchanges),
+            return_exceptions=True,
+        )
         found: list[ResolvedMarket] = []
-        for exchange_id in exchanges:
-            try:
-                markets = await self._load_markets(exchange_id)
-            except Exception:
+        for exchange_id, markets in zip(exchanges, loaded):
+            if isinstance(markets, Exception):
                 continue
             for candidate in self._candidate_symbols(symbol):
                 market = markets.get(candidate)
                 if not market:
                     continue
-                if market.get("spot") is False:
-                    continue
-                if market.get("active") is False:
+                if market.get("spot") is False or market.get("active") is False:
                     continue
                 found.append(ResolvedMarket(exchange_id, candidate, market))
                 break
         return found
+
+    @staticmethod
+    def _day_floor(value: datetime) -> datetime:
+        value = value.astimezone(timezone.utc)
+        return value.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    def _cache_get(self, key: tuple) -> list[Candle] | None:
+        value = self._candle_cache.get(key)
+        if value is not None:
+            self._candle_cache.move_to_end(key)
+        return value
+
+    def _cache_put(self, key: tuple, value: list[Candle]) -> None:
+        self._candle_cache[key] = value
+        self._candle_cache.move_to_end(key)
+        while len(self._candle_cache) > self._cache_max:
+            self._candle_cache.popitem(last=False)
 
     async def candles(
         self,
@@ -93,19 +111,32 @@ class CCXTMarketDataResolver:
         ex = self._exchange(exchange_id)
         if not ex.has.get("fetchOHLCV"):
             return []
-        since = int(start.astimezone(timezone.utc).timestamp() * 1000)
-        end_ms = int(end.astimezone(timezone.utc).timestamp() * 1000)
+
+        # Day-rounded cache means several same-day recommendations for the same coin
+        # reuse one market-data download.
+        cache_start = self._day_floor(start)
+        cache_end = self._day_floor(end) + timedelta(days=1)
+        key = (exchange_id, symbol, timeframe, cache_start.isoformat(), cache_end.isoformat())
+        cached = self._cache_get(key)
+        if cached is not None:
+            return [c for c in cached if start <= c.timestamp <= end]
+
+        since = int(cache_start.timestamp() * 1000)
+        end_ms = int(cache_end.timestamp() * 1000)
         tf_ms = int(ex.parse_timeframe(timeframe) * 1000)
         output: list[Candle] = []
         seen: set[int] = set()
+        page_limit = 1000
+        fetch_lock = self._fetch_locks.setdefault(exchange_id, asyncio.Lock())
 
-        # A conservative page size works across the selected venues.
-        page_limit = 500
         while since <= end_ms and len(output) < max_bars:
             try:
-                rows = await asyncio.to_thread(ex.fetch_ohlcv, symbol, timeframe, since, page_limit)
+                # CCXT exchange objects keep rate-limit state. Serialize individual
+                # calls per venue, while still allowing different venues in parallel.
+                async with fetch_lock:
+                    rows = await asyncio.to_thread(ex.fetch_ohlcv, symbol, timeframe, since, page_limit)
             except Exception:
-                return output
+                return []
             if not rows:
                 break
             advanced = False
@@ -135,7 +166,10 @@ class CCXTMarketDataResolver:
             since = next_since
             if last_ts >= end_ms:
                 break
-        return sorted(output, key=lambda c: c.timestamp)
+
+        output = sorted(output, key=lambda c: c.timestamp)
+        self._cache_put(key, output)
+        return [c for c in output if start <= c.timestamp <= end]
 
 
 market_data_resolver = CCXTMarketDataResolver()

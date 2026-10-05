@@ -1,8 +1,8 @@
-# Talos v1.0 — Research-first trading platform
+# Talos v1.1 — Research-first trading platform
 
 Talos turns heterogeneous data sources into normalized trading decisions that can be researched, optimized, paper-traded and eventually routed to execution adapters without rebuilding the platform.
 
-## What works in v1.0
+## What works in v1.1
 
 ### Telegram research pipeline
 - Dedicated Telegram user account via Telethon / MTProto.
@@ -62,11 +62,23 @@ Stable contracts already exist for:
 
 Telegram is therefore not the platform architecture. A news, RSS, technical, on-chain or ML strategy can plug into the same downstream research and validation path.
 
+
+## v1.1 performance / reliability changes
+
+- Full-history import is no longer one fragile long-running Render background task. The browser automatically drives bounded 1,000-message steps; closing/reopening the page is safe because the cursor is persisted in Neon.
+- Telegram import persistence is vectorized: a 1,000-message batch no longer performs ~1,000 Neon existence queries.
+- Message classification/parsing bulk-loads existing labels/signals and honors manual labels.
+- Heavy parsing is moved off the FastAPI event loop, preventing the 502 page seen when `Analyze Profitability` started.
+- CCXT market maps load concurrently, OHLCV uses larger pages, same-day candle windows are cached, and analysis overlaps a small number of market-data jobs.
+- Backtest results are committed in batches instead of one Neon transaction per signal.
+- Proxy HTML errors are converted into short retryable messages instead of dumping an entire 502 document into the dashboard.
+- The default first-pass timeframe is 1h for fast channel screening; precision reruns remain available at 15m/5m.
+
 ## Research safety lifecycle
 
 `DRAFT → BACKTESTED → VALIDATED → PAPER → APPROVED → LIVE`
 
-`LIVE_TRADING_ENABLED=false` remains the default. V1.0 is focused on proving the research path and does **not** auto-enable live capital execution.
+`LIVE_TRADING_ENABLED=false` remains the default. V1.1 is focused on proving the research path and does **not** auto-enable live capital execution.
 
 ## Deploying the update to your existing Render service
 
@@ -85,7 +97,7 @@ Telegram is therefore not the platform architecture. A news, RSS, technical, on-
 `Analyze Profitability` reclassifies and re-parses the stored history automatically, resolves markets, downloads historical candles, runs each eligible signal, and produces the channel report. You do not need to click **Classify + Parse** first.
 
 ### Recommended first run
-- Timeframe: `15m`
+- Timeframe: `1h` for the first fast scan
 - Horizon: `14 days`
 - Fee: `10 bps`
 - Slippage: `5 bps`
@@ -93,7 +105,7 @@ Telegram is therefore not the platform architecture. A news, RSS, technical, on-
 - Require stop: ON
 - Exclude edited messages: ON
 
-For greater intrabar precision, rerun the analysis with `5m`. It will take longer and use more exchange API requests.
+For greater intrabar precision, rerun promising channels with `15m` or `5m`. They take longer and use more exchange API requests.
 
 ## Interpreting the result
 
