@@ -126,7 +126,7 @@ async def import_history(
 
 
 @router.post("/{source_id}/import-full", response_model=FullImportStatus)
-def import_full(source_id: int, db: Session = Depends(get_db)) -> FullImportStatus:
+async def import_full(source_id: int, db: Session = Depends(get_db)) -> FullImportStatus:
     source = _get_source(db, source_id)
     _require_telegram(source)
     return FullImportStatus(**start_full_import(source_id))
