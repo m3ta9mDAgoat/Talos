@@ -1,377 +1,49 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { apiGet, apiPost } from './api';
 import './styles.css';
 
-type Capability = {
-  data_sources: string[];
-  markets: string[];
-  future_markets: string[];
-  research_stages: string[];
-  live_trading_enabled: boolean;
-};
+type Source={id:number;name:string;type:string;identifier:string;enabled:boolean;status:string;config:Record<string,any>};
+type Run={id:number;source_id:number;status:string;stage:string;progress:number;summary:Record<string,any>;config:Record<string,any>;error?:string|null};
+type Signal={id:number;source_message_id?:string|null;timestamp:string;symbol:string;side:string;confidence:number;status:string;entry:any;stop:any;targets:number[];raw_text?:string|null;metadata?:Record<string,any>};
+type ImportStatus={source_id:number;status:string;fetched_total:number;inserted_total:number;skipped_total:number;cursor_id:number;history_complete:boolean;batches:number;estimated_total?:number|null;last_error?:string|null};
+const sections=['Dashboard','Sources','Signals','Backtests','Optimizer','Strategies','Paper Trading','Live Trading','Portfolio','Exchanges','Market Data','Logs','Settings'];
+const fmt=(x:any,d=8)=>x===null||x===undefined?'—':typeof x==='number'?x.toLocaleString(undefined,{maximumFractionDigits:d}):String(x);
 
-type Source = {
-  id: number;
-  name: string;
-  type: string;
-  identifier: string;
-  enabled: boolean;
-  status: string;
-  config: Record<string, any>;
-};
+function Card({label,value,note}:{label:string,value:any,note?:string}){return <article><span>{label}</span><strong>{value}</strong>{note&&<small>{note}</small>}</article>}
+function Header({title,sub}:{title:string,sub:string}){return <header><div><h1>{title}</h1><p>{sub}</p></div></header>}
+function Err({e}:{e:string}){return e?<p className="error">{e}</p>:null}
 
-type RawMessage = {
-  id: number;
-  external_id: string;
-  occurred_at: string;
-  ingested_at: string;
-  event_type: string;
-  text: string | null;
-  edit_date: string | null;
-  metadata?: Record<string, any>;
-};
+function Dashboard(){const [sources,setSources]=useState<Source[]>([]);const [runs,setRuns]=useState<Run[]>([]);const [paper,setPaper]=useState<any>(null);useEffect(()=>{apiGet<Source[]>('/api/v1/sources').then(async s=>{setSources(s);const rs=await Promise.all(s.map(x=>apiGet<Run|null>(`/api/v1/analysis/sources/${x.id}/latest`).catch(()=>null)));setRuns(rs.filter(Boolean) as Run[])});apiGet('/api/v1/paper/account').then(setPaper).catch(()=>{})},[]);const done=runs.filter(r=>r.status==='complete').sort((a,b)=>b.id-a.id)[0];const s=done?.summary||{};return <><Header title="Talos" sub="Persistent research, paper execution and broker routing from one reproducible pipeline."/><section className="grid"><Card label="Sources" value={sources.length}/><Card label="Stored tested trades" value={fmt(s.trades,0)}/><Card label="Profit factor" value={fmt(s.profit_factor)}/><Card label="Paper equity" value={paper?`${fmt(paper.equity,2)} ${paper.quote_currency}`:'—'}/></section><section className="panel"><h2>System pipeline</h2><div className="flowline">Ingest once → SQL archive → incremental classify/parse → persisted signals → market resolver → cached analysis → optimizer → paper → risk → venue router → live</div><p>Historical messages are not re-parsed for every backtest. New messages are processed incrementally.</p></section></>}
 
-type StoredSignal = {
-  id: number;
-  source_message_id: string | null;
-  timestamp: string;
-  symbol: string;
-  side: string;
-  confidence: number;
-  status: string;
-  entry: unknown;
-  stop: unknown;
-  targets: number[];
-  raw_text: string | null;
-  metadata?: Record<string, any>;
-};
+function Sources(){const [sources,setSources]=useState<Source[]>([]),[err,setErr]=useState('');const [name,setName]=useState('Telegram Signals'),[identifier,setIdentifier]=useState('');const [st,setSt]=useState<Record<number,any>>({});const [imp,setImp]=useState<Record<number,ImportStatus>>({});const [busy,setBusy]=useState<Record<number,string>>({});
+ const refresh=async()=>{try{const s=await apiGet<Source[]>('/api/v1/sources');setSources(s);for(const x of s){apiGet(`/api/v1/sources/${x.id}/stats`).then(v=>setSt(p=>({...p,[x.id]:v}))).catch(()=>{});apiGet<ImportStatus>(`/api/v1/sources/${x.id}/import-full/status`).then(v=>setImp(p=>({...p,[x.id]:v}))).catch(()=>{})}}catch(e){setErr(String(e))}};useEffect(()=>{void refresh()},[]);
+ const add=async(e:React.FormEvent)=>{e.preventDefault();await apiPost('/api/v1/sources',{name,type:'telegram',identifier,enabled:true,config:{}});setIdentifier('');await refresh()};
+ const test=async(s:Source)=>{setBusy(p=>({...p,[s.id]:'Testing access…'}));try{await apiPost(`/api/v1/sources/${s.id}/test-access`,{});await refresh()}catch(e){setErr(String(e))}finally{setBusy(p=>({...p,[s.id]:''}))}};
+ const full=async(s:Source)=>{setBusy(p=>({...p,[s.id]:'Importing full accessible history…'}));try{let cur=await apiPost<ImportStatus>(`/api/v1/sources/${s.id}/import-full`,{});while(!cur.history_complete){cur=await apiPost<ImportStatus>(`/api/v1/sources/${s.id}/import-full/step?batch_size=1000`,{});setImp(p=>({...p,[s.id]:cur}));if(cur.last_error)throw new Error(cur.last_error)}await refresh()}catch(e){setErr(String(e))}finally{setBusy(p=>({...p,[s.id]:''}))}};
+ const process=async(s:Source)=>{setBusy(p=>({...p,[s.id]:'Processing only unprocessed/changed messages…'}));try{const r:any=await apiPost(`/api/v1/processing/sources/${s.id}/run`,{});setSt(p=>({...p,[s.id]:{...(p[s.id]||{}),...r}}))}catch(e){setErr(String(e))}finally{setBusy(p=>({...p,[s.id]:''}))}};
+ const sync=async(s:Source)=>{setBusy(p=>({...p,[s.id]:'Syncing new messages…'}));try{await apiPost(`/api/v1/sources/${s.id}/sync?limit=500`,{});await refresh()}catch(e){setErr(String(e))}finally{setBusy(p=>({...p,[s.id]:''}))}};
+ return <><Header title="Sources" sub="Archive each source once, then process only new or changed events."/><section className="panel"><form onSubmit={add} className="formrow"><input value={name} onChange={e=>setName(e.target.value)}/><input value={identifier} onChange={e=>setIdentifier(e.target.value)} placeholder="@channel or t.me link" required/><button className="primary">Add source</button></form><Err e={err}/></section><section className="source-list">{sources.map(s=>{const x:any=st[s.id]||{},i=imp[s.id];return <div className="source-card" key={s.id}><div className="source-head"><div><strong>{s.name}</strong><code>{s.identifier}</code></div><span className={`pill ${s.config?.access_verified?'ok':'muted'}`}>{s.config?.access_verified?'CONNECTED':'NOT VERIFIED'}</span></div><div className="mini-grid"><Card label="Accessible imported" value={fmt(i?.inserted_total,0)} note={i?.history_complete?'verified empty tail':'resumable'}/><Card label="Telegram estimate" value={fmt(i?.estimated_total,0)} note="informational; may differ from accessible messages"/><Card label="Unique archived" value={fmt(x.unique_messages,0)}/><Card label="Signals persisted" value={fmt(x.signals||x.signals_total,0)}/></div><div className="actions"><button onClick={()=>void test(s)}>Test Access</button><button className="accent" onClick={()=>void full(s)}>Import / Verify Full History</button><button onClick={()=>void sync(s)}>Sync New</button><button onClick={()=>void process(s)}>Process Unprocessed</button></div>{busy[s.id]&&<p className="statusline">{busy[s.id]}</p>}<div className="kv compact"><span>Processed states</span><b>{fmt(x.processed_states||x.processed,0)}</b><span>Parser version</span><b>{x.parser_version||'—'}</b><span>Classifier version</span><b>{x.classifier_version||'—'}</b></div></div>})}</section></>}
 
-type ParseResult = {
-  signal: null | {
-    symbol: string;
-    side: string;
-    entry: unknown;
-    targets: number[];
-    stop: unknown;
-    confidence: number;
-    status: string;
-  };
-  confidence: number;
-  warnings: string[];
-};
+function Signals(){const [sources,setSources]=useState<Source[]>([]),[source,setSource]=useState<number|''>(''),[rows,setRows]=useState<Signal[]>([]),[count,setCount]=useState(0),[offset,setOffset]=useState(0),[err,setErr]=useState('');const load=async(id:number,off=0)=>{try{setRows(await apiGet(`/api/v1/sources/${id}/signals?limit=200&offset=${off}`));setCount((await apiGet<any>(`/api/v1/sources/${id}/signals/count`)).count);setOffset(off)}catch(e){setErr(String(e))}};useEffect(()=>{apiGet<Source[]>('/api/v1/sources').then(s=>{setSources(s);if(s[0]){setSource(s[0].id);void load(s[0].id)}})},[]);return <><Header title="Signals" sub="Persisted normalized recommendations. This table is SQL-backed, not a transient UI sample."/><section className="panel"><div className="toolbar"><select value={source} onChange={e=>{const id=Number(e.target.value);setSource(id);void load(id)}}>{sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select><span>{count.toLocaleString()} total signals</span><button disabled={!source||offset===0} onClick={()=>source&&void load(Number(source),Math.max(0,offset-200))}>Previous</button><button disabled={!source||offset+200>=count} onClick={()=>source&&void load(Number(source),offset+200)}>Next</button></div><Err e={err}/><div className="trade-table">{rows.map(r=><div className="signal-row" key={r.id}><strong>{r.symbol}</strong><span>{r.side.toUpperCase()}</span><span>{(r.confidence*100).toFixed(2)}%</span><span>{r.status}</span><span>{new Date(r.timestamp).toLocaleString()}</span></div>)}</div></section></>}
 
-type FullImport = {
-  source_id: number;
-  status: string;
-  running: boolean;
-  fetched_total: number;
-  inserted_total: number;
-  skipped_total: number;
-  cursor_id: number;
-  history_complete: boolean;
-  batches: number;
-  estimated_total?: number | null;
-  last_error?: string | null;
-};
+function Backtests(){const [sources,setSources]=useState<Source[]>([]),[sid,setSid]=useState<number|''>(''),[run,setRun]=useState<Run|null>(null),[err,setErr]=useState('');const [cfg,setCfg]=useState({timeframe:'1h',horizon_days:14,fee_bps:10,slippage_bps:5,portfolio_fraction:.1,require_stop:true,exclude_edited:true,conservative_intrabar:true,max_signals:50000});useEffect(()=>{apiGet<Source[]>('/api/v1/sources').then(s=>{setSources(s);if(s[0])setSid(s[0].id)})},[]);const poll=async(id:number)=>{const r=await apiGet<Run>(`/api/v1/analysis/runs/${id}`);setRun(r);if(r.status==='running'||r.status==='queued')setTimeout(()=>void poll(id),2000)};const start=async()=>{if(!sid)return;setErr('');try{const r=await apiPost<Run>(`/api/v1/analysis/sources/${sid}/run`,cfg);setRun(r);void poll(r.id)}catch(e){setErr(String(e))}};const s=run?.summary||{};return <><Header title="Backtests" sub="Analysis reads persisted signals from SQL; classification/parsing is not repeated."/><section className="panel settings-grid"><label>Source<select value={sid} onChange={e=>setSid(Number(e.target.value))}>{sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label>Timeframe<select value={cfg.timeframe} onChange={e=>setCfg({...cfg,timeframe:e.target.value})}><option>5m</option><option>15m</option><option>1h</option></select></label><label>Horizon<input type="number" value={cfg.horizon_days} onChange={e=>setCfg({...cfg,horizon_days:+e.target.value})}/></label><label>Fee bps<input type="number" value={cfg.fee_bps} onChange={e=>setCfg({...cfg,fee_bps:+e.target.value})}/></label><label>Slippage bps<input type="number" value={cfg.slippage_bps} onChange={e=>setCfg({...cfg,slippage_bps:+e.target.value})}/></label><button className="primary" onClick={()=>void start()}>Run analysis</button></section><Err e={err}/>{run&&<section className="panel"><h2>Run #{run.id} — {run.status}</h2><div className="progress"><div style={{width:`${run.progress*100}%`}}/></div><div className="mini-grid"><Card label="Eligible" value={fmt(s.signals_eligible,0)}/><Card label="Trades" value={fmt(s.trades,0)}/><Card label="Avg return" value={s.average_return_pct==null?'—':`${fmt(s.average_return_pct)}%`}/><Card label="Profit factor" value={fmt(s.profit_factor)}/><Card label="Equity return" value={s.model_equity_return_pct==null?'—':`${fmt(s.model_equity_return_pct)}%`}/><Card label="Max DD" value={s.model_max_drawdown_pct==null?'—':`${fmt(s.model_max_drawdown_pct)}%`}/><Card label="MFE" value={s.average_mfe_pct==null?'—':`${fmt(s.average_mfe_pct)}%`}/><Card label="MAE" value={s.average_mae_pct==null?'—':`${fmt(s.average_mae_pct)}%`}/></div><pre>{JSON.stringify(s,null,2)}</pre></section>}</>}
 
-type AnalysisRun = {
-  id: number;
-  source_id: number;
-  status: string;
-  stage: string;
-  progress: number;
-  config: Record<string, any>;
-  summary: Record<string, any>;
-  error?: string | null;
-  created_at: string;
-  started_at?: string | null;
-  completed_at?: string | null;
-};
+function Optimizer(){const [runId,setRunId]=useState(''),[data,setData]=useState<any>(null),[err,setErr]=useState('');const go=async()=>{try{setData(await apiGet(`/api/v1/optimizer/runs/${runId}`))}catch(e){setErr(String(e))}};return <><Header title="Optimizer" sub="Grid-searches portfolio risk fraction over a completed backtest without re-downloading market data."/><section className="panel formrow"><input value={runId} onChange={e=>setRunId(e.target.value)} placeholder="Completed analysis run ID"/><button className="primary" onClick={()=>void go()}>Optimize 1–30%</button></section><Err e={err}/>{data&&<section className="panel"><h2>Best risk fraction</h2><div className="mini-grid"><Card label="Fraction" value={`${fmt(data.best.portfolio_fraction*100,2)}%`}/><Card label="Equity return" value={`${fmt(data.best.model_equity_return_pct)}%`}/><Card label="Max drawdown" value={`${fmt(data.best.model_max_drawdown_pct)}%`}/><Card label="Score" value={fmt(data.best.score)}/></div><div className="trade-table">{data.trials.slice(0,15).map((x:any)=><div className="trade-row" key={x.portfolio_fraction}><strong>{(x.portfolio_fraction*100).toFixed(0)}%</strong><span>{fmt(x.model_equity_return_pct)}%</span><span>{fmt(x.model_max_drawdown_pct)}%</span><span>{fmt(x.profit_factor)}</span><span>{fmt(x.score)}</span></div>)}</div></section>}</>}
 
-type AnalysisTrade = {
-  id: number;
-  signal_id: number;
-  timestamp: string;
-  symbol: string;
-  exchange?: string | null;
-  status: string;
-  return_pct?: number | null;
-  result: Record<string, any>;
-};
+function Strategies(){const [rows,setRows]=useState<any[]>([]);useEffect(()=>{apiGet<any[]>('/api/v1/strategies').then(setRows)},[]);return <><Header title="Strategies" sub="Versioned strategy contracts. Disabled draft plugins are explicit, not fake controls."/><section className="source-list">{rows.map(r=><div className="source-card" key={r.id}><div className="source-head"><div><strong>{r.strategy_id}</strong><code>v{r.version}</code></div><span className={`pill ${r.enabled?'ok':'muted'}`}>{r.stage.toUpperCase()}</span></div><p>{r.parameters?.description}</p></div>)}</section></>}
 
-type ReviewMessage = {
-  raw_event_id: number;
-  external_id: string;
-  occurred_at: string;
-  text: string | null;
-  predicted_class: string;
-  confidence: number;
-  manual_class?: string | null;
-  reasons: string[];
-};
+function Exchanges(){const [rows,setRows]=useState<any[]>([]),[con,setCon]=useState<any[]>([]),[err,setErr]=useState('');const load=()=>{apiGet<any[]>('/api/v1/exchanges').then(setRows).catch(e=>setErr(String(e)));apiGet<any[]>('/api/v1/exchanges/connections').then(setCon).catch(()=>{})};useEffect(load,[]);return <><Header title="Exchanges" sub="Public market connectivity plus optional private API-key validation for spot execution."/><Err e={err}/><section className="source-list">{rows.map(r=>{const c=con.find(x=>x.broker_id===r.broker_id);return <div className="source-card" key={r.broker_id}><div className="source-head"><strong>{r.broker_id.toUpperCase()}</strong><span className={`pill ${r.public_ok?'ok':'danger'}`}>{r.public_ok?'PUBLIC OK':'ERROR'}</span></div><div className="kv"><span>Markets</span><b>{fmt(r.markets,0)}</b><span>Credentials</span><b>{r.credentials?'present':'not configured'}</b><span>Private connection</span><b>{c?.connected?'CONNECTED':c?.reason||'not tested'}</b></div></div>})}</section></>}
 
-type ActionState = { loading?: string; message?: string; error?: string };
+function MarketData(){const [symbol,setSymbol]=useState('BTC/USDT'),[data,setData]=useState<any>(null),[err,setErr]=useState('');const go=async()=>{try{setData(await apiGet(`/api/v1/exchanges/best/venue?symbol=${encodeURIComponent(symbol)}`))}catch(e){setErr(String(e))}};return <><Header title="Market Data" sub="Compare current public tickers across supported venues and select the best available route."/><section className="panel formrow"><input value={symbol} onChange={e=>setSymbol(e.target.value.toUpperCase())}/><button className="primary" onClick={()=>void go()}>Resolve venue</button></section><Err e={err}/>{data&&<section className="panel"><h2>Best venue: {data.best?.broker_id||'none'}</h2><div className="trade-table">{data.venues.map((v:any)=><div className="trade-row" key={v.broker_id}><strong>{v.broker_id}</strong><span>{fmt(v.last,8)}</span><span>spread {fmt(v.spread_pct,5)}%</span><span>vol {fmt(v.quote_volume,0)}</span><span>{v.symbol}</span></div>)}</div></section>}</>}
 
-const sections = ['Dashboard', 'Sources', 'Signal Lab', 'Backtests', 'Optimizer', 'Strategies', 'Paper Trading', 'Live Trading', 'Portfolio', 'Exchanges', 'Market Data', 'Logs', 'Settings'];
+function Paper(){const [a,setA]=useState<any>(null),[pos,setPos]=useState<any[]>([]),[symbol,setSymbol]=useState('BTC/USDT'),[amount,setAmount]=useState(100),[err,setErr]=useState('');const load=async()=>{setA(await apiGet('/api/v1/paper/account'));setPos(await apiGet('/api/v1/paper/positions'))};useEffect(()=>{void load()},[]);const buy=async()=>{try{await apiPost('/api/v1/paper/buy',{symbol,quote_amount:amount,fee_bps:10});await load()}catch(e){setErr(String(e))}};const refresh=async()=>{try{await apiPost('/api/v1/paper/refresh',{});await load()}catch(e){setErr(String(e))}};const close=async(id:number)=>{try{await apiPost(`/api/v1/paper/positions/${id}/close`,{});await load()}catch(e){setErr(String(e))}};return <><Header title="Paper Trading" sub="Persistent simulated cash, orders and positions using live public exchange prices."/>{a&&<section className="grid"><Card label="Cash" value={fmt(a.cash_balance,2)}/><Card label="Equity" value={fmt(a.equity,2)}/><Card label="Realized P&L" value={fmt(a.realized_pnl,2)}/><Card label="Open positions" value={pos.filter(p=>p.status==='open').length}/></section>}<section className="panel formrow"><input value={symbol} onChange={e=>setSymbol(e.target.value.toUpperCase())}/><input type="number" value={amount} onChange={e=>setAmount(+e.target.value)}/><button className="primary" onClick={()=>void buy()}>Paper Buy</button><button onClick={()=>void refresh()}>Refresh prices</button></section><Err e={err}/><section className="panel trade-table">{pos.map(p=><div className="trade-row" key={p.id}><strong>{p.symbol}</strong><span>{p.status}</span><span>{fmt(p.entry_price,8)} → {fmt(p.current_price,8)}</span><span>{fmt(p.unrealized_pnl,2)}</span><span>{p.status==='open'?<button onClick={()=>void close(p.id)}>Close</button>:fmt(p.realized_pnl,2)}</span></div>)}</section></>}
 
-function fmt(value: unknown, suffix = '') {
-  if (value === null || value === undefined) return '—';
-  if (typeof value === 'number') return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}${suffix}`;
-  return String(value);
-}
+function Portfolio(){return <Paper/>}
+function Live(){const [status,setStatus]=useState<any>(null),[broker,setBroker]=useState('binance'),[symbol,setSymbol]=useState('BTC/USDT'),[side,setSide]=useState('buy'),[amount,setAmount]=useState(.001),[confirm,setConfirm]=useState(false),[out,setOut]=useState<any>(null),[err,setErr]=useState('');useEffect(()=>{apiGet('/api/v1/live/status').then(setStatus)},[]);const go=async()=>{try{setOut(await apiPost('/api/v1/live/order',{broker_id:broker,symbol,side,amount,order_type:'market',confirm_live:confirm}))}catch(e){setErr(String(e))}};return <><Header title="Live Trading" sub="Real exchange execution. Disabled by environment flag by default and requires an explicit confirmation per order."/><section className="panel"><p className={status?.enabled?'success':'warning-inline'}>LIVE_TRADING_ENABLED = {String(status?.enabled)}</p><div className="settings-grid"><label>Broker<select value={broker} onChange={e=>setBroker(e.target.value)}>{['binance','okx','bybit','bitget','kucoin','mexc'].map(x=><option key={x}>{x}</option>)}</select></label><label>Symbol<input value={symbol} onChange={e=>setSymbol(e.target.value.toUpperCase())}/></label><label>Side<select value={side} onChange={e=>setSide(e.target.value)}><option>buy</option><option>sell</option></select></label><label>Base amount<input type="number" step="any" value={amount} onChange={e=>setAmount(+e.target.value)}/></label><label className="check"><input type="checkbox" checked={confirm} onChange={e=>setConfirm(e.target.checked)}/>I confirm real order</label><button className="primary" disabled={!status?.enabled||!confirm} onClick={()=>void go()}>Place REAL order</button></div><Err e={err}/>{out&&<pre>{JSON.stringify(out,null,2)}</pre>}</section></>}
 
-function Metric({ label, value, note }: { label: string; value: React.ReactNode; note?: string }) {
-  return <article><span>{label}</span><strong>{value}</strong>{note && <small>{note}</small>}</article>;
-}
+function Logs(){const [rows,setRows]=useState<any[]>([]);useEffect(()=>{apiGet<any[]>('/api/v1/audit?limit=200').then(setRows)},[]);return <><Header title="Execution Audit" sub="Persistent audit trail for live execution attempts."/><section className="panel trade-table">{rows.map(r=><div className="trade-row" key={r.id}><strong>{r.mode}</strong><span>{r.broker_id||'—'}</span><span>{r.symbol||'—'}</span><span>{r.status}</span><span>{new Date(r.created_at).toLocaleString()}</span></div>)}</section></>}
+function Settings(){return <><Header title="Settings" sub="Talos secrets remain environment variables; never store API secrets in the browser or GitHub."/><section className="panel"><div className="kv"><span>Database</span><b>DATABASE_URL (Neon)</b><span>Telegram</span><b>TELEGRAM_API_ID / HASH / SESSION_STRING</b><span>Exchange credentials</span><b>Environment variables per exchange</b><span>Live lock</span><b>LIVE_TRADING_ENABLED=false by default</b></div></section></>}
 
-function Dashboard({ capabilities }: { capabilities: Capability | null }) {
-  const [sources, setSources] = useState<Source[]>([]);
-  const [runs, setRuns] = useState<Record<number, AnalysisRun | null>>({});
-  useEffect(() => {
-    apiGet<Source[]>('/api/v1/sources').then(async rows => {
-      setSources(rows);
-      const pairs = await Promise.all(rows.map(async s => [s.id, await apiGet<AnalysisRun | null>(`/api/v1/analysis/sources/${s.id}/latest`).catch(() => null)] as const));
-      setRuns(Object.fromEntries(pairs));
-    }).catch(() => undefined);
-  }, []);
-
-  const completed = Object.values(runs).filter(r => r?.status === 'complete') as AnalysisRun[];
-  const latest = completed.sort((a, b) => b.id - a.id)[0];
-  const summary = latest?.summary ?? {};
-  return <>
-    <header>
-      <div><h1>Research Dashboard</h1><p>Research, validate and compare strategies before any capital is exposed.</p></div>
-      <span className="pill danger">LIVE {capabilities?.live_trading_enabled ? 'ENABLED' : 'DISABLED'}</span>
-    </header>
-    <section className="grid">
-      <Metric label="Sources" value={sources.length} note="Telegram now; news / RSS / custom ready" />
-      <Metric label="Latest tested trades" value={fmt(summary.trades)} note={latest ? `Analysis #${latest.id}` : 'Run a channel analysis'} />
-      <Metric label="Avg trade return" value={summary.average_return_pct == null ? '—' : `${fmt(summary.average_return_pct)}%`} />
-      <Metric label="Profit factor" value={fmt(summary.profit_factor)} note="After configured fees/slippage" />
-    </section>
-    <section className="panel flow">
-      <h2>Talos pipeline</h2>
-      <div className="flowline">Sources → Archive → Classify → Normalize → Strategy → Market Resolver → Backtest → Optimization → Paper → Risk → Router → Execution</div>
-      <p>Telegram is one data source. New news, technical, ML or custom strategy plugins reuse the same research and execution pipeline.</p>
-    </section>
-  </>;
-}
-
-function sourceConnectionLabel(source: Source): { text: string; cls: string } {
-  const checked = source.config?.access_checked_at;
-  const verified = source.config?.access_verified;
-  if (!checked) return { text: 'NOT TESTED', cls: 'muted' };
-  if (verified === true) return { text: 'CONNECTED', cls: 'ok' };
-  return { text: 'ACCESS ERROR', cls: 'danger' };
-}
-
-function AnalysisSummary({ run, trades }: { run: AnalysisRun; trades: AnalysisTrade[] }) {
-  const s = run.summary ?? {};
-  const targets = s.target_hit_rates_pct ?? {};
-  return <div className="analysis-box">
-    <div className="analysis-title"><div><h3>Profitability analysis</h3><span className={`pill ${run.status === 'complete' ? 'ok' : run.status === 'error' ? 'danger' : 'muted'}`}>{run.status.toUpperCase()}</span></div><span>{Math.round((run.progress || 0) * 100)}% · {run.stage}</span></div>
-    {run.status === 'running' && <div className="progress"><div style={{ width: `${Math.max(2, run.progress * 100)}%` }} /></div>}
-    {run.error && <p className="error">{run.error}</p>}
-    {run.status === 'complete' && <>
-      {s.history_complete === false && <p className="warning-inline">Preview only: channel history was partial when this analysis ran.</p>}
-      <div className="mini-grid">
-        <Metric label="Signals tested" value={fmt(s.signals_eligible)} />
-        <Metric label="Trades" value={fmt(s.trades)} />
-        <Metric label="Positive trades" value={s.positive_trade_rate_pct == null ? '—' : `${fmt(s.positive_trade_rate_pct)}%`} />
-        <Metric label="Average return" value={s.average_return_pct == null ? '—' : `${fmt(s.average_return_pct)}%`} />
-        <Metric label="Profit factor" value={fmt(s.profit_factor)} />
-        <Metric label="Model equity" value={s.model_equity_return_pct == null ? '—' : `${fmt(s.model_equity_return_pct)}%`} />
-        <Metric label="Model max DD" value={s.model_max_drawdown_pct == null ? '—' : `${fmt(s.model_max_drawdown_pct)}%`} />
-        <Metric label="Missing market data" value={fmt(s.market_data_missing)} />
-      </div>
-      <div className="two-col">
-        <div className="subpanel"><h4>Target hit rates</h4>{Object.keys(targets).length === 0 ? <p>No target data.</p> : Object.entries(targets).map(([key, val]) => <div className="barrow" key={key}><span>{key.toUpperCase()}</span><div className="bar"><i style={{ width: `${Math.min(100, Number(val))}%` }} /></div><b>{fmt(val)}%</b></div>)}</div>
-        <div className="subpanel"><h4>Assumptions</h4><div className="kv"><span>Timeframe</span><b>{s.assumptions?.timeframe ?? '—'}</b><span>Horizon</span><b>{s.assumptions?.horizon_days ?? '—'} days</b><span>Fees</span><b>{s.assumptions?.fee_bps ?? '—'} bps</b><span>Slippage</span><b>{s.assumptions?.slippage_bps ?? '—'} bps</b><span>Edited signals</span><b>{s.assumptions?.exclude_edited ? 'excluded' : 'included'}</b></div></div>
-      </div>
-      {trades.length > 0 && <div className="data-view"><h4>Recent tested signals</h4><div className="trade-table">{trades.slice(0, 100).map(t => <div className="trade-row" key={t.id}><strong>{t.symbol}</strong><span>{t.exchange ?? '—'}</span><span>{t.status}</span><span className={(t.return_pct ?? 0) >= 0 ? 'success-inline' : 'error-inline'}>{t.return_pct == null ? '—' : `${fmt(t.return_pct)}%`}</span><span>{new Date(t.timestamp).toLocaleDateString()}</span></div>)}</div></div>}
-    </>}
-  </div>;
-}
-
-function Sources() {
-  const [sources, setSources] = useState<Source[]>([]);
-  const [name, setName] = useState('Telegram Signals');
-  const [identifier, setIdentifier] = useState('');
-  const [error, setError] = useState('');
-  const [action, setAction] = useState<Record<number, ActionState>>({});
-  const [messages, setMessages] = useState<Record<number, RawMessage[]>>({});
-  const [signals, setSignals] = useState<Record<number, StoredSignal[]>>({});
-  const [expanded, setExpanded] = useState<Record<number, 'messages' | 'signals' | 'review' | undefined>>({});
-  const [imports, setImports] = useState<Record<number, FullImport>>({});
-  const [runs, setRuns] = useState<Record<number, AnalysisRun | null>>({});
-  const [trades, setTrades] = useState<Record<number, AnalysisTrade[]>>({});
-  const [reviews, setReviews] = useState<Record<number, ReviewMessage[]>>({});
-  const [settings, setSettings] = useState({ timeframe: '1h', horizon_days: 14, fee_bps: 10, slippage_bps: 5, portfolio_fraction: 0.10, require_stop: true, exclude_edited: true, conservative_intrabar: true, max_signals: 500 });
-
-  const refresh = async () => {
-    try {
-      const rows = await apiGet<Source[]>('/api/v1/sources');
-      setSources(rows);
-      const statuses = await Promise.all(rows.map(async source => [source.id, await apiGet<FullImport>(`/api/v1/sources/${source.id}/import-full/status`).catch(() => null)] as const));
-      setImports(Object.fromEntries(statuses.filter(([, value]) => value !== null)) as Record<number, FullImport>);
-    } catch (e) { setError(String(e)); }
-  };
-  useEffect(() => { void refresh(); }, []);
-
-  function setActionState(sourceId: number, state: ActionState) { setAction(prev => ({ ...prev, [sourceId]: state })); }
-
-  async function addSource(e: React.FormEvent) {
-    e.preventDefault(); setError('');
-    try { await apiPost('/api/v1/sources', { name, type: 'telegram', identifier, enabled: true, config: {} }); setIdentifier(''); await refresh(); }
-    catch (e) { setError(String(e)); }
-  }
-
-  async function testAccess(source: Source) {
-    setActionState(source.id, { loading: 'Testing access…' });
-    try {
-      const result = await apiPost<{ title?: string; can_read_history: boolean }>(`/api/v1/sources/${source.id}/test-access`, {});
-      setActionState(source.id, { message: `Connected${result.title ? ` to ${result.title}` : ''}. History: ${result.can_read_history ? 'yes' : 'no'}.` }); await refresh();
-    } catch (e) { setActionState(source.id, { error: String(e) }); await refresh(); }
-  }
-
-  async function runImportLoop(sourceId: number, initial?: FullImport) {
-    let state = initial ?? await apiGet<FullImport>(`/api/v1/sources/${sourceId}/import-full/status`);
-    let transientFailures = 0;
-    while (!state.history_complete) {
-      try {
-        state = await apiPost<FullImport>(`/api/v1/sources/${sourceId}/import-full/step?batch_size=1000`, {});
-        transientFailures = 0;
-        setImports(prev => ({ ...prev, [sourceId]: state }));
-        const totalText = state.estimated_total ? ` / ~${state.estimated_total.toLocaleString()}` : '';
-        setActionState(sourceId, { loading: `Importing history: ${state.inserted_total.toLocaleString()}${totalText} messages… batch ${state.batches}` });
-        if (state.last_error) throw new Error(state.last_error);
-      } catch (e) {
-        transientFailures += 1;
-        if (transientFailures > 6) { setActionState(sourceId, { error: `Import paused after retries: ${String(e)}. Click Import Full History to resume safely.` }); return; }
-        setActionState(sourceId, { loading: `Temporary fetch/server issue. Retrying automatically (${transientFailures}/6)…` });
-        await new Promise(resolve => window.setTimeout(resolve, Math.min(10000, transientFailures * 1500)));
-      }
-    }
-    setActionState(sourceId, { message: `Full history complete: ${state.inserted_total.toLocaleString()} stored messages in ${state.batches} batches.` });
-    await refresh();
-  }
-
-  async function importFull(source: Source) {
-    setActionState(source.id, { loading: 'Preparing resumable full-history import…' });
-    try {
-      const result = await apiPost<FullImport>(`/api/v1/sources/${source.id}/import-full`, {});
-      setImports(prev => ({ ...prev, [source.id]: result }));
-      if (result.history_complete) { setActionState(source.id, { message: `History already complete: ${result.inserted_total.toLocaleString()} messages.` }); return; }
-      await runImportLoop(source.id, result);
-    } catch (e) { setActionState(source.id, { error: String(e) }); }
-  }
-
-  async function syncLatest(source: Source) {
-    setActionState(source.id, { loading: 'Syncing latest messages…' });
-    try { const r = await apiPost<any>(`/api/v1/sources/${source.id}/sync?limit=250`, {}); setActionState(source.id, { message: `Fetched ${r.fetched}; saved ${r.inserted}; duplicates ${r.skipped}.` }); }
-    catch (e) { setActionState(source.id, { error: String(e) }); }
-  }
-
-  async function viewMessages(source: Source) {
-    try { const rows = await apiGet<RawMessage[]>(`/api/v1/sources/${source.id}/messages?limit=100`); setMessages(p => ({ ...p, [source.id]: rows })); setExpanded(p => ({ ...p, [source.id]: 'messages' })); }
-    catch (e) { setActionState(source.id, { error: String(e) }); }
-  }
-
-  async function parseSignals(source: Source) {
-    setActionState(source.id, { loading: 'Classifying and parsing stored messages…' });
-    try {
-      const r = await apiPost<any>(`/api/v1/sources/${source.id}/parse-signals?limit=10000`, {});
-      setActionState(source.id, { message: `Examined ${r.examined}: parsed ${r.parsed}, review ${r.needs_review}, ignored ${r.ignored}.` });
-      const rows = await apiGet<StoredSignal[]>(`/api/v1/sources/${source.id}/signals?limit=100`); setSignals(p => ({ ...p, [source.id]: rows })); setExpanded(p => ({ ...p, [source.id]: 'signals' }));
-    } catch (e) { setActionState(source.id, { error: String(e) }); }
-  }
-
-  async function pollAnalysis(sourceId: number, runId: number) {
-    try {
-      const run = await apiGet<AnalysisRun>(`/api/v1/analysis/runs/${runId}`); setRuns(p => ({ ...p, [sourceId]: run }));
-      if (run.status === 'running' || run.status === 'queued') window.setTimeout(() => void pollAnalysis(sourceId, runId), 2200);
-      else if (run.status === 'complete') {
-        const rows = await apiGet<AnalysisTrade[]>(`/api/v1/analysis/runs/${runId}/trades?limit=300`); setTrades(p => ({ ...p, [sourceId]: rows }));
-        setActionState(sourceId, { message: 'Analysis complete.' });
-      } else if (run.error) setActionState(sourceId, { error: run.error });
-    } catch (e) { setActionState(sourceId, { error: String(e) }); }
-  }
-
-  async function analyze(source: Source) {
-    setActionState(source.id, { loading: 'Starting profitability analysis…' });
-    try {
-      const run = await apiPost<AnalysisRun>(`/api/v1/analysis/sources/${source.id}/run`, settings); setRuns(p => ({ ...p, [source.id]: run }));
-      window.setTimeout(() => void pollAnalysis(source.id, run.id), 700);
-    } catch (e) { setActionState(source.id, { error: String(e) }); }
-  }
-
-  async function loadLatestAnalysis(source: Source) {
-    try {
-      const run = await apiGet<AnalysisRun | null>(`/api/v1/analysis/sources/${source.id}/latest`); setRuns(p => ({ ...p, [source.id]: run }));
-      if (run) {
-        if (run.status === 'running') void pollAnalysis(source.id, run.id);
-        if (run.status === 'complete') { const rows = await apiGet<AnalysisTrade[]>(`/api/v1/analysis/runs/${run.id}/trades?limit=300`); setTrades(p => ({ ...p, [source.id]: rows })); }
-      }
-    } catch { /* optional */ }
-  }
-
-  async function reviewQueue(source: Source) {
-    try { const rows = await apiGet<ReviewMessage[]>(`/api/v1/analysis/sources/${source.id}/review?limit=100`); setReviews(p => ({ ...p, [source.id]: rows })); setExpanded(p => ({ ...p, [source.id]: 'review' })); }
-    catch (e) { setActionState(source.id, { error: String(e) }); }
-  }
-
-  async function label(sourceId: number, rawEventId: number, messageClass: string) {
-    await apiPost(`/api/v1/analysis/messages/${rawEventId}/label`, { message_class: messageClass });
-    setReviews(prev => ({ ...prev, [sourceId]: (prev[sourceId] ?? []).map(x => x.raw_event_id === rawEventId ? { ...x, manual_class: messageClass } : x) }));
-  }
-
-  return <>
-    <header><div><h1>Sources & Channel Research</h1><p>Archive a channel once, classify its messages, then test the recommendations against historical market data.</p></div></header>
-    <section className="panel">
-      <h2>Add Telegram source</h2>
-      <form onSubmit={addSource} className="formrow"><input value={name} onChange={e => setName(e.target.value)} placeholder="Name" /><input value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder="@channel, t.me link, invite link or peer ID" required /><button className="primary" type="submit">Add source</button></form>
-      <p className="hint">Private channel: the dedicated Talos Telegram account must already be a member.</p>{error && <p className="error">{error}</p>}
-    </section>
-
-    <section className="panel settings-strip"><h2>Analysis defaults</h2><div className="settings-grid"><label>Timeframe<select value={settings.timeframe} onChange={e => setSettings({ ...settings, timeframe: e.target.value })}><option>5m</option><option>15m</option><option>30m</option><option>1h</option></select></label><label>Horizon days<input type="number" value={settings.horizon_days} onChange={e => setSettings({ ...settings, horizon_days: Number(e.target.value) })} /></label><label>Fee bps<input type="number" value={settings.fee_bps} onChange={e => setSettings({ ...settings, fee_bps: Number(e.target.value) })} /></label><label>Slippage bps<input type="number" value={settings.slippage_bps} onChange={e => setSettings({ ...settings, slippage_bps: Number(e.target.value) })} /></label><label>Capital/trade<input type="number" step="0.01" min="0.01" max="1" value={settings.portfolio_fraction} onChange={e => setSettings({ ...settings, portfolio_fraction: Number(e.target.value) })} /></label><label className="check"><input type="checkbox" checked={settings.require_stop} onChange={e => setSettings({ ...settings, require_stop: e.target.checked })} />Require stop</label><label className="check"><input type="checkbox" checked={settings.exclude_edited} onChange={e => setSettings({ ...settings, exclude_edited: e.target.checked })} />Exclude edited</label></div><p className="hint">Start with 1h for a fast full-channel profitability scan. Re-run promising channels at 15m or 5m for higher intrabar precision.</p></section>
-
-    <section className="panel"><h2>Configured sources</h2>{sources.length === 0 ? <p>No sources yet.</p> : <div className="source-list">{sources.map(source => {
-      const connection = sourceConnectionLabel(source); const state = action[source.id] ?? {}; const imp = imports[source.id]; const run = runs[source.id];
-      return <div className="source-card" key={source.id}>
-        <div className="source-head"><div><strong>{source.name}</strong><code>{source.identifier}</code></div><span className={`pill ${connection.cls}`}>{connection.text}</span></div>
-        <div className="source-meta"><span>History: {imp?.history_complete || source.config?.history_complete ? 'complete' : 'partial / resumable'}</span>{imp && <span>{imp.inserted_total.toLocaleString()}{imp.estimated_total ? ` / ~${imp.estimated_total.toLocaleString()}` : ''} messages · {imp.batches} batches</span>}</div>
-        {state.loading?.startsWith('Import') && <div className="progress"><div style={{ width: `${imp?.estimated_total ? Math.min(100, (imp.inserted_total / imp.estimated_total) * 100) : 15}%` }} /></div>}
-        <div className="actions"><button onClick={() => void testAccess(source)}>Test Access</button><button className="accent" onClick={() => void importFull(source)}>Import Full History</button><button onClick={() => void syncLatest(source)}>Sync New</button><button onClick={() => void viewMessages(source)}>Messages</button><button onClick={() => void parseSignals(source)}>Classify + Parse</button><button onClick={() => void reviewQueue(source)}>Review uncertain</button><button className="analyze" onClick={() => void analyze(source)}>Analyze Profitability</button><button onClick={() => void loadLatestAnalysis(source)}>Load Last Analysis</button></div>
-        {state.loading && <p className="statusline">{state.loading}</p>}{state.message && <p className="success">{state.message}</p>}{state.error && <p className="error">{state.error}</p>}
-        {run && <AnalysisSummary run={run} trades={trades[source.id] ?? []} />}
-        {expanded[source.id] === 'messages' && <div className="data-view"><div className="data-view-title"><strong>Stored messages</strong><button onClick={() => setExpanded(p => ({ ...p, [source.id]: undefined }))}>Close</button></div>{(messages[source.id] ?? []).map(row => <div className="message-item" key={row.id}><div className="message-meta"><span>#{row.external_id}</span><span>{new Date(row.occurred_at).toLocaleString()}</span>{row.edit_date && <span className="edited">edited</span>}{row.metadata?.classification?.class && <span>{row.metadata.classification.class}</span>}</div><pre className="message-text">{row.text || '(no text)'}</pre></div>)}</div>}
-        {expanded[source.id] === 'signals' && <div className="data-view"><div className="data-view-title"><strong>Parsed signals</strong><button onClick={() => setExpanded(p => ({ ...p, [source.id]: undefined }))}>Close</button></div><div className="signal-table">{(signals[source.id] ?? []).map(row => <div className="signal-row" key={row.id}><strong>{row.symbol}</strong><span>{row.side.toUpperCase()}</span><span>{Math.round(row.confidence * 100)}%</span><span className={row.status === 'parsed' ? 'success-inline' : 'warning-inline'}>{row.status}</span><span>{new Date(row.timestamp).toLocaleString()}</span></div>)}</div></div>}
-        {expanded[source.id] === 'review' && <div className="data-view"><div className="data-view-title"><strong>Uncertain classifications</strong><button onClick={() => setExpanded(p => ({ ...p, [source.id]: undefined }))}>Close</button></div>{(reviews[source.id] ?? []).map(row => <div className="review-item" key={row.raw_event_id}><div className="message-meta"><span>{row.predicted_class} · {Math.round(row.confidence * 100)}%</span>{row.manual_class && <span className="success-inline">labeled: {row.manual_class}</span>}</div><p>{row.text}</p><div className="label-actions">{['new_signal','signal_update','result_update','market_commentary','news','admin','chatter','unknown'].map(c => <button key={c} onClick={() => void label(source.id, row.raw_event_id, c)}>{c}</button>)}</div></div>)}</div>}
-      </div>;
-    })}</div>}</section>
-  </>;
-}
-
-const sample = `🟩 RLC|USDT\n\n⚜ BUY : 0.41 - 0.43\n\n🎯:\n1 : 0.440\n2 : 0.450\n3 : 0.470\n4 : 0.500\n5 : 0.540\n\n🔴 STOP اغلاق 4 ساعات اقل من 0.40`;
-
-function SignalLab() {
-  const [text, setText] = useState(sample); const [result, setResult] = useState<ParseResult | null>(null); const [error, setError] = useState('');
-  async function parse() { setError(''); try { setResult(await apiPost<ParseResult>('/api/v1/signals/parse', { text, default_quote: 'USDT' })); } catch (e) { setError(String(e)); } }
-  return <><header><div><h1>Signal Lab</h1><p>Test raw source text against Talos normalization.</p></div></header><section className="split"><div className="panel"><h2>Raw message</h2><textarea value={text} onChange={e => setText(e.target.value)} /><button className="primary" onClick={() => void parse()}>Parse signal</button>{error && <p className="error">{error}</p>}</div><div className="panel"><h2>Normalized output</h2>{result ? <pre>{JSON.stringify(result, null, 2)}</pre> : <p>Run the parser.</p>}</div></section></>;
-}
-
-function Placeholder({ name }: { name: string }) { return <><header><div><h1>{name}</h1><p>The contract is already isolated so this module can be added without rebuilding Talos.</p></div></header><section className="panel"><h2>Foundation ready</h2><p>This module plugs into the shared source → strategy → research → risk → execution architecture.</p></section></>; }
-
-function App() {
-  const [active, setActive] = useState('Dashboard'); const [capabilities, setCapabilities] = useState<Capability | null>(null);
-  useEffect(() => { apiGet<Capability>('/api/v1/system/capabilities').then(setCapabilities).catch(() => undefined); }, []);
-  let content: React.ReactNode;
-  if (active === 'Dashboard') content = <Dashboard capabilities={capabilities} />;
-  else if (active === 'Sources' || active === 'Backtests') content = <Sources />;
-  else if (active === 'Signal Lab') content = <SignalLab />;
-  else content = <Placeholder name={active} />;
-  return <div className="shell"><aside><div className="brand">TALOS</div><div className="tag">Research → Validate → Execute</div><nav>{sections.map(s => <button className={active === s ? 'active' : ''} onClick={() => setActive(s)} key={s}>{s}</button>)}</nav></aside><main>{content}</main></div>;
-}
-
-createRoot(document.getElementById('root')!).render(<App />);
+function App(){const [active,setActive]=useState('Dashboard');const content=useMemo(()=>{switch(active){case'Dashboard':return <Dashboard/>;case'Sources':return <Sources/>;case'Signals':return <Signals/>;case'Backtests':return <Backtests/>;case'Optimizer':return <Optimizer/>;case'Strategies':return <Strategies/>;case'Paper Trading':return <Paper/>;case'Live Trading':return <Live/>;case'Portfolio':return <Portfolio/>;case'Exchanges':return <Exchanges/>;case'Market Data':return <MarketData/>;case'Logs':return <Logs/>;default:return <Settings/>}},[active]);return <div className="shell"><aside><div className="brand">TALOS <span style={{fontSize:'11px',opacity:.65}}>v2.0.1</span></div><div className="tag">Research → Validate → Execute</div><nav>{sections.map(s=><button key={s} className={active===s?'active':''} onClick={()=>setActive(s)}>{s}</button>)}</nav></aside><main>{content}</main></div>}
+createRoot(document.getElementById('root')!).render(<App/>);

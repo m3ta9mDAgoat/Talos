@@ -15,7 +15,7 @@ class AnalyzeSourceRequest(BaseModel):
     require_stop: bool = True
     exclude_edited: bool = True
     conservative_intrabar: bool = True
-    max_signals: int = Field(default=500, ge=1, le=5000)
+    max_signals: int = Field(default=50000, ge=1, le=100000)
     exchanges: list[str] = Field(
         default_factory=lambda: ["binance", "okx", "bybit", "bitget", "kucoin", "mexc"]
     )

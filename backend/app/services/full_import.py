@@ -49,7 +49,8 @@ async def prepare(source_id: int, *, batch_size: int = 1000) -> dict[str, Any]:
         previous = _state(source)
         identifier = source.identifier
         complete = bool(previous.get("history_complete", (source.config or {}).get("history_complete", False)))
-        if complete:
+        verified = bool(previous.get("verified_empty_tail", False))
+        if complete and verified:
             return status(source_id)
 
     estimated_total = previous.get("estimated_total")
@@ -70,6 +71,7 @@ async def prepare(source_id: int, *, batch_size: int = 1000) -> dict[str, Any]:
             "status": "ready",
             "cursor_id": cursor,
             "history_complete": False,
+            "verified_empty_tail": False,
             "estimated_total": estimated_total,
             "batch_size": batch_size,
             "last_error": None,
@@ -94,7 +96,7 @@ async def step(source_id: int, *, batch_size: int = 1000) -> dict[str, Any]:
         if not source:
             raise ValueError("Source not found")
         previous = _state(source)
-        if previous.get("history_complete") or (source.config or {}).get("history_complete"):
+        if (previous.get("history_complete") or (source.config or {}).get("history_complete")) and previous.get("verified_empty_tail"):
             return status(source_id)
         identifier = source.identifier
         cursor = int(previous.get("cursor_id", (source.config or {}).get("history_cursor_id", 0) or 0))
@@ -155,7 +157,10 @@ async def step(source_id: int, *, batch_size: int = 1000) -> dict[str, Any]:
         max_id = max((int(event.external_id or 0) for event in events), default=cursor)
         if max_id > cursor:
             cursor = max_id
-        complete = len(events) < batch_size
+        # Only an explicit empty page proves there are no more accessible messages.
+        # A short non-empty page is not sufficient because Telegram can return fewer
+        # than requested items around gaps/service messages/rate-limit boundaries.
+        complete = len(events) == 0
         new_state = {
             "status": "complete" if complete else "ready",
             "fetched_total": fetched_total,
@@ -163,6 +168,7 @@ async def step(source_id: int, *, batch_size: int = 1000) -> dict[str, Any]:
             "skipped_total": skipped_total,
             "cursor_id": cursor,
             "history_complete": complete,
+            "verified_empty_tail": complete,
             "batches": batches,
             "estimated_total": estimated_total,
             "batch_size": batch_size,

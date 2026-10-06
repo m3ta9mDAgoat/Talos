@@ -19,12 +19,15 @@ class Settings(BaseSettings):
     binance_api_secret: str | None = None
     okx_api_key: str | None = None
     okx_api_secret: str | None = None
+    okx_password: str | None = None
     bybit_api_key: str | None = None
     bybit_api_secret: str | None = None
     bitget_api_key: str | None = None
     bitget_api_secret: str | None = None
+    bitget_password: str | None = None
     kucoin_api_key: str | None = None
     kucoin_api_secret: str | None = None
+    kucoin_password: str | None = None
     mexc_api_key: str | None = None
     mexc_api_secret: str | None = None
 

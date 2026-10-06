@@ -14,7 +14,6 @@ from app.schemas.analysis import AnalyzeSourceRequest
 from app.schemas.signal import EntrySpec, NormalizedSignal, StopSpec
 from app.services.backtest import signal_backtester
 from app.services.market_data import market_data_resolver
-from app.services.stored_signal_service import parse_all_stored_messages
 from app.services.trade_metrics import summarize_returns, trade_return_pct
 
 
@@ -224,9 +223,8 @@ async def _run(run_id: int) -> None:
         history_complete = bool((source.config or {}).get("history_complete", False))
 
     try:
-        # Parsing is synchronous DB/CPU work. Offload it so it cannot freeze the
-        # FastAPI event loop and turn progress/API requests into proxy 502 pages.
-        parse_counts = await asyncio.to_thread(parse_all_stored_messages, source_id)
+        # Historical messages are classified/parsed once and persisted. Analysis reads SQL only.
+        parse_counts = {"mode": "cached_sql"}
         _save_run(run_id, stage="loading_signals", progress=0.08)
 
         with SessionLocal() as db:
@@ -266,6 +264,7 @@ async def _run(run_id: int) -> None:
 
         total = max(1, len(eligible))
         returns: list[float] = []
+        return_records: list[dict[str, Any]] = []
         stop_hits = 0
         entry_triggered = 0
         data_missing = 0
@@ -311,7 +310,9 @@ async def _run(run_id: int) -> None:
                     if hit.hit:
                         target_hits[i] += 1
                 if outcome.get("return_pct") is not None:
-                    returns.append(float(outcome["return_pct"]))
+                    value = float(outcome["return_pct"])
+                    returns.append(value)
+                    return_records.append({"return_pct": value, "symbol": signal.symbol, "timestamp": signal.timestamp})
 
             pending_rows.append(
                 SignalBacktestRecord(
@@ -339,8 +340,26 @@ async def _run(run_id: int) -> None:
                 _save_run(run_id, stage=f"market_data:{completed_count}/{len(eligible)}", progress=progress)
 
         metrics = summarize_returns(returns, cfg.portfolio_fraction)
+
+        def grouped(key_fn):
+            groups: dict[str, list[float]] = {}
+            for rec in return_records:
+                groups.setdefault(str(key_fn(rec)), []).append(float(rec["return_pct"]))
+            return {k: {
+                "trades": len(v),
+                "average_return_pct": sum(v)/len(v),
+                "positive_trade_rate_pct": sum(1 for x in v if x>0)/len(v)*100,
+                "sum_return_pct": sum(v),
+            } for k,v in sorted(groups.items())}
+
+        by_symbol = grouped(lambda r: r["symbol"])
+        by_month = grouped(lambda r: r["timestamp"].strftime("%Y-%m"))
+        by_year = grouped(lambda r: r["timestamp"].strftime("%Y"))
+        by_weekday = grouped(lambda r: r["timestamp"].strftime("%A"))
+        by_hour_utc = grouped(lambda r: f"{r['timestamp'].hour:02d}:00")
+
         target_rates = {
-            f"tp{i}": round(target_hits[i] / target_denominators[i] * 100, 2)
+            f"tp{i}": target_hits[i] / target_denominators[i] * 100
             for i in sorted(target_denominators)
             if target_denominators[i]
         }
@@ -356,12 +375,17 @@ async def _run(run_id: int) -> None:
             "market_data_missing": data_missing,
             "unsupported": unsupported,
             "entry_triggered": entry_triggered,
-            "entry_trigger_rate_pct": round(entry_triggered / len(eligible) * 100, 2) if eligible else None,
-            "stop_hit_rate_pct": round(stop_hits / entry_triggered * 100, 2) if entry_triggered else None,
+            "entry_trigger_rate_pct": entry_triggered / len(eligible) * 100 if eligible else None,
+            "stop_hit_rate_pct": stop_hits / entry_triggered * 100 if entry_triggered else None,
             "target_hit_rates_pct": target_rates,
-            "average_mfe_pct": round(sum(mfe_values) / len(mfe_values), 4) if mfe_values else None,
-            "average_mae_pct": round(sum(mae_values) / len(mae_values), 4) if mae_values else None,
+            "average_mfe_pct": sum(mfe_values) / len(mfe_values) if mfe_values else None,
+            "average_mae_pct": sum(mae_values) / len(mae_values) if mae_values else None,
             "exchange_usage": dict(exchange_usage),
+            "performance_by_symbol": by_symbol,
+            "performance_by_month": by_month,
+            "performance_by_year": by_year,
+            "performance_by_weekday": by_weekday,
+            "performance_by_hour_utc": by_hour_utc,
             "assumptions": {
                 "timeframe": cfg.timeframe,
                 "horizon_days": cfg.horizon_days,

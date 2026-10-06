@@ -26,7 +26,7 @@ from app.services.full_import import status as full_import_status
 from app.services.full_import import step as step_full_import
 from app.services.ingestion import persist_events
 from app.services.source_service import create_source, list_sources
-from app.services.stored_signal_service import parse_stored_messages_for_source
+from app.services.processing import process_source, source_processing_stats
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 
@@ -172,6 +172,8 @@ async def sync_latest(
         }
         source.status = SourceStatus.READY
         db.commit()
+        # Incremental pipeline: only new/changed messages are processed; cached history is skipped.
+        await asyncio.to_thread(process_source, source_id, force=False)
     except Exception as exc:
         source.status = SourceStatus.ERROR
         source.config = {**(source.config or {}), "last_error": str(exc)}
@@ -219,14 +221,16 @@ async def parse_source_signals(
 ) -> ParseStoredResult:
     source = _get_source(db, source_id)
     _require_telegram(source)
-    counts = await asyncio.to_thread(parse_stored_messages_for_source, source_id, limit)
+    counts = await asyncio.to_thread(process_source, source_id, force=False)
     source = _get_source(db, source_id)
-    source.config = {
-        **(source.config or {}),
-        "last_parse_at": datetime.now(timezone.utc).isoformat(),
-    }
+    source.config = {**(source.config or {}), "last_parse_at": datetime.now(timezone.utc).isoformat()}
     db.commit()
-    return ParseStoredResult(source_id=source_id, **counts)
+    return ParseStoredResult(
+        source_id=source_id, examined=counts["examined"], parsed=counts["parsed"],
+        needs_review=counts["needs_review"], ignored=counts["ignored"],
+        created=counts["created"], updated=counts["updated"],
+        classification=counts["classification"],
+    )
 
 
 @router.get("/{source_id}/signals", response_model=list[StoredSignalRead])
@@ -262,3 +266,21 @@ def get_source_signals(
         )
         for row in rows
     ]
+
+
+@router.get("/{source_id}/stats")
+def source_stats(source_id: int, db: Session = Depends(get_db)) -> dict:
+    source = _get_source(db, source_id)
+    return source_processing_stats(db, source)
+
+@router.get("/{source_id}/messages/count")
+def message_count(source_id: int, db: Session = Depends(get_db)) -> dict:
+    source = _get_source(db, source_id)
+    total = db.query(RawEventRecord.external_id).filter(RawEventRecord.source_identifier == source.identifier).distinct().count()
+    return {"count": total}
+
+@router.get("/{source_id}/signals/count")
+def signal_count(source_id: int, db: Session = Depends(get_db)) -> dict:
+    source = _get_source(db, source_id)
+    total = db.query(SignalRecord).filter(SignalRecord.source_id == source.identifier).count()
+    return {"count": total}

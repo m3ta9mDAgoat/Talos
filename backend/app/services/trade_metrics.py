@@ -42,7 +42,7 @@ def trade_return_pct(
             realized += remaining * raw
 
     round_trip_cost = 2.0 * (fee_bps + slippage_bps) / 10000.0
-    return round((realized - round_trip_cost) * 100.0, 6)
+    return (realized - round_trip_cost) * 100.0
 
 
 def summarize_returns(returns: list[float], portfolio_fraction: float) -> dict[str, Any]:
@@ -77,11 +77,11 @@ def summarize_returns(returns: list[float], portfolio_fraction: float) -> dict[s
 
     return {
         "trades": len(returns),
-        "positive_trade_rate_pct": round(len(wins) / len(returns) * 100, 2),
-        "average_return_pct": round(sum(returns) / len(returns), 4),
-        "median_return_pct": round(median(returns), 4),
-        "profit_factor": None if profit_factor is None else ("inf" if profit_factor == float("inf") else round(profit_factor, 4)),
-        "expectancy_pct": round(sum(returns) / len(returns), 4),
-        "model_equity_return_pct": round((equity - 1.0) * 100, 4),
-        "model_max_drawdown_pct": round(max_dd * 100, 4),
+        "positive_trade_rate_pct": len(wins) / len(returns) * 100,
+        "average_return_pct": sum(returns) / len(returns),
+        "median_return_pct": median(returns),
+        "profit_factor": None if profit_factor is None else ("inf" if profit_factor == float("inf") else profit_factor),
+        "expectancy_pct": sum(returns) / len(returns),
+        "model_equity_return_pct": (equity - 1.0) * 100,
+        "model_max_drawdown_pct": max_dd * 100,
     }
