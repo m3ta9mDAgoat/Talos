@@ -16,7 +16,7 @@ from app.services.message_classifier import classifier
 from app.services.signal_parser import telegram_signal_parser
 
 CLASSIFIER_VERSION = "rules-1.1"
-PARSER_VERSION = "telegram-1.1"
+PARSER_VERSION = "hybrid-telegram-3.0"
 
 
 def _hash(row: RawEventRecord) -> str:
@@ -92,6 +92,18 @@ def process_source(source_id: int, *, force: bool = False) -> dict:
                     c = classifier().classify(text, has_media=has_media)
                     message_class, class_conf, reasons = c.message_class, c.confidence, c.reasons
 
+                pre_ai_signal = None
+                if message_class == MessageClass.UNKNOWN:
+                    try:
+                        from app.services.ai_signal_parser import parse_signal as ai_parse_signal
+                        pre_ai_signal = ai_parse_signal(text, timestamp=row.occurred_at, source_id=source.identifier, source_message_id=str(row.external_id), default_quote=str((source.config or {}).get("default_quote", "USDT")))
+                        if pre_ai_signal is not None:
+                            message_class = MessageClass.NEW_SIGNAL
+                            class_conf = max(0.75, pre_ai_signal.confidence)
+                            reasons = [*reasons, "ai_signal_classification"]
+                    except Exception:
+                        pre_ai_signal = None
+
                 if not label:
                     label = MessageLabelRecord(
                         raw_event_id=row.id, source_id=source_id,
@@ -118,7 +130,20 @@ def process_source(source_id: int, *, force: bool = False) -> dict:
                         source_message_id=row.external_id,
                         default_quote=str((source.config or {}).get("default_quote", "USDT")),
                     )
-                    signal = response.signal
+                    signal = pre_ai_signal or response.signal
+                    if pre_ai_signal is not None:
+                        response.confidence = max(response.confidence, pre_ai_signal.confidence)
+                        response.warnings.append("AI fallback classifier/parser used")
+                    if signal is None or response.confidence < 0.70:
+                        try:
+                            from app.services.ai_signal_parser import parse_signal as ai_parse_signal
+                            ai_signal = ai_parse_signal(text, timestamp=row.occurred_at, source_id=source.identifier, source_message_id=str(row.external_id), default_quote=str((source.config or {}).get("default_quote", "USDT")))
+                            if ai_signal is not None:
+                                signal = ai_signal
+                                response.confidence = max(response.confidence, ai_signal.confidence)
+                                response.warnings.append("AI fallback parser used")
+                        except Exception:
+                            pass
                     if signal is not None:
                         blended = round(0.45 * class_conf + 0.55 * response.confidence, 4)
                         signal.confidence = blended

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from app.api.routes import analysis, backtests, signals, sources, system, exchanges, paper, live, processing, strategies, audit, optimizer, auth, settings as settings_routes
+from app.api.routes import analysis, backtests, signals, sources, system, exchanges, paper, live, processing, strategies, audit, optimizer, auth, settings as settings_routes, studio
 from app.core.config import settings
 from app.db.init_db import init_db
 from app.services.security import SESSION_COOKIE, admin_exists, validate_session
@@ -19,7 +19,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title=settings.app_name, version="2.2.0", lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version="3.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -42,7 +42,7 @@ async def protect_api(request: Request, call_next):
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "app": settings.app_name, "env": settings.app_env, "version": "2.2.0"}
+    return {"status": "ok", "app": settings.app_name, "env": settings.app_env, "version": "3.0.0"}
 
 
 
@@ -50,17 +50,15 @@ async def health() -> dict:
 @app.get("/api/public/build")
 async def build_info() -> dict:
     return {
-        "version": "2.2.0",
-        "build_id": "talos-v2.2.0-durable-backtest",
+        "version": "3.0.0",
+        "build_id": "talos-v3-universal-strategy-studio",
         "features": [
-            "incremental_processing",
-            "sql_cached_signals",
-            "secure_vault",
-            "paper_trading",
-            "live_exchange_adapters",
-            "public_market_data_backtests",
+            "universal_sources", "research_studio", "no_code_strategy_builder",
+            "generic_backtests", "generic_optimizer", "paper_deployments",
+            "live_exchange_adapters", "secure_vault", "portfolio_dashboard"
         ],
     }
+
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(settings_routes.router, prefix="/api/v1")
@@ -76,6 +74,8 @@ app.include_router(live.router, prefix="/api/v1")
 app.include_router(strategies.router, prefix="/api/v1")
 app.include_router(audit.router, prefix="/api/v1")
 app.include_router(optimizer.router, prefix="/api/v1")
+app.include_router(studio.router, prefix="/api/v1")
+app.include_router(studio.hooks)
 
 
 # In the production image the React build is copied to /app/static.

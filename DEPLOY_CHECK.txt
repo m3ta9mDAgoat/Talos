@@ -1,2 +1,6 @@
-TALOS_VERSION=2.2.0
-BUILD_ID=talos-v2.2.0-durable-backtest
+Talos v3.0 deployment verification
+
+1. Sidebar must show: TALOS v3.0
+2. GET /health must return version: 3.0.0
+3. GET /api/public/build must return build_id: talos-v3-universal-strategy-studio
+4. Research, Sources, Strategy Studio, Backtests, Optimizer, Paper Trading, Live Trading, Portfolio, Connections, Settings and Logs are wired pages.

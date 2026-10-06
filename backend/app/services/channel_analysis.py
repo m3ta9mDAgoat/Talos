@@ -72,11 +72,11 @@ def create_run(source_id: int, request: AnalyzeSourceRequest) -> AnalysisRunReco
         return row
 
 
-def _eligibility(run: AnalysisRunRecord, source: SourceRecord, cfg: AnalyzeSourceRequest) -> dict[str, Any]:
+def _eligibility(source_identifier: str, cfg: AnalyzeSourceRequest) -> dict[str, Any]:
     with SessionLocal() as db:
         all_rows = (
             db.query(SignalRecord)
-            .filter(SignalRecord.source_id == source.identifier)
+            .filter(SignalRecord.source_id == source_identifier)
             .order_by(SignalRecord.timestamp.asc())
             .limit(cfg.max_signals)
             .all()
@@ -217,8 +217,9 @@ async def _analyze_one(item: dict[str, Any], cfg: AnalyzeSourceRequest, semaphor
 
 def _build_summary(
     *,
-    run: AnalysisRunRecord,
-    source: SourceRecord,
+    source_id: int,
+    source_identifier: str,
+    source_config: dict[str, Any],
     cfg: AnalyzeSourceRequest,
     info: dict[str, Any],
     records: list[SignalBacktestRecord],
@@ -278,9 +279,9 @@ def _build_summary(
     processed_count = len(records)
     summary: dict[str, Any] = {
         "engine": "durable_chunked_v2.2",
-        "source_id": source.id,
-        "source_identifier": source.identifier,
-        "history_complete": bool((source.config or {}).get("history_complete", False)),
+        "source_id": source_id,
+        "source_identifier": source_identifier,
+        "history_complete": bool((source_config or {}).get("history_complete", False)),
         "signals_total_considered": len(info["all_rows"]),
         "signal_status_counts": dict(info["status_counts"]),
         "signal_side_counts": dict(info["side_counts"]),
@@ -370,13 +371,20 @@ async def advance_run(run_id: int, batch_size: int = 4) -> AnalysisRunRecord:
         if run.status in {"complete", "error"}:
             return run
         cfg = AnalyzeSourceRequest(**(run.config_json or {}))
+        # Snapshot every scalar needed after this SQLAlchemy session closes.
+        # SQLAlchemy expires ORM attributes on commit by default, so keeping a
+        # SourceRecord/AnalysisRunRecord outside this block can raise
+        # DetachedInstanceError on PostgreSQL/Render.
+        source_id = int(source.id)
+        source_identifier = str(source.identifier)
+        source_config = dict(source.config or {})
         if run.started_at is None:
             run.started_at = _utcnow()
         run.status = "running"
         run.stage = "eligibility"
         db.commit()
 
-    info = _eligibility(run, source, cfg)
+    info = _eligibility(source_identifier, cfg)
     eligible = info["eligible"]
 
     with SessionLocal() as db:
@@ -394,7 +402,7 @@ async def advance_run(run_id: int, batch_size: int = 4) -> AnalysisRunRecord:
 
     remaining = [x for x in eligible if int(x["id"]) not in existing_ids]
     if not eligible:
-        summary = _build_summary(run=run, source=source, cfg=cfg, info=info, records=records)
+        summary = _build_summary(source_id=source_id, source_identifier=source_identifier, source_config=source_config, cfg=cfg, info=info, records=records)
         with SessionLocal() as db:
             row = db.get(AnalysisRunRecord, run_id)
             row.status = "complete"; row.stage = "complete"; row.progress = 1.0
@@ -420,7 +428,7 @@ async def advance_run(run_id: int, batch_size: int = 4) -> AnalysisRunRecord:
                     continue
                 db.add(SignalBacktestRecord(
                     analysis_run_id=run_id,
-                    source_id=source.id,
+                    source_id=source_id,
                     signal_id=int(outcome["signal_id"]),
                     timestamp=signal.timestamp,
                     symbol=signal.symbol,
@@ -440,7 +448,7 @@ async def advance_run(run_id: int, batch_size: int = 4) -> AnalysisRunRecord:
             .all()
         )
 
-    summary = _build_summary(run=run, source=source, cfg=cfg, info=info, records=records)
+    summary = _build_summary(source_id=source_id, source_identifier=source_identifier, source_config=source_config, cfg=cfg, info=info, records=records)
     processed = len(records)
     complete = processed >= len(eligible)
     progress = 1.0 if complete else min(0.99, 0.05 + 0.94 * processed / max(1, len(eligible)))

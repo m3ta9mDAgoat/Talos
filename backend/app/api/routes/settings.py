@@ -15,6 +15,7 @@ PROVIDERS = {
     "bitget": ["api_key", "api_secret", "password"],
     "kucoin": ["api_key", "api_secret", "password"],
     "mexc": ["api_key", "api_secret"],
+    "ai": ["base_url", "model", "api_key"],
 }
 
 
@@ -51,7 +52,8 @@ def put_secret(provider: str, req: SecretWrite):
         raise HTTPException(400, f"Unsupported fields: {', '.join(bad)}")
     current = get_secret(provider)
     merged = {**current, **{k: v for k, v in req.values.items() if v}}
-    missing = [x for x in PROVIDERS[provider] if not merged.get(x)]
+    required = [x for x in PROVIDERS[provider] if not (provider == "ai" and x == "api_key")]
+    missing = [x for x in required if not merged.get(x)]
     if missing:
         raise HTTPException(400, f"Missing required fields: {', '.join(missing)}")
     save_secret(provider, merged)

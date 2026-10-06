@@ -1,65 +1,95 @@
-# Talos v2.2.0 (fixed deployment package)
+# Talos v3.0 — Universal Trading Research & Execution Platform
 
-**Build marker:** `talos-v2.2.0-fixed`
+Talos is **not a Telegram bot**. Telegram is one data-source adapter inside a reusable research and execution platform.
 
-# Talos v2.1
+## Core workflow
 
-Talos is a modular trading research and execution platform. Telegram is one source, not the architecture.
+`Research idea → data source(s) → no-code strategy → durable backtest → optimization → paper deployment → live deployment`
 
-## What is real in v2.1
+### Data sources available from the UI
 
-- Persistent Telegram archive in PostgreSQL/Neon.
-- Full-history importer that is resumable and marks completion only after an explicit empty Telegram page (`verified_empty_tail`), not because a batch happened to be short.
-- Incremental processing state per raw message using content hash + classifier/parser versions. Historical messages are classified/parsed once. New or edited messages only are processed on subsequent runs.
-- Persisted normalized signals with pagination/counts.
-- Profitability backtests read SQL signals; they do **not** re-classify/re-parse the archive.
-- Public market-data / ticker routing through CCXT for Binance, OKX, Bybit, Bitget, KuCoin and MEXC.
-- Venue comparison by spread/liquidity proxy.
-- Persistent paper account, orders and positions with live public prices.
-- Real live-order adapter through CCXT, hard-locked unless `LIVE_TRADING_ENABLED=true` **and** the request explicitly confirms a real order.
-- Exchange private connectivity checks from the encrypted Talos Secure Vault (environment variables remain supported as fallback).
-- Backtest optimizer for portfolio risk fraction over a completed analysis run without redownloading historical prices.
-- Persistent execution audit log.
-- Versioned strategy registry and plugin contracts for Telegram, news, technical, ML or custom strategies.
-- Always-on Telegram live worker for VPS/local deployment (`python -m app.scripts.live_worker`).
-- Docker deployment remains portable across Render, VPS, Azure, local Linux/Windows Docker.
+- Telegram channels/groups (history + incremental sync when the dedicated account can read them)
+- RSS / Atom feeds
+- Generic HTTP JSON APIs
+- Generic web-page scraper using CSS selectors for sites where automated access is permitted
+- Webhooks for arbitrary external systems
+- X/social APIs through the generic authenticated JSON adapter
+- Public exchange market data through CCXT
 
-## Important hosting fact
+Source credentials/headers can be stored encrypted. Secrets are never returned to the browser after storage.
 
-Render Free can sleep. It is suitable for the dashboard/API and manual sync/research, but it cannot guarantee a 24/7 Telegram listener or real-time execution. For continuous live processing, move the same Dockerized project to an always-on VPS/local server and run the API plus `app.scripts.live_worker`.
+### Research Studio
 
-## Upgrade from v1.x
+- Search scholarly metadata with Crossref.
+- Select a paper and/or paste its method/notes.
+- Generate an editable Talos strategy draft.
+- If an OpenAI-compatible AI endpoint is configured in **Settings → AI**, Talos asks it for a strict strategy JSON draft.
+- Without AI, Talos provides a conservative heuristic draft. **Generated research logic must be reviewed before backtesting.**
 
-Do not delete Neon. Deploy v2.1 against the same `DATABASE_URL`; new tables are created automatically. Existing raw messages, signals and analyses remain.
+### No-code Strategy Studio
 
-After deployment:
+Three working strategy families are included:
 
-1. Sources → **Import / Verify Full History**. v2.1 performs a fresh newest→oldest verification pass and deduplicates against the existing archive, so it can fill gaps left by the old cursor logic. Completion requires an explicit empty Telegram page.
-2. Sources → **Process Unprocessed**. This creates processing-state rows and reuses them forever unless a message changes or parser/classifier versions change.
-3. Signals → verify the exact persisted signal count and browse with pagination.
-4. Backtests → run the channel analysis. It reads persisted SQL signals only.
-5. Optimizer → enter a completed analysis run ID to optimize portfolio risk fraction.
-6. Exchanges → verify public connectivity. Add exchange secrets only when needed.
-7. Paper Trading → use live public prices with simulated cash/orders/positions.
-8. Live Trading remains locked until you deliberately enable it.
+1. **Technical rules** — visual conditions using close, SMA, EMA, RSI, return %, volume ratio and SMA-distance features.
+2. **Parsed signal source** — consumes persisted normalized signals, e.g. Telegram recommendations.
+3. **Source event** — trades from news/RSS/API/webhook events using keyword filters and mapped symbols.
 
-## Secure Vault and admin login
+Each strategy stores its definition and optimization space in PostgreSQL. Backtests, optimizers and deployments use the same stored strategy definition.
 
-Talos v2.1 adds a single-user admin login. On first deployment, the UI asks once for the existing Render `SECRET_KEY` as the setup key and lets you choose an admin password. After that, the dashboard requires login.
+> "Any idea without code" has a real boundary: Talos can compose the blocks it knows. A genuinely new mathematical operator, proprietary protocol, JS-only/private site, or new asset class still needs a new plugin block. The platform is designed so that adding that plugin does **not** require rebuilding the rest of Talos.
 
-Settings → Secure Vault stores Telegram and exchange credentials encrypted at rest in PostgreSQL. Secret values are never returned to the browser after saving. Do not rotate `SECRET_KEY` without first replacing/re-entering vault secrets, because it is also the encryption root.
+### Backtesting
 
-Environment variables for broker credentials still work as a fallback, but are no longer required after vault setup. Keep withdrawal permissions disabled.
+- Uses public CCXT market data; private broker keys are not required.
+- Durable SQL-backed runs: results persist and runs can be resumed.
+- Fees and slippage are explicit.
+- Source-signal strategies use entry/TP/SL rules from normalized signals.
+- Technical strategies use OHLCV features and deterministic simulation.
+- Event strategies align archived events with future market candles.
+- Metrics include trade returns, win/positive rate, profit factor, model equity return, max drawdown and per-symbol breakdown.
 
-## Live safety
+### Optimizer
 
-`LIVE_TRADING_ENABLED=false` is the default. Talos never needs withdrawal permission. Use API keys limited to read + spot trading, and IP-whitelist them when the exchange supports it.
+Optimization is also durable. A declared parameter grid is evaluated against the same backtest engine; the run stores every trial and the best return/drawdown score. Current UI exposes TP/SL ranges and the backend DSL supports condition parameter paths as well.
 
-## Fine-tuning later
+### Paper and live execution
 
-Do not fine-tune the message classifier before collecting enough corrected labels across multiple channels. The current rules/context classifier plus manual review creates the training dataset. Fine-tuning becomes worthwhile only after the dataset is large and diverse enough to measure an out-of-sample improvement.
+- Persistent paper cash, orders and positions.
+- Strategy deployments can be created in **paper** mode and manually ticked on Render, or continuously evaluated by the worker on a persistent server.
+- Live deployments require:
+  1. connected encrypted exchange credentials,
+  2. global live-trading switch,
+  3. deployment-level live confirmation,
+  4. explicit execution confirmation for manual ticks.
+- Supported CCXT spot venues: Binance, OKX, Bybit, Bitget, KuCoin and MEXC.
+- Exchange withdrawal permission is **never required** and should remain disabled.
 
+## Hosting
 
-## v2.2 durable backtest fix
+The application is portable. The same Docker project can run on Render, a VPS, Azure, a local Linux/Windows Docker host, etc.
 
-Backtests no longer depend on an in-memory asyncio background task. A run is created in PostgreSQL and advanced in small persisted batches by the UI. If Render sleeps, restarts, or a request fails, reopening the Backtests page and pressing **Resume run** continues from already-stored `signal_backtests` rows rather than restarting. Historical market data uses public CCXT endpoints; private exchange API keys are not required for backtesting.
+Render Free is useful for UI/API research work but sleeps when idle. Continuous source monitoring or automatic live execution requires a persistent worker. `docker-compose.yml` includes a `worker` service for that purpose.
+
+## Deploy on the existing Render setup
+
+Keep the existing `DATABASE_URL`, `SECRET_KEY` and other Environment Variables. Upload/commit this repository at the repo root, then deploy with a cleared build cache.
+
+Verify:
+
+- `/health` → version `3.0.0`
+- `/api/public/build` → build id `talos-v3-universal-strategy-studio`
+- Sidebar → `TALOS v3.0`
+
+Existing v2 tables are retained. v3 creates new strategy/research/deployment tables without deleting the archived Telegram data.
+
+## Local persistent deployment
+
+```bash
+docker compose up -d --build
+```
+
+This starts backend, frontend, PostgreSQL, Redis and the continuous universal worker.
+
+## Tests
+
+Backend deterministic unit tests: `16 passed` in the packaged build.
