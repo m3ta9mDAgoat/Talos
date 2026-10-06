@@ -5,10 +5,11 @@ from app.models.source import SourceRecord
 from app.models.processing import ProcessingStateRecord
 from app.models.trading import BrokerProfileRecord, PaperAccountRecord, PaperOrderRecord, PaperPositionRecord, ExecutionAuditRecord
 from app.models.strategy import StrategyConfigRecord
+from app.models.security import AdminUserRecord, SecretRecord, RuntimeConfigRecord
 
 __all__ = [
     "AnalysisRunRecord", "MessageLabelRecord", "SignalBacktestRecord",
     "RawEventRecord", "SignalRecord", "SourceRecord", "ProcessingStateRecord",
     "BrokerProfileRecord", "PaperAccountRecord", "PaperOrderRecord", "PaperPositionRecord", "ExecutionAuditRecord",
-    "StrategyConfigRecord",
+    "StrategyConfigRecord", "AdminUserRecord", "SecretRecord", "RuntimeConfigRecord",
 ]

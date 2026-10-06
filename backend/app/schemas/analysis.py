@@ -13,7 +13,7 @@ class AnalyzeSourceRequest(BaseModel):
     slippage_bps: float = Field(default=5.0, ge=0, le=200)
     portfolio_fraction: float = Field(default=0.10, gt=0, le=1)
     require_stop: bool = True
-    exclude_edited: bool = True
+    exclude_edited: bool = False
     conservative_intrabar: bool = True
     max_signals: int = Field(default=50000, ge=1, le=100000)
     exchanges: list[str] = Field(
@@ -60,6 +60,9 @@ class FullImportStatus(BaseModel):
     estimated_total: int | None = None
     last_error: str | None = None
     updated_at: str | None = None
+    verified_accessible_count: int | None = None
+    unique_archived: int | None = None
+    verification_version: int = 0
 
 
 class ReviewMessageRead(BaseModel):
