@@ -17,18 +17,12 @@ async function errorMessage(response: Response): Promise<string> {
   return `HTTP ${response.status}: ${trimmed.slice(0, 500) || response.statusText}`;
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, { cache: 'no-store' });
-  if (!response.ok) throw new Error(await errorMessage(response));
+async function request<T>(path:string, init:RequestInit={}):Promise<T>{
+  const response=await fetch(`${API_BASE}${path}`,{cache:'no-store',credentials:'same-origin',...init});
+  if(!response.ok) throw new Error(await errorMessage(response));
   return response.json() as Promise<T>;
 }
-
-export async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) throw new Error(await errorMessage(response));
-  return response.json() as Promise<T>;
-}
+export const apiGet=<T>(path:string)=>request<T>(path);
+export const apiPost=<T>(path:string,body:unknown)=>request<T>(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+export const apiPut=<T>(path:string,body:unknown)=>request<T>(path,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+export const apiDelete=<T>(path:string)=>request<T>(path,{method:'DELETE'});
