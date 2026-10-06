@@ -228,23 +228,27 @@ async def _run(run_id: int) -> None:
         _save_run(run_id, stage="loading_signals", progress=0.08)
 
         with SessionLocal() as db:
-            rows = (
+            all_rows = (
                 db.query(SignalRecord)
                 .filter(SignalRecord.source_id == source_identifier)
-                .filter(SignalRecord.status == SignalStatus.PARSED.value)
-                .filter(SignalRecord.side == Side.BUY.value)
                 .order_by(SignalRecord.timestamp.asc())
                 .limit(cfg.max_signals)
                 .all()
             )
+            status_counts = Counter(str(r.status) for r in all_rows)
+            side_counts = Counter(str(r.side) for r in all_rows)
+            rows = [r for r in all_rows if str(r.status) == SignalStatus.PARSED.value and str(r.side) == Side.BUY.value]
             signal_rows = [
                 {"id": r.id, "signal": _signal_from_record(r), "metadata": dict(r.metadata_json or {})}
                 for r in rows
             ]
 
         eligible: list[dict[str, Any]] = []
+        edited_snapshot_count = sum(1 for item in signal_rows if item["metadata"].get("edit_date"))
         excluded_edited = 0
         excluded_no_stop = 0
+        excluded_missing_entry = 0
+        excluded_missing_targets = 0
         for item in signal_rows:
             signal = item["signal"]
             metadata = item["metadata"]
@@ -254,7 +258,11 @@ async def _run(run_id: int) -> None:
             if cfg.require_stop and signal.stop is None:
                 excluded_no_stop += 1
                 continue
-            if signal.entry is None or not signal.targets:
+            if signal.entry is None:
+                excluded_missing_entry += 1
+                continue
+            if not signal.targets:
+                excluded_missing_targets += 1
                 continue
             eligible.append(item)
 
@@ -368,10 +376,16 @@ async def _run(run_id: int) -> None:
             "source_identifier": source_identifier,
             "history_complete": history_complete,
             "parser": parse_counts,
-            "signals_parsed": len(signal_rows),
+            "signals_total_considered": len(all_rows),
+            "signal_status_counts": dict(status_counts),
+            "signal_side_counts": dict(side_counts),
+            "signals_parsed_buy": len(signal_rows),
             "signals_eligible": len(eligible),
+            "edited_snapshot_count": edited_snapshot_count,
             "excluded_edited": excluded_edited,
             "excluded_missing_stop": excluded_no_stop,
+            "excluded_missing_entry": excluded_missing_entry,
+            "excluded_missing_targets": excluded_missing_targets,
             "market_data_missing": data_missing,
             "unsupported": unsupported,
             "entry_triggered": entry_triggered,
@@ -399,8 +413,15 @@ async def _run(run_id: int) -> None:
             },
             **metrics,
         }
+        warnings = []
         if not history_complete:
-            summary["warnings"] = ["Channel history is still partial. Treat this run as a preview, not the final channel score."]
+            warnings.append("Channel history is still partial. Treat this run as a preview, not the final channel score.")
+        if not cfg.exclude_edited and edited_snapshot_count:
+            warnings.append(f"{edited_snapshot_count} signals are current snapshots of messages that were edited after publication; historical pre-edit text is unavailable unless Talos observed the edit live.")
+        if not eligible:
+            warnings.append("No eligible signals remain after validation. Inspect the eligibility counters in this summary; exchange API keys are NOT required for public historical backtesting.")
+        if warnings:
+            summary["warnings"] = warnings
         _save_run(run_id, status="complete", stage="complete", progress=1.0, summary=summary, completed=True)
     except Exception as exc:
         _save_run(run_id, status="error", stage="error", error=f"{type(exc).__name__}: {exc}", completed=True)

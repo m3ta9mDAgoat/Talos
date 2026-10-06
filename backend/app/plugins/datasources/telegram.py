@@ -8,6 +8,7 @@ from telethon import TelegramClient, events, functions, types
 from telethon.sessions import StringSession
 
 from app.core.config import settings
+from app.services.security import get_secret
 from app.plugins.contracts import DataSource, Event
 
 
@@ -23,14 +24,14 @@ class TelegramSource(DataSource):
     name = "telegram"
 
     def __init__(self) -> None:
-        if not settings.telegram_api_id or not settings.telegram_api_hash:
-            raise RuntimeError("TELEGRAM_API_ID and TELEGRAM_API_HASH are required")
-        session = (
-            StringSession(settings.telegram_session_string)
-            if settings.telegram_session_string
-            else settings.telegram_session_name
-        )
-        self.client = TelegramClient(session, settings.telegram_api_id, settings.telegram_api_hash)
+        stored = get_secret("telegram")
+        api_id = stored.get("api_id") or settings.telegram_api_id
+        api_hash = stored.get("api_hash") or settings.telegram_api_hash
+        session_string = stored.get("session_string") or settings.telegram_session_string
+        if not api_id or not api_hash:
+            raise RuntimeError("Telegram credentials are not configured. Add them in Settings → Secure Vault.")
+        session = StringSession(session_string) if session_string else settings.telegram_session_name
+        self.client = TelegramClient(session, int(api_id), str(api_hash))
 
     @staticmethod
     def normalize_identifier(identifier: str) -> str | int:
@@ -132,6 +133,15 @@ class TelegramSource(DataSource):
                 min_id=min_id,
                 reverse=reverse,
             ):
+                result.append(self._message_event(channel, message, "message"))
+        return result
+
+    async def historical_before(self, *, channel: str, limit: int = 1000, offset_id: int = 0) -> Iterable[Event]:
+        """Fetch a page newest→oldest. offset_id is exclusive and survives message-ID gaps."""
+        result: list[Event] = []
+        async with self.client:
+            entity = await self._resolve_entity(channel)
+            async for message in self.client.iter_messages(entity, limit=limit, offset_id=offset_id, reverse=False):
                 result.append(self._message_event(channel, message, "message"))
         return result
 

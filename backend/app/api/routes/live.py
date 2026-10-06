@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from app.core.config import settings
+from app.services.security import get_runtime
 from app.db.session import get_db
 from app.models.trading import ExecutionAuditRecord
 from app.services.brokers import SUPPORTED, place_live_order
@@ -18,7 +19,10 @@ class LiveOrder(BaseModel):
     confirm_live:bool=False
 
 @router.get("/status")
-def status(): return {"enabled":settings.live_trading_enabled,"guard":"confirm_live must be true; withdrawal permissions are never required"}
+def status():
+    runtime=get_runtime("trading", {"live_trading_enabled": False})
+    enabled=bool(runtime.get("live_trading_enabled", False) or settings.live_trading_enabled)
+    return {"enabled":enabled,"guard":"confirm_live must be true; withdrawal permissions are never required"}
 
 @router.post("/order")
 async def order(req:LiveOrder, db:Session=Depends(get_db)):

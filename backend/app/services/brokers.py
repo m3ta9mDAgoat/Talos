@@ -4,15 +4,17 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any
 from app.core.config import settings
+from app.services.security import get_secret, get_runtime
 
 SUPPORTED = ["binance", "okx", "bybit", "bitget", "kucoin", "mexc"]
 
 
 def _credentials(broker_id: str) -> dict[str, str | None]:
+    stored = get_secret(broker_id)
     return {
-        "apiKey": getattr(settings, f"{broker_id}_api_key", None),
-        "secret": getattr(settings, f"{broker_id}_api_secret", None),
-        "password": getattr(settings, f"{broker_id}_password", None),
+        "apiKey": stored.get("api_key") or getattr(settings, f"{broker_id}_api_key", None),
+        "secret": stored.get("api_secret") or getattr(settings, f"{broker_id}_api_secret", None),
+        "password": stored.get("password") or getattr(settings, f"{broker_id}_password", None),
     }
 
 
@@ -81,8 +83,10 @@ async def best_venue(symbol: str, broker_ids: list[str] | None = None) -> dict:
 
 
 async def place_live_order(*, broker_id: str, symbol: str, side: str, amount: float, order_type: str="market", price: float|None=None) -> dict:
-    if not settings.live_trading_enabled:
-        raise RuntimeError("LIVE_TRADING_ENABLED=false. Live order execution is locked.")
+    runtime = get_runtime("trading", {"live_trading_enabled": False})
+    enabled = bool(runtime.get("live_trading_enabled", False) or settings.live_trading_enabled)
+    if not enabled:
+        raise RuntimeError("Live trading is disabled in Talos Settings.")
     ex = make_exchange(broker_id, private=True)
     params = {}
     order = await asyncio.to_thread(ex.create_order, symbol, order_type, side, amount, price, params)
