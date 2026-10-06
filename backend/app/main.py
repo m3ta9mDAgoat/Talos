@@ -19,7 +19,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title=settings.app_name, version="2.1.1", lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version="2.2.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -42,7 +42,7 @@ async def protect_api(request: Request, call_next):
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "app": settings.app_name, "env": settings.app_env, "version": "2.1.1"}
+    return {"status": "ok", "app": settings.app_name, "env": settings.app_env, "version": "2.2.0"}
 
 
 
@@ -50,8 +50,8 @@ async def health() -> dict:
 @app.get("/api/public/build")
 async def build_info() -> dict:
     return {
-        "version": "2.1.1",
-        "build_id": "talos-v2.1.1-fixed",
+        "version": "2.2.0",
+        "build_id": "talos-v2.2.0-durable-backtest",
         "features": [
             "incremental_processing",
             "sql_cached_signals",

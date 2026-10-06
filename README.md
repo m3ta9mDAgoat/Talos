@@ -1,6 +1,6 @@
-# Talos v2.1.1 (fixed deployment package)
+# Talos v2.2.0 (fixed deployment package)
 
-**Build marker:** `talos-v2.1.1-fixed`
+**Build marker:** `talos-v2.2.0-fixed`
 
 # Talos v2.1
 
@@ -58,3 +58,8 @@ Environment variables for broker credentials still work as a fallback, but are n
 ## Fine-tuning later
 
 Do not fine-tune the message classifier before collecting enough corrected labels across multiple channels. The current rules/context classifier plus manual review creates the training dataset. Fine-tuning becomes worthwhile only after the dataset is large and diverse enough to measure an out-of-sample improvement.
+
+
+## v2.2 durable backtest fix
+
+Backtests no longer depend on an in-memory asyncio background task. A run is created in PostgreSQL and advanced in small persisted batches by the UI. If Render sleeps, restarts, or a request fails, reopening the Backtests page and pressing **Resume run** continues from already-stored `signal_backtests` rows rather than restarting. Historical market data uses public CCXT endpoints; private exchange API keys are not required for backtesting.
