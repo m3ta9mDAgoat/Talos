@@ -77,4 +77,34 @@ Python remains the orchestration/integration layer. Numerical bottlenecks should
 ## Build verification
 
 - `/health` → version `4.0.0`
-- `/api/public/build` → build id `talos-v4-durable-research-execution`
+- `/api/public/build` → build id `talos-v4.2-live-intro`
+
+
+## Telegram notification bot
+
+Talos v4.2 can notify the owner when a new Telegram recommendation is detected, when a watched recommendation is edited, when entry/targets/stop are reached in the live simulation, when a long-running job reaches a terminal error, and with a daily summary.
+
+Setup from the small **Admin** control in the sidebar:
+
+1. Create a bot with `@BotFather` (`/newbot`).
+2. Send `/start` to the new bot from the Telegram account that should receive alerts.
+3. Admin → Secure Vault → `TELEGRAM_NOTIFY` → save `bot_token`.
+4. Admin → Notification bot → **Discover chats** → click your chat. This fills `chat_id`; save `TELEGRAM_NOTIFY` again.
+5. Use **Send test**.
+6. Choose notification switches and the daily-summary UTC hour.
+
+The dedicated Telegram account used to read source channels remains separate from the notification bot.
+
+### Continuous watcher
+
+The web process runs an embedded watcher by default (`EMBEDDED_LIVE_WATCHER=true`). It syncs enabled sources, processes only changed/new messages, starts a simulation for new parsed Telegram BUY recommendations, checks active simulations, and sends notifications. On a permanent VPS, run `python -m app.scripts.universal_worker` as a separate worker and set `EMBEDDED_LIVE_WATCHER=false` on the web service to avoid duplicate watchers.
+
+Render Free can sleep; when it is asleep it cannot provide true 24/7 monitoring. The next wake/sync catches up messages, while a permanent worker is required for uninterrupted alerts.
+
+
+## v4.2 live UI
+
+- Minimal helmet intro uses `/frontend/public/talos-helmet.png`.
+- On load the intro zooms into the visor/eyes and dissolves into the already-mounted dashboard.
+- Overview, markets, paper portfolio, portfolio and live execution status refresh automatically while visible. Existing job/source/live-monitor pages retain their own faster polling loops.
+- A light health heartbeat runs while the dashboard is open; durable workers/jobs remain server-side and do not depend on the browser.

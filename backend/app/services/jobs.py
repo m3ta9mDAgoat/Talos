@@ -163,11 +163,19 @@ async def run_one_job(job_id: int) -> dict[str, Any]:
             row.attempts = int(row.attempts or 0) + 1
             row.error = f"{type(exc).__name__}: {exc}"
             row.updated_at = utcnow(); row.heartbeat_at = utcnow()
-            if row.attempts >= row.max_attempts:
+            terminal = row.attempts >= row.max_attempts
+            if terminal:
                 row.status = "error"
             else:
                 row.status = "retrying"; row.next_run_at = utcnow() + timedelta(seconds=_backoff(row.attempts))
-            db.commit(); db.refresh(row); return job_dict(row)
+            db.commit(); db.refresh(row); result = job_dict(row)
+        if terminal:
+            try:
+                from app.services.notifications import notify_system_error
+                await notify_system_error(f"Job #{job_id} ({result.get('kind')}) failed after {result.get('attempts')} attempts: {result.get('error')}")
+            except Exception:
+                pass
+        return result
 
 
 async def worker_once(limit: int = 3) -> int:

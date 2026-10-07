@@ -17,10 +17,11 @@ from app.api.routes import (
 from app.core.config import settings
 from app.db.init_db import init_db
 from app.services.jobs import worker_loop
+from app.scripts.universal_worker import watcher_loop
 from app.services.security import SESSION_COOKIE, admin_exists, validate_session
 
-VERSION = "4.0.0"
-BUILD_ID = "talos-v4-durable-research-execution"
+VERSION = "4.2.0"
+BUILD_ID = "talos-v4.2-live-intro"
 
 
 @asynccontextmanager
@@ -28,16 +29,18 @@ async def lifespan(_: FastAPI):
     init_db()
     stop = asyncio.Event()
     worker = asyncio.create_task(worker_loop(stop)) if settings.embedded_job_worker else None
+    watcher = asyncio.create_task(watcher_loop(stop)) if settings.embedded_live_watcher else None
     try:
         yield
     finally:
-        if worker is not None:
-            stop.set()
-            worker.cancel()
-            try:
-                await worker
-            except BaseException:
-                pass
+        stop.set()
+        for task in (worker, watcher):
+            if task is not None:
+                task.cancel()
+                try:
+                    await task
+                except BaseException:
+                    pass
 
 
 app = FastAPI(title=settings.app_name, version=VERSION, lifespan=lifespan)
@@ -82,6 +85,7 @@ async def build_info() -> dict:
             "durable_jobs", "telegram_historical_replay", "universal_sources",
             "paper_research_upload", "market_charts", "generic_strategy_backtests",
             "optimizer", "paper_trading", "live_exchange_adapters", "secure_admin_vault",
+            "telegram_notification_bot", "live_signal_simulation_watcher",
         ],
     }
 

@@ -61,6 +61,8 @@ def process_source(source_id: int, *, force: bool = False) -> dict:
         }
 
         examined = processed = skipped_cached = created = updated = parsed = review = ignored = errors = 0
+        created_signal_ids: list[int] = []
+        updated_signal_ids: list[int] = []
         classes: Counter[str] = Counter()
         now = datetime.now(timezone.utc)
 
@@ -167,10 +169,13 @@ def process_source(source_id: int, *, force: bool = False) -> dict:
                         )
                         if existing:
                             for k,v in values.items(): setattr(existing,k,v)
+                            db.flush()
                             updated += 1
+                            updated_signal_ids.append(int(existing.id))
                         else:
-                            existing = SignalRecord(**values); db.add(existing)
+                            existing = SignalRecord(**values); db.add(existing); db.flush()
                             signals_by_message[str(row.external_id)] = existing; created += 1
+                            created_signal_ids.append(int(existing.id))
                     else:
                         ignored += 1
                         if existing: db.delete(existing); signals_by_message.pop(str(row.external_id), None)
@@ -221,6 +226,8 @@ def process_source(source_id: int, *, force: bool = False) -> dict:
             "created": created, "updated": updated, "signals_total": signal_total,
             "classification": dict(classes), "classifier_version": CLASSIFIER_VERSION,
             "parser_version": PARSER_VERSION,
+            "created_signal_ids": created_signal_ids,
+            "updated_signal_ids": updated_signal_ids,
         }
 
 

@@ -33,6 +33,7 @@ class Settings(BaseSettings):
 
     live_trading_enabled: bool = False
     embedded_job_worker: bool = True
+    embedded_live_watcher: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
