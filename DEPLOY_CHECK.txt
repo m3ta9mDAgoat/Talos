@@ -1,8 +1,9 @@
-Talos v4.0 deployment verification
+Talos v4.2 deployment verification
 
-1. Sidebar shows: TALOS v4.0
-2. GET /health returns version: 4.0.0
-3. GET /api/public/build returns build_id: talos-v4-durable-research-execution
-4. Jobs page exists and queued jobs progress without keeping the initiating page open.
-5. Markets loads a public ticker + candlestick chart without exchange API keys.
-6. Admin appears as a small button at the bottom of the sidebar.
+1. Sidebar shows: TALOS v4.2
+2. GET /health returns version: 4.2.0
+3. GET /api/public/build returns build_id: talos-v4.2-live-intro
+4. Opening the site shows the helmet splash, then zooms into the visor/eyes and dissolves into the dashboard.
+5. Overview, Markets, Paper Trading, Portfolio, Live Monitor, Sources and Jobs update automatically without a page refresh.
+6. Durable server jobs continue independently of browser navigation.
+7. Admin remains available from the small button at the bottom of the sidebar.
