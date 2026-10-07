@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     mexc_api_secret: str | None = None
 
     live_trading_enabled: bool = False
+    embedded_job_worker: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 

@@ -91,3 +91,22 @@ async def place_live_order(*, broker_id: str, symbol: str, side: str, amount: fl
     params = {}
     order = await asyncio.to_thread(ex.create_order, symbol, order_type, side, amount, price, params)
     return order
+
+
+async def ohlcv(broker_id: str, symbol: str, timeframe: str = "1h", limit: int = 200, since: int | None = None) -> dict:
+    ex = make_exchange(broker_id)
+    await asyncio.to_thread(ex.load_markets)
+    if symbol not in ex.markets:
+        raise ValueError(f"{symbol} is not listed on {broker_id}")
+    if not ex.has.get("fetchOHLCV"):
+        raise ValueError(f"{broker_id} does not expose OHLCV through CCXT")
+    rows = await asyncio.to_thread(ex.fetch_ohlcv, symbol, timeframe, since, min(max(int(limit), 10), 1000))
+    return {
+        "broker_id": broker_id,
+        "symbol": symbol,
+        "timeframe": timeframe,
+        "candles": [
+            {"timestamp": int(r[0]), "open": float(r[1]), "high": float(r[2]), "low": float(r[3]), "close": float(r[4]), "volume": float(r[5] or 0)}
+            for r in rows
+        ],
+    }

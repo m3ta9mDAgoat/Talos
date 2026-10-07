@@ -1,6 +1,8 @@
-Talos v3.0 deployment verification
+Talos v4.0 deployment verification
 
-1. Sidebar must show: TALOS v3.0
-2. GET /health must return version: 3.0.0
-3. GET /api/public/build must return build_id: talos-v3-universal-strategy-studio
-4. Research, Sources, Strategy Studio, Backtests, Optimizer, Paper Trading, Live Trading, Portfolio, Connections, Settings and Logs are wired pages.
+1. Sidebar shows: TALOS v4.0
+2. GET /health returns version: 4.0.0
+3. GET /api/public/build returns build_id: talos-v4-durable-research-execution
+4. Jobs page exists and queued jobs progress without keeping the initiating page open.
+5. Markets loads a public ticker + candlestick chart without exchange API keys.
+6. Admin appears as a small button at the bottom of the sidebar.

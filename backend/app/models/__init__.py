@@ -14,4 +14,7 @@ __all__ = [
     "BrokerProfileRecord", "PaperAccountRecord", "PaperOrderRecord", "PaperPositionRecord", "ExecutionAuditRecord",
     "StrategyConfigRecord", "AdminUserRecord", "SecretRecord", "RuntimeConfigRecord",
     "ResearchArtifactRecord", "StrategyRunRecord", "StrategyTradeRecord", "OptimizationRunRecord", "StrategyDeploymentRecord",
+    "JobRecord",
 ]
+
+from app.models.jobs import JobRecord

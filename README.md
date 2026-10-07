@@ -1,95 +1,80 @@
-# Talos v3.0 — Universal Trading Research & Execution Platform
+# Talos 4.0
 
-Talos is **not a Telegram bot**. Telegram is one data-source adapter inside a reusable research and execution platform.
+Single-user trading research and execution platform.
 
-## Core workflow
+## Core flow
 
-`Research idea → data source(s) → no-code strategy → durable backtest → optimization → paper deployment → live deployment`
+- Sources: Telegram, RSS/Atom, REST/JSON, permitted web scraping, webhook, social APIs.
+- Archive raw events once in PostgreSQL.
+- Telegram recommendations are processed once and stored as normalized signals.
+- **Telegram Replay** replays those recommendations from their original publication timestamps. It is historical verification, not a predictive strategy.
+- Research papers can be uploaded as PDF, text is extracted, then converted into a structured strategy specification for review.
+- Strategies use the generic backtest → optimizer → paper → live pipeline.
+- Public market data and charts use CCXT without API keys.
+- Private balances and live orders use encrypted broker credentials entered from Admin.
+- Long work runs as SQL-backed jobs with checkpoints, automatic retry, stale-job recovery and resume after process restarts.
 
-### Data sources available from the UI
+## Supported exchanges
 
-- Telegram channels/groups (history + incremental sync when the dedicated account can read them)
-- RSS / Atom feeds
-- Generic HTTP JSON APIs
-- Generic web-page scraper using CSS selectors for sites where automated access is permitted
-- Webhooks for arbitrary external systems
-- X/social APIs through the generic authenticated JSON adapter
-- Public exchange market data through CCXT
+Binance, OKX, Bybit, Bitget, KuCoin, MEXC (spot through CCXT).
 
-Source credentials/headers can be stored encrypted. Secrets are never returned to the browser after storage.
+## Render environment
 
-### Research Studio
+Required:
 
-- Search scholarly metadata with Crossref.
-- Select a paper and/or paste its method/notes.
-- Generate an editable Talos strategy draft.
-- If an OpenAI-compatible AI endpoint is configured in **Settings → AI**, Talos asks it for a strict strategy JSON draft.
-- Without AI, Talos provides a conservative heuristic draft. **Generated research logic must be reviewed before backtesting.**
-
-### No-code Strategy Studio
-
-Three working strategy families are included:
-
-1. **Technical rules** — visual conditions using close, SMA, EMA, RSI, return %, volume ratio and SMA-distance features.
-2. **Parsed signal source** — consumes persisted normalized signals, e.g. Telegram recommendations.
-3. **Source event** — trades from news/RSS/API/webhook events using keyword filters and mapped symbols.
-
-Each strategy stores its definition and optimization space in PostgreSQL. Backtests, optimizers and deployments use the same stored strategy definition.
-
-> "Any idea without code" has a real boundary: Talos can compose the blocks it knows. A genuinely new mathematical operator, proprietary protocol, JS-only/private site, or new asset class still needs a new plugin block. The platform is designed so that adding that plugin does **not** require rebuilding the rest of Talos.
-
-### Backtesting
-
-- Uses public CCXT market data; private broker keys are not required.
-- Durable SQL-backed runs: results persist and runs can be resumed.
-- Fees and slippage are explicit.
-- Source-signal strategies use entry/TP/SL rules from normalized signals.
-- Technical strategies use OHLCV features and deterministic simulation.
-- Event strategies align archived events with future market candles.
-- Metrics include trade returns, win/positive rate, profit factor, model equity return, max drawdown and per-symbol breakdown.
-
-### Optimizer
-
-Optimization is also durable. A declared parameter grid is evaluated against the same backtest engine; the run stores every trial and the best return/drawdown score. Current UI exposes TP/SL ranges and the backend DSL supports condition parameter paths as well.
-
-### Paper and live execution
-
-- Persistent paper cash, orders and positions.
-- Strategy deployments can be created in **paper** mode and manually ticked on Render, or continuously evaluated by the worker on a persistent server.
-- Live deployments require:
-  1. connected encrypted exchange credentials,
-  2. global live-trading switch,
-  3. deployment-level live confirmation,
-  4. explicit execution confirmation for manual ticks.
-- Supported CCXT spot venues: Binance, OKX, Bybit, Bitget, KuCoin and MEXC.
-- Exchange withdrawal permission is **never required** and should remain disabled.
-
-## Hosting
-
-The application is portable. The same Docker project can run on Render, a VPS, Azure, a local Linux/Windows Docker host, etc.
-
-Render Free is useful for UI/API research work but sleeps when idle. Continuous source monitoring or automatic live execution requires a persistent worker. `docker-compose.yml` includes a `worker` service for that purpose.
-
-## Deploy on the existing Render setup
-
-Keep the existing `DATABASE_URL`, `SECRET_KEY` and other Environment Variables. Upload/commit this repository at the repo root, then deploy with a cleared build cache.
-
-Verify:
-
-- `/health` → version `3.0.0`
-- `/api/public/build` → build id `talos-v3-universal-strategy-studio`
-- Sidebar → `TALOS v3.0`
-
-Existing v2 tables are retained. v3 creates new strategy/research/deployment tables without deleting the archived Telegram data.
-
-## Local persistent deployment
-
-```bash
-docker compose up -d --build
+```text
+APP_NAME=Talos
+APP_ENV=production
+DATABASE_URL=postgresql+psycopg://...
+SECRET_KEY=<random long value>
+LIVE_TRADING_ENABLED=false
 ```
 
-This starts backend, frontend, PostgreSQL, Redis and the continuous universal worker.
+Generate a `SECRET_KEY` locally:
 
-## Tests
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
 
-Backend deterministic unit tests: `16 passed` in the packaged build.
+In Render: **Service → Environment → Add Environment Variable → SECRET_KEY → paste the generated value → Save/Deploy**.
+
+The small **Admin** button at the bottom of Talos uses this value only for first-time admin initialization. Broker, Telegram and AI/API credentials can then be stored from the Admin vault. Stored secrets are encrypted before they are written to PostgreSQL and are never returned in plaintext to the browser.
+
+## Telegram
+
+For private/public channels and groups that the dedicated Talos Telegram account can access:
+
+1. Add Telegram as a source.
+2. Start `Import / verify history`.
+3. Talos scans newest → oldest until Telegram returns an explicit empty page.
+4. The job automatically schedules processing of the archived messages.
+5. Run **Telegram Replay** to verify the recommendations historically.
+
+Telegram's server-side estimated message count can differ from the number of messages actually accessible to the account. Talos reports the verified accessible count separately.
+
+## Jobs / automation
+
+The web process runs the job loop while it is awake. Jobs persist in PostgreSQL, so closing the page does not cancel work. If a free Render instance sleeps/restarts, the job remains queued/retrying and resumes after the service wakes again.
+
+For a permanent VPS/local Docker deployment, run the dedicated worker:
+
+```bash
+python -m app.scripts.job_worker
+```
+
+`docker-compose.yml` already includes it.
+
+Automatic retry is used for import, source processing/sync, historical replay, strategy backtests, research extraction and optimization. **Live broker orders are intentionally not blindly retried after an ambiguous broker response**, because that can duplicate real orders; live execution requires idempotent broker/order reconciliation before such a retry is safe.
+
+## Research PDFs
+
+Upload a PDF in Research. Talos extracts text with `pypdf`, stores the paper metadata/text, and runs methodology extraction as a durable job. The resulting specification can be reviewed and saved as a versioned strategy.
+
+## Performance architecture
+
+Python remains the orchestration/integration layer. Numerical bottlenecks should be profiled before moving them to native code. A future C++/pybind11 core is appropriate for millions of repeated simulation/optimization evaluations, but moving Telegram, HTTP, databases and broker integration to C++ would add complexity without useful speedup.
+
+## Build verification
+
+- `/health` → version `4.0.0`
+- `/api/public/build` → build id `talos-v4-durable-research-execution`

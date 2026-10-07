@@ -50,7 +50,7 @@ async def draft_strategy(text:str,name:str='Research strategy')->dict[str,Any]:
     base=(ai.get('base_url') or '').rstrip('/'); model=ai.get('model'); key=ai.get('api_key')
     if not base or not model:
         out=heuristic_draft(text,name); out['draft_mode']='heuristic'; out['warning']='AI provider not configured. This is a heuristic draft and must be reviewed before backtesting.'; return out
-    prompt=("You convert trading research into strict Talos no-code strategy JSON. Return JSON only. "
+    prompt=("You convert trading research into a strict Talos strategy specification JSON. Return JSON only. "
             "Supported kinds: technical or source_event. Technical supports symbols,timeframe,entry_logic all/any, "
             "conditions with feature close|sma|ema|rsi|return_pct|volume_ratio|sma_distance_pct, period, op < <= > >= ==, value; "
             "take_profit_pct,stop_loss_pct,max_holding_bars. source_event supports source_id null,symbols,keywords_any,keywords_none,side buy, "

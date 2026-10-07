@@ -201,6 +201,12 @@ def process_source(source_id: int, *, force: bool = False) -> dict:
                 else:
                     state.status="error"; state.last_error=str(exc); state.processed_at=now
 
+            # Persist checkpoints so a host restart does not discard thousands of
+            # processed messages. A retry will skip rows whose hash/parser versions
+            # already match these committed processing states.
+            if (processed + errors) and (processed + errors) % 250 == 0:
+                db.commit()
+
         source.config = {**(source.config or {}), "processing": {
             "classifier_version": CLASSIFIER_VERSION, "parser_version": PARSER_VERSION,
             "last_run_at": now.isoformat(), "messages_examined": examined,

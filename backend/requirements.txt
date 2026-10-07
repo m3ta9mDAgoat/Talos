@@ -16,3 +16,5 @@ pytest==8.4.2
 
 cryptography==46.0.2
 beautifulsoup4==4.14.2
+python-multipart==0.0.20
+pypdf==6.1.1

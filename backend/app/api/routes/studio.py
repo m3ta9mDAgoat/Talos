@@ -123,16 +123,15 @@ async def make_draft(req:DraftRequest):
 
 @router.get('/studio/strategies')
 def strategies(db:Session=Depends(get_db)):
-    # Seed one usable copy strategy per existing Telegram source. This turns an
-    # already-imported channel into a backtestable strategy without code or DB edits.
-    telegram_sources=db.query(SourceRecord).filter(SourceRecord.type==SourceType.TELEGRAM).all()
-    for source in telegram_sources:
-        sid=f'source-copy-{source.id}'
-        if not db.query(StrategyConfigRecord).filter(StrategyConfigRecord.strategy_id==sid).first():
-            db.add(StrategyConfigRecord(strategy_id=sid,version='1.0',enabled=True,stage='draft',parameters_json={'name':f'Copy · {source.name}','kind':'signal_copy','definition':{'source_id':source.id,'minimum_confidence':0.78,'require_stop':False},'optimization_space':{},'notes':'Auto-created from existing Telegram source.'}))
-    db.commit()
     rows=db.query(StrategyConfigRecord).order_by(StrategyConfigRecord.id.desc()).all()
-    return [{'id':r.id,'strategy_id':r.strategy_id,'name':(r.parameters_json or {}).get('name',r.strategy_id),'kind':(r.parameters_json or {}).get('kind','signal_copy'),'version':r.version,'enabled':r.enabled,'stage':r.stage,'definition':(r.parameters_json or {}).get('definition',{}),'optimization_space':(r.parameters_json or {}).get('optimization_space',{}),'notes':(r.parameters_json or {}).get('notes','')} for r in rows if not (r.parameters_json or {}).get('_temporary') and (r.parameters_json or {}).get('kind')]
+    return [
+        {'id':r.id,'strategy_id':r.strategy_id,'name':(r.parameters_json or {}).get('name',r.strategy_id),
+         'kind':(r.parameters_json or {}).get('kind','technical'),'version':r.version,'enabled':r.enabled,'stage':r.stage,
+         'definition':(r.parameters_json or {}).get('definition',{}),'optimization_space':(r.parameters_json or {}).get('optimization_space',{}),
+         'notes':(r.parameters_json or {}).get('notes','')}
+        for r in rows
+        if not (r.parameters_json or {}).get('_temporary') and (r.parameters_json or {}).get('kind') not in {'signal_copy'}
+    ]
 
 @router.post('/studio/strategies')
 def create_strategy(req:StrategyWrite,db:Session=Depends(get_db)):

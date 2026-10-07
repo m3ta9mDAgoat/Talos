@@ -2,11 +2,22 @@ services:
   backend:
     build: ./backend
     env_file: .env
+    environment:
+      EMBEDDED_JOB_WORKER: "false"
     ports:
       - "8000:8000"
     depends_on:
       - postgres
       - redis
+
+  worker:
+    build: ./backend
+    command: ["python", "-m", "app.scripts.job_worker"]
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
 
   frontend:
     build: ./frontend
