@@ -1,4 +1,16 @@
-# Talos 4.0
+# Talos v4.3.0
+
+Current build: `talos-v4.3-telegram-live-audit`
+
+## Telegram live audit
+- Event-stream watcher for new messages and edits, plus periodic catch-up.
+- Delete events are archived when Telegram exposes them to the connected account.
+- Original, edited and deleted revisions are stored as immutable raw events.
+- Parsed signal revisions are stored in `telegram_signal_versions`.
+- Live simulations update targets after an edit without retroactively crediting newly-added targets.
+- Notification bot reports new signals, edits, deletes, entries, targets, stops and daily summaries.
+- Integrity metrics report observed edit patterns without inferring intent.
+- Telegram Replay supports `strict`, `from_edit`, and `optimistic` edited-message policies.
 
 Single-user trading research and execution platform.
 
@@ -77,7 +89,7 @@ Python remains the orchestration/integration layer. Numerical bottlenecks should
 ## Build verification
 
 - `/health` → version `4.0.0`
-- `/api/public/build` → build id `talos-v4.2.2-render-runtime-fix`
+- `/api/public/build` → build id `talos-v4.3-telegram-live-audit`
 
 
 ## Telegram notification bot

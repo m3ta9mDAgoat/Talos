@@ -19,3 +19,17 @@ radial-gradient(circle at 75% 5%,rgba(131,67,255,.13),transparent 26%),radial-gr
 .app.under-intro{filter:saturate(.9);transform:scale(.997)}
 .app{transition:filter .45s ease,transform .45s ease}
 @media(prefers-reduced-motion:reduce){.talos-splash{transition:opacity .18s linear}.talos-splash img{transition:none}.talos-splash.zoom img{transform:scale(1)}.app{transition:none}}
+/* v4.3: keep navigation and admin control separated at every height. */
+aside{display:flex;flex-direction:column;min-height:100vh;overflow:hidden}
+aside nav{flex:1;min-height:0;overflow-y:auto;padding-bottom:18px;scrollbar-width:thin}
+.admin-link{position:static!important;left:auto!important;right:auto!important;bottom:auto!important;margin-top:14px;flex:0 0 auto;width:100%}
+
+/* v4.3 intro: full-quality helmet, then a restrained visor wake-up before zoom. */
+.talos-splash{background:#070b17}
+.talos-splash img{image-rendering:auto;transform-origin:50% 43.5%}
+.eye-wake{position:absolute;inset:0;opacity:0;pointer-events:none;mix-blend-mode:screen;background:
+radial-gradient(ellipse 7% 2.2% at 45.4% 43.1%,rgba(91,203,255,.95) 0%,rgba(91,203,255,.46) 36%,transparent 72%),
+radial-gradient(ellipse 7% 2.2% at 54.6% 43.1%,rgba(91,203,255,.95) 0%,rgba(91,203,255,.46) 36%,transparent 72%);
+filter:blur(2px);transform:scale(1);transition:opacity .56s ease,filter .56s ease,transform .72s ease}
+.talos-splash.awake .eye-wake{opacity:.88;filter:blur(5px) brightness(1.55);transform:scale(1.03)}
+.talos-splash.zoom .eye-wake{opacity:1;filter:blur(13px) brightness(2.15);transform:scale(8.6);transition:transform 1.12s cubic-bezier(.7,0,.18,1),filter .8s ease,opacity .18s ease}
