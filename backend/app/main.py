@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Awaitable, Callable
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,27 +22,51 @@ from app.services.jobs import worker_loop
 from app.scripts.universal_worker import watcher_loop
 from app.services.security import SESSION_COOKIE, admin_exists, validate_session
 
-VERSION = "4.2.0"
-BUILD_ID = "talos-v4.2-live-intro"
+VERSION = "4.2.1"
+BUILD_ID = "talos-v4.2.1-render-runtime-fix"
+
+_runtime_lock = threading.Lock()
+_runtime_threads: dict[str, threading.Thread] = {}
+
+
+def _start_async_daemon(name: str, factory: Callable[[], Awaitable[None]]) -> None:
+    """Run long-lived Talos workers outside FastAPI's event loop.
+
+    Render routes health checks and HTTP traffic through the Uvicorn event loop.
+    A long Telegram/process/backtest cycle must never block that loop.  Each
+    embedded worker therefore owns a dedicated daemon thread and asyncio loop.
+    """
+    with _runtime_lock:
+        current = _runtime_threads.get(name)
+        if current and current.is_alive():
+            return
+
+        def runner() -> None:
+            try:
+                asyncio.run(factory())
+            except BaseException as exc:
+                # Keep failures visible in Render runtime logs.  The web server
+                # remains available even if a background runtime crashes.
+                print(f"[talos-runtime:{name}] stopped: {type(exc).__name__}: {exc}", flush=True)
+
+        thread = threading.Thread(target=runner, name=f"talos-{name}", daemon=True)
+        _runtime_threads[name] = thread
+        thread.start()
+        print(f"[talos-runtime:{name}] started", flush=True)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    # DB schema creation/migrations stay synchronous during startup.  Long-lived
+    # workers are started only afterwards and never share Uvicorn's event loop.
     init_db()
-    stop = asyncio.Event()
-    worker = asyncio.create_task(worker_loop(stop)) if settings.embedded_job_worker else None
-    watcher = asyncio.create_task(watcher_loop(stop)) if settings.embedded_live_watcher else None
-    try:
-        yield
-    finally:
-        stop.set()
-        for task in (worker, watcher):
-            if task is not None:
-                task.cancel()
-                try:
-                    await task
-                except BaseException:
-                    pass
+    if settings.embedded_job_worker:
+        _start_async_daemon("jobs", lambda: worker_loop())
+    if settings.embedded_live_watcher:
+        _start_async_daemon("watcher", lambda: watcher_loop())
+    yield
+    # Daemon threads intentionally terminate with the container process.  Jobs
+    # are durable in SQL and are recovered from checkpoints after a restart.
 
 
 app = FastAPI(title=settings.app_name, version=VERSION, lifespan=lifespan)
@@ -73,7 +99,14 @@ async def protect_admin_api(request: Request, call_next):
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "app": settings.app_name, "env": settings.app_env, "version": VERSION}
+    return {
+        "status": "ok",
+        "app": settings.app_name,
+        "env": settings.app_env,
+        "version": VERSION,
+        "job_worker": bool(_runtime_threads.get("jobs") and _runtime_threads["jobs"].is_alive()),
+        "live_watcher": bool(_runtime_threads.get("watcher") and _runtime_threads["watcher"].is_alive()),
+    }
 
 
 @app.get("/api/public/build")
@@ -86,6 +119,7 @@ async def build_info() -> dict:
             "paper_research_upload", "market_charts", "generic_strategy_backtests",
             "optimizer", "paper_trading", "live_exchange_adapters", "secure_admin_vault",
             "telegram_notification_bot", "live_signal_simulation_watcher",
+            "isolated_background_runtime",
         ],
     }
 

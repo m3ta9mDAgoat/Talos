@@ -29,7 +29,9 @@ async def _monitor_telegram_source(source_id: int) -> None:
         signal_cursor = int(cfg.get("notify_signal_cursor", current_signal_max))
 
     await sync_source(source_id)
-    processed = process_source(source_id)
+    # Classification/parsing may walk thousands of archived messages. Keep it
+    # off this runtime's asyncio loop as well.
+    processed = await asyncio.to_thread(process_source, source_id)
 
     with SessionLocal() as db:
         source = db.get(SourceRecord, source_id)
@@ -97,6 +99,9 @@ async def run_cycle() -> None:
 
 
 async def watcher_loop(stop_event: asyncio.Event | None = None) -> None:
+    # Give the HTTP server time to become healthy before the first potentially
+    # expensive source synchronization cycle.
+    await asyncio.sleep(12)
     while not (stop_event and stop_event.is_set()):
         try:
             await run_cycle()
