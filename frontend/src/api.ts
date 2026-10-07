@@ -8,11 +8,11 @@ async function errorMessage(response: Response): Promise<string> {
       const data = JSON.parse(text);
       const detail = data?.detail ?? data?.error ?? data?.message;
       if (detail) return `HTTP ${response.status}: ${String(detail)}`;
-    } catch { /* fall through */ }
+    } catch { /* ignore */ }
   }
   const trimmed = text.trim();
   if (/^<!doctype html/i.test(trimmed) || /^<html/i.test(trimmed)) {
-    return `HTTP ${response.status}: hosting proxy/server temporarily unavailable. Talos can retry safely.`;
+    return `HTTP ${response.status}: hosting proxy/server temporarily unavailable. Durable Talos jobs will resume when the service is available.`;
   }
   return `HTTP ${response.status}: ${trimmed.slice(0, 500) || response.statusText}`;
 }
@@ -26,3 +26,7 @@ export const apiGet=<T>(path:string)=>request<T>(path);
 export const apiPost=<T>(path:string,body:unknown)=>request<T>(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 export const apiPut=<T>(path:string,body:unknown)=>request<T>(path,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 export const apiDelete=<T>(path:string)=>request<T>(path,{method:'DELETE'});
+export async function apiUpload<T>(path:string,file:File):Promise<T>{
+  const form=new FormData();form.append('file',file);
+  return request<T>(path,{method:'POST',body:form});
+}
