@@ -77,7 +77,7 @@ Python remains the orchestration/integration layer. Numerical bottlenecks should
 ## Build verification
 
 - `/health` → version `4.0.0`
-- `/api/public/build` → build id `talos-v4.2.1-render-runtime-fix`
+- `/api/public/build` → build id `talos-v4.2.2-render-runtime-fix`
 
 
 ## Telegram notification bot

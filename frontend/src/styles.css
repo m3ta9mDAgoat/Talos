@@ -13,7 +13,7 @@ radial-gradient(circle at 75% 5%,rgba(131,67,255,.13),transparent 26%),radial-gr
 
 /* v4.2 intro + live surface */
 .talos-splash{position:fixed;inset:0;z-index:9999;overflow:hidden;background:#070b17;opacity:1;transition:opacity .28s ease .78s;pointer-events:none}
-.talos-splash img{width:100%;height:100%;display:block;object-fit:cover;object-position:center center;user-select:none;transform:scale(1);transform-origin:50% 43.5%;transition:transform 1.12s cubic-bezier(.7,0,.18,1),filter .9s ease;will-change:transform,filter}
+.talos-splash img{width:100%;height:100%;display:block;object-fit:cover;object-position:center center;user-select:none;transform:scale(1);transform-origin:50% 43.5%;opacity:0;transition:opacity .12s linear,transform 1.12s cubic-bezier(.7,0,.18,1),filter .9s ease;will-change:transform,filter}.talos-splash.ready img{opacity:1}
 .talos-splash.zoom{opacity:0}
 .talos-splash.zoom img{transform:scale(8.6);filter:contrast(1.04) saturate(1.04)}
 .app.under-intro{filter:saturate(.9);transform:scale(.997)}
