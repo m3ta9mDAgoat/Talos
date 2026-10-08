@@ -11,6 +11,7 @@ from app.models.signal import SignalRecord
 from app.models.source import SourceRecord
 from app.services.deployments import tick
 from app.services.live_signal_monitor import advance_live_simulations, ensure_live_simulation
+from app.services.runtime_wake import SIM_WAKE_EVENT
 from app.services.notifications import notify_signal, notify_system_error, send_daily_summary
 from app.services.processing import process_source
 from app.services.universal_sources import sync_source
@@ -81,11 +82,6 @@ async def run_cycle() -> None:
         except Exception as exc:
             print(f"source {sid}: {exc}")
 
-    try:
-        await advance_live_simulations(limit=80)
-    except Exception as exc:
-        print(f"live simulation monitor: {exc}")
-
     for did in deployments:
         try:
             await tick(did, confirm_live=False)
@@ -98,16 +94,43 @@ async def run_cycle() -> None:
         print(f"daily summary: {exc}")
 
 
-async def watcher_loop(stop_event: asyncio.Event | None = None) -> None:
-    # Give the HTTP server time to become healthy before the first potentially
-    # expensive source synchronization cycle.
-    await asyncio.sleep(12)
+async def _periodic_catchup_loop(stop_event: asyncio.Event | None = None) -> None:
+    # Telegram's event stream is the real-time path. This is only a safety pass
+    # for missed events/non-Telegram sources, so it must not keep Neon awake.
+    await asyncio.sleep(60)
     while not (stop_event and stop_event.is_set()):
         try:
             await run_cycle()
         except Exception as exc:
-            print(f"watcher cycle: {exc}")
-        await asyncio.sleep(60)
+            print(f"watcher catch-up cycle: {exc}", flush=True)
+        await asyncio.sleep(1800)
+
+
+async def _simulation_monitor_loop(stop_event: asyncio.Event | None = None) -> None:
+    # Live simulations need minute-level market checks only while a simulation is
+    # active. With no active trades, wait in process memory (or until a new signal
+    # wakes us) instead of querying Postgres every minute.
+    while not (stop_event and stop_event.is_set()):
+        SIM_WAKE_EVENT.clear()
+        try:
+            result = await advance_live_simulations(limit=80)
+            checked = int(result.get("checked", 0))
+        except Exception as exc:
+            print(f"live simulation monitor: {type(exc).__name__}: {exc}", flush=True)
+            checked = 0
+        if checked:
+            await asyncio.sleep(60)
+        else:
+            await asyncio.to_thread(SIM_WAKE_EVENT.wait, 3600.0)
+
+
+async def watcher_loop(stop_event: asyncio.Event | None = None) -> None:
+    from app.services.telegram_live_watch import stream_supervisor
+    await asyncio.gather(
+        _periodic_catchup_loop(stop_event),
+        _simulation_monitor_loop(stop_event),
+        stream_supervisor(stop_event),
+    )
 
 
 async def main():

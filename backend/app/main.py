@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.routes import (
     analysis, audit, auth, backtests, exchanges, jobs, live, optimizer, paper,
     processing, signals, sources, strategies, studio, system, research,
-    settings as settings_routes,
+    settings as settings_routes, telegram_audit,
 )
 from app.core.config import settings
 from app.db.init_db import init_db
@@ -22,11 +22,13 @@ from app.services.jobs import worker_loop
 from app.scripts.universal_worker import watcher_loop
 from app.services.security import SESSION_COOKIE, admin_exists, validate_session
 
-VERSION = "4.2.1"
-BUILD_ID = "talos-v4.2.1-render-runtime-fix"
+VERSION = "4.3.1"
+BUILD_ID = "talos-v4.3.1-neon-saver-exact-splash"
 
 _runtime_lock = threading.Lock()
 _runtime_threads: dict[str, threading.Thread] = {}
+_database_ready = False
+_database_error: str | None = None
 
 
 def _start_async_daemon(name: str, factory: Callable[[], Awaitable[None]]) -> None:
@@ -55,15 +57,45 @@ def _start_async_daemon(name: str, factory: Callable[[], Awaitable[None]]) -> No
         print(f"[talos-runtime:{name}] started", flush=True)
 
 
+def _try_init_database() -> bool:
+    global _database_ready, _database_error
+    try:
+        init_db()
+        _database_ready = True
+        _database_error = None
+        return True
+    except Exception as exc:
+        _database_ready = False
+        _database_error = f"{type(exc).__name__}: {exc}"
+        print(f"[talos-db] unavailable: {_database_error}", flush=True)
+        return False
+
+
+async def _database_recovery_loop() -> None:
+    # Keep the web/static frontend online even if a hosted DB quota is exhausted.
+    # Recovery checks are deliberately sparse so they do not create a new compute
+    # polling problem when the database is available again.
+    while not _database_ready:
+        await asyncio.sleep(900)
+        if _try_init_database():
+            if settings.embedded_job_worker:
+                _start_async_daemon("jobs", lambda: worker_loop())
+            if settings.embedded_live_watcher:
+                _start_async_daemon("watcher", lambda: watcher_loop())
+            return
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # DB schema creation/migrations stay synchronous during startup.  Long-lived
-    # workers are started only afterwards and never share Uvicorn's event loop.
-    init_db()
-    if settings.embedded_job_worker:
-        _start_async_daemon("jobs", lambda: worker_loop())
-    if settings.embedded_live_watcher:
-        _start_async_daemon("watcher", lambda: watcher_loop())
+    # A Neon quota/network outage must not turn the whole site into a Render 502.
+    # Serve the frontend in degraded mode and recover the DB workers automatically.
+    if _try_init_database():
+        if settings.embedded_job_worker:
+            _start_async_daemon("jobs", lambda: worker_loop())
+        if settings.embedded_live_watcher:
+            _start_async_daemon("watcher", lambda: watcher_loop())
+    else:
+        _start_async_daemon("db-recovery", lambda: _database_recovery_loop())
     yield
     # Daemon threads intentionally terminate with the container process.  Jobs
     # are durable in SQL and are recovered from checkpoints after a restart.
@@ -104,6 +136,8 @@ async def health() -> dict:
         "app": settings.app_name,
         "env": settings.app_env,
         "version": VERSION,
+        "database": "ready" if _database_ready else "unavailable",
+        "database_error": None if _database_ready else _database_error,
         "job_worker": bool(_runtime_threads.get("jobs") and _runtime_threads["jobs"].is_alive()),
         "live_watcher": bool(_runtime_threads.get("watcher") and _runtime_threads["watcher"].is_alive()),
     }
@@ -119,7 +153,7 @@ async def build_info() -> dict:
             "paper_research_upload", "market_charts", "generic_strategy_backtests",
             "optimizer", "paper_trading", "live_exchange_adapters", "secure_admin_vault",
             "telegram_notification_bot", "live_signal_simulation_watcher",
-            "isolated_background_runtime",
+            "isolated_background_runtime", "telegram_event_stream", "telegram_edit_version_archive", "telegram_delete_audit", "telegram_integrity_score", "neon_idle_saver", "database_degraded_mode",
         ],
     }
 
@@ -137,6 +171,7 @@ app.include_router(paper.router, prefix="/api/v1")
 app.include_router(live.router, prefix="/api/v1")
 app.include_router(strategies.router, prefix="/api/v1")
 app.include_router(audit.router, prefix="/api/v1")
+app.include_router(telegram_audit.router, prefix="/api/v1")
 app.include_router(optimizer.router, prefix="/api/v1")
 app.include_router(studio.router, prefix="/api/v1")
 app.include_router(research.router, prefix="/api/v1")

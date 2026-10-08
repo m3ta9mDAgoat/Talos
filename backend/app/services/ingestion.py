@@ -9,9 +9,9 @@ from app.models.raw_event import RawEventRecord
 from app.plugins.contracts import Event
 
 
-def _dedupe_key(source_identifier: str, event: Event) -> str:
-    revision = event.metadata.get("edit_date") or event.timestamp.isoformat()
+def dedupe_key_for(source_identifier: str, event: Event) -> str:
     event_type = event.metadata.get("event_type", "message")
+    revision = "deleted" if event_type == "delete" else (event.metadata.get("edit_date") or event.timestamp.isoformat())
     raw = f"{event.source}|{source_identifier}|{event.external_id}|{event_type}|{revision}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
@@ -31,7 +31,7 @@ def persist_events(db: Session, source_identifier: str, events: Iterable[Event])
     """
     prepared: list[tuple[str, Event]] = []
     for event in events:
-        prepared.append((_dedupe_key(source_identifier, event), event))
+        prepared.append((dedupe_key_for(source_identifier, event), event))
 
     if not prepared:
         return 0, 0
@@ -63,7 +63,7 @@ def persist_events(db: Session, source_identifier: str, events: Iterable[Event])
                 occurred_at=event.timestamp,
                 event_type=event.metadata.get("event_type", "message"),
                 text=event.payload.get("text"),
-                payload=event.payload,
+                payload={k: v for k, v in event.payload.items() if k != "text"},
                 metadata_json=event.metadata,
             )
         )
@@ -72,3 +72,25 @@ def persist_events(db: Session, source_identifier: str, events: Iterable[Event])
         db.add_all(rows)
     db.commit()
     return len(rows), skipped
+
+
+def persist_single_event(db: Session, source_identifier: str, event: Event) -> tuple[RawEventRecord, bool]:
+    key = dedupe_key_for(source_identifier, event)
+    existing = db.query(RawEventRecord).filter(RawEventRecord.dedupe_key == key).first()
+    if existing:
+        return existing, False
+    row = RawEventRecord(
+        dedupe_key=key,
+        source_type=event.source,
+        source_identifier=source_identifier,
+        external_id=event.external_id or key,
+        occurred_at=event.timestamp,
+        event_type=event.metadata.get("event_type", "message"),
+        text=event.payload.get("text"),
+        payload={k: v for k, v in event.payload.items() if k != "text"},
+        metadata_json=event.metadata,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row, True

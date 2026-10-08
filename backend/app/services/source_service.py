@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.enums import SourceStatus
 from app.models.source import SourceRecord
 from app.schemas.source import SourceCreate
+from app.services.runtime_wake import wake_sources
 
 
 def create_source(db: Session, data: SourceCreate) -> SourceRecord:
@@ -19,6 +20,7 @@ def create_source(db: Session, data: SourceCreate) -> SourceRecord:
     db.add(row)
     db.commit()
     db.refresh(row)
+    wake_sources()
     return row
 
 

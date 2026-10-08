@@ -8,6 +8,7 @@ from app.models.signal import SignalRecord
 from app.models.trading import LiveSignalSimulationRecord
 from app.services.brokers import best_venue, ohlcv
 from app.services.notifications import notification_config, notify_simulation_event
+from app.services.runtime_wake import wake_simulations
 
 
 def utcnow() -> datetime:
@@ -21,20 +22,67 @@ def ensure_live_simulation(signal_id: int, source_id: int | None = None) -> Live
             return None
         existing = db.query(LiveSignalSimulationRecord).filter(LiveSignalSimulationRecord.signal_id == signal_id).first()
         if existing:
-            return existing
-        targets = [{"price": float(x), "hit": False, "hit_at": None} for x in (signal.targets or [])]
-        row = LiveSignalSimulationRecord(
-            signal_id=signal.id,
-            source_id=source_id,
-            symbol=signal.symbol,
-            side=signal.side,
-            status="waiting_entry",
-            target_state_json=targets,
-            state_json={"signal_timestamp": signal.timestamp.isoformat()},
-        )
-        db.add(row); db.commit(); db.refresh(row)
-        return row
+            existing_id = int(existing.id)
+        else:
+            targets = [{"price": float(x), "hit": False, "hit_at": None} for x in (signal.targets or [])]
+            row = LiveSignalSimulationRecord(
+                signal_id=signal.id,
+                source_id=source_id,
+                symbol=signal.symbol,
+                side=signal.side,
+                status="waiting_entry",
+                target_state_json=targets,
+                state_json={"signal_timestamp": signal.timestamp.isoformat(), "signal_revision_raw_event_id": (signal.metadata_json or {}).get("raw_event_id")},
+            )
+            db.add(row); db.commit(); db.refresh(row)
+            wake_simulations()
+            return row
+    # Existing simulations follow signal edits without resetting already-hit TPs.
+    result = sync_simulation_to_signal(signal_id)
+    wake_simulations()
+    return result
 
+
+def sync_simulation_to_signal(signal_id: int) -> LiveSignalSimulationRecord | None:
+    """Apply the latest recommendation revision to an existing live simulation.
+
+    Hit-state is preserved by target price. New targets start un-hit and are only
+    evaluated against candles observed after the edit, so Talos never awards a TP
+    retroactively because an admin added it after price had already passed it.
+    """
+    with SessionLocal() as db:
+        signal = db.get(SignalRecord, signal_id)
+        sim = db.query(LiveSignalSimulationRecord).filter(LiveSignalSimulationRecord.signal_id == signal_id).first()
+        if not signal or not sim:
+            return sim
+        state=dict(sim.state_json or {})
+        if sim.entry_at is None:
+            if sim.symbol != signal.symbol:
+                sim.symbol = signal.symbol
+                sim.broker_id = None
+                sim.market_symbol = None
+                sim.current_price = None
+            sim.side = signal.side
+        else:
+            if sim.symbol != signal.symbol:
+                state["symbol_change_after_entry_ignored"] = {"simulation_symbol": sim.symbol, "edited_signal_symbol": signal.symbol, "at": utcnow().isoformat()}
+            if sim.side != signal.side:
+                state["side_change_after_entry_ignored"] = {"simulation_side": sim.side, "edited_signal_side": signal.side, "at": utcnow().isoformat()}
+        old = {float(x.get("price")): dict(x) for x in (sim.target_state_json or []) if x.get("price") is not None}
+        targets=[]
+        for value in (signal.targets or []):
+            price=float(value)
+            previous=old.get(price)
+            targets.append(previous if previous is not None else {"price":price,"hit":False,"hit_at":None})
+        sim.target_state_json=targets
+        state["signal_revision_raw_event_id"]=(signal.metadata_json or {}).get("raw_event_id")
+        state["signal_revision_type"]=(signal.metadata_json or {}).get("revision_type")
+        state["signal_edit_date"]=(signal.metadata_json or {}).get("edit_date")
+        sim.state_json=state
+        sim.updated_at=utcnow()
+        db.commit(); db.refresh(sim)
+        wake_simulations()
+        return sim
 
 def _entry_fill(entry: dict[str, Any] | None, candle: dict[str, Any]) -> float | None:
     if not entry or entry.get("type") == "market":

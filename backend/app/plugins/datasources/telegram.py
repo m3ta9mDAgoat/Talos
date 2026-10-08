@@ -155,23 +155,43 @@ class TelegramSource(DataSource):
 
     async def stream(self, *, channel: str, **_: Any) -> AsyncIterator[Event]:
         import asyncio
+        from datetime import datetime, timezone
 
         queue: asyncio.Queue[Event] = asyncio.Queue()
-        resolved = self.normalize_identifier(channel)
+        await self.client.start()
+        entity = await self._resolve_entity(channel)
 
-        @self.client.on(events.NewMessage(chats=resolved))
         async def on_new(event):
             await queue.put(self._message_event(channel, event.message, "message"))
 
-        @self.client.on(events.MessageEdited(chats=resolved))
         async def on_edit(event):
             await queue.put(self._message_event(channel, event.message, "edit"))
 
-        await self.client.start()
+        async def on_delete(event):
+            now = datetime.now(timezone.utc)
+            for deleted_id in getattr(event, "deleted_ids", []) or []:
+                await queue.put(Event(
+                    source="telegram",
+                    timestamp=now,
+                    external_id=str(deleted_id),
+                    payload={"channel": channel, "text": None, "deleted": True},
+                    metadata={
+                        "event_type": "delete",
+                        "delete_date": now.isoformat(),
+                        "edit_date": None,
+                    },
+                ))
+
+        self.client.add_event_handler(on_new, events.NewMessage(chats=entity))
+        self.client.add_event_handler(on_edit, events.MessageEdited(chats=entity))
+        self.client.add_event_handler(on_delete, events.MessageDeleted(chats=entity))
         try:
             while True:
                 yield await queue.get()
         finally:
+            self.client.remove_event_handler(on_new)
+            self.client.remove_event_handler(on_edit)
+            self.client.remove_event_handler(on_delete)
             await self.client.disconnect()
 
     @staticmethod

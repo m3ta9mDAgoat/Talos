@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -14,6 +14,7 @@ class AnalyzeSourceRequest(BaseModel):
     portfolio_fraction: float = Field(default=0.10, gt=0, le=1)
     require_stop: bool = True
     exclude_edited: bool = False
+    edit_policy: Literal["strict", "from_edit", "optimistic"] = "from_edit"
     conservative_intrabar: bool = True
     max_signals: int = Field(default=50000, ge=1, le=100000)
     exchanges: list[str] = Field(

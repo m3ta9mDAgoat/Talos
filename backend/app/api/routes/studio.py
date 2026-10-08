@@ -20,6 +20,7 @@ from app.services.research_service import search_crossref, draft_strategy
 from app.services.strategy_backtest import create_strategy_run, advance_strategy_run
 from app.services.generic_optimizer import create_optimization, advance_optimization
 from app.services.deployments import tick as deployment_tick
+from app.services.runtime_wake import wake_sources
 
 router=APIRouter(tags=['studio'])
 hooks=APIRouter(tags=['hooks'])
@@ -65,7 +66,7 @@ def create_source(req:SourceStudioCreate,db:Session=Depends(get_db)):
     token=None
     if req.adapter=='webhook':
         token=secrets.token_urlsafe(32);cfg['webhook_token_hash']=hashlib.sha256(token.encode()).hexdigest()
-    row=SourceRecord(name=req.name,type=typ,identifier=identifier,enabled=True,status=SourceStatus.READY,config=cfg);db.add(row);db.commit();db.refresh(row)
+    row=SourceRecord(name=req.name,type=typ,identifier=identifier,enabled=True,status=SourceStatus.READY,config=cfg);db.add(row);db.commit();db.refresh(row);wake_sources()
     if req.secret_headers:save_secret(f'source:{row.id}',{'headers':req.secret_headers})
     return {'id':row.id,'name':row.name,'adapter':req.adapter,'identifier':row.identifier,'webhook_token':token}
 

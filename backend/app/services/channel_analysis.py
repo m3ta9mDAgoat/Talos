@@ -10,6 +10,7 @@ from app.db.session import SessionLocal
 from app.models.analysis import AnalysisRunRecord, SignalBacktestRecord
 from app.models.signal import SignalRecord
 from app.models.source import SourceRecord
+from app.models.telegram_audit import TelegramSignalVersionRecord
 from app.schemas.analysis import AnalyzeSourceRequest
 from app.schemas.signal import EntrySpec, NormalizedSignal, StopSpec
 from app.services.backtest import signal_backtester
@@ -46,6 +47,30 @@ def _signal_from_record(row: SignalRecord) -> NormalizedSignal:
     )
 
 
+
+def _signal_from_version(row: TelegramSignalVersionRecord, canonical: SignalRecord) -> NormalizedSignal:
+    entry = EntrySpec(**row.entry_json) if row.entry_json else None
+    stop = StopSpec(**row.stop_json) if row.stop_json else None
+    symbol = row.symbol or canonical.symbol
+    parts = symbol.split("/")
+    return NormalizedSignal(
+        strategy_id=canonical.strategy_id,
+        strategy_version=canonical.strategy_version,
+        source=canonical.source,
+        source_id=canonical.source_id,
+        source_message_id=canonical.source_message_id,
+        timestamp=row.original_message_at,
+        market_type=MarketType(row.market_type or canonical.market_type),
+        symbol=symbol,
+        quote=parts[1] if len(parts)>1 else None,
+        side=Side(row.side or canonical.side),
+        entry=entry, stop=stop, targets=list(row.targets_json or []),
+        confidence=float(row.confidence if row.confidence is not None else canonical.confidence),
+        status=SignalStatus(row.status if row.status in {x.value for x in SignalStatus} else canonical.status),
+        raw_text=row.raw_text or canonical.raw_text,
+        metadata={**(canonical.metadata_json or {}), "replay_revision": "original_observed", "raw_event_id": row.raw_event_id},
+    )
+
 def create_run(source_id: int, request: AnalyzeSourceRequest) -> AnalysisRunRecord:
     """Create a durable SQL-backed backtest run.
 
@@ -72,54 +97,62 @@ def create_run(source_id: int, request: AnalyzeSourceRequest) -> AnalysisRunReco
         return row
 
 
-def _eligibility(source_identifier: str, cfg: AnalyzeSourceRequest) -> dict[str, Any]:
+def _eligibility(source_record_id: int, source_identifier: str, cfg: AnalyzeSourceRequest) -> dict[str, Any]:
     with SessionLocal() as db:
-        all_rows = (
-            db.query(SignalRecord)
-            .filter(SignalRecord.source_id == source_identifier)
-            .order_by(SignalRecord.timestamp.asc())
-            .limit(cfg.max_signals)
-            .all()
-        )
+        all_rows = (db.query(SignalRecord).filter(SignalRecord.source_id == source_identifier)
+                    .order_by(SignalRecord.timestamp.asc()).limit(cfg.max_signals).all())
+        originals: dict[str, TelegramSignalVersionRecord] = {}
+        if cfg.edit_policy == "strict":
+            versions = (db.query(TelegramSignalVersionRecord)
+                        .filter(TelegramSignalVersionRecord.source_id == source_record_id,
+                                TelegramSignalVersionRecord.revision_type == "message")
+                        .order_by(TelegramSignalVersionRecord.revision_at.asc(), TelegramSignalVersionRecord.id.asc()).all())
+            for v in versions:
+                if v.symbol and v.status == SignalStatus.PARSED.value:
+                    originals.setdefault(str(v.source_message_id), v)
 
     status_counts = Counter(str(r.status) for r in all_rows)
     side_counts = Counter(str(r.side) for r in all_rows)
     parsed_buy = [r for r in all_rows if str(r.status) == SignalStatus.PARSED.value and str(r.side) == Side.BUY.value]
 
     eligible: list[dict[str, Any]] = []
-    excluded_edited = excluded_no_stop = excluded_missing_entry = excluded_missing_targets = 0
+    excluded_edited = excluded_no_stop = excluded_missing_entry = excluded_missing_targets = excluded_no_original = 0
     edited_snapshot_count = 0
     for r in parsed_buy:
         metadata = dict(r.metadata_json or {})
-        if metadata.get("edit_date"):
+        edit_date = metadata.get("edit_date")
+        if edit_date:
             edited_snapshot_count += 1
+        if cfg.exclude_edited and edit_date:
+            excluded_edited += 1; continue
+
         signal = _signal_from_record(r)
-        if cfg.exclude_edited and metadata.get("edit_date"):
-            excluded_edited += 1
-            continue
+        replay_mode = cfg.edit_policy
+        if edit_date and replay_mode == "strict":
+            original = originals.get(str(r.source_message_id))
+            if original is None:
+                excluded_no_original += 1; continue
+            signal = _signal_from_version(original, r)
+        elif edit_date and replay_mode == "from_edit":
+            try:
+                edit_ts = datetime.fromisoformat(str(edit_date).replace("Z", "+00:00")).astimezone(timezone.utc)
+                signal = signal.model_copy(update={"timestamp": edit_ts, "metadata": {**signal.metadata, "replay_revision": "edited_snapshot_from_edit_time"}})
+            except Exception:
+                excluded_no_original += 1; continue
+        elif edit_date:
+            signal = signal.model_copy(update={"metadata": {**signal.metadata, "replay_revision": "current_snapshot_from_original_time", "lookahead_risk": True}})
+
         if cfg.require_stop and signal.stop is None:
-            excluded_no_stop += 1
-            continue
+            excluded_no_stop += 1; continue
         if signal.entry is None:
-            excluded_missing_entry += 1
-            continue
+            excluded_missing_entry += 1; continue
         if not signal.targets:
-            excluded_missing_targets += 1
-            continue
+            excluded_missing_targets += 1; continue
         eligible.append({"id": r.id, "signal": signal, "metadata": metadata})
 
-    return {
-        "all_rows": all_rows,
-        "parsed_buy": parsed_buy,
-        "eligible": eligible,
-        "status_counts": status_counts,
-        "side_counts": side_counts,
-        "edited_snapshot_count": edited_snapshot_count,
-        "excluded_edited": excluded_edited,
-        "excluded_missing_stop": excluded_no_stop,
-        "excluded_missing_entry": excluded_missing_entry,
-        "excluded_missing_targets": excluded_missing_targets,
-    }
+    return {"all_rows":all_rows,"parsed_buy":parsed_buy,"eligible":eligible,"status_counts":status_counts,"side_counts":side_counts,
+        "edited_snapshot_count":edited_snapshot_count,"excluded_edited":excluded_edited,"excluded_no_original_revision":excluded_no_original,
+        "excluded_missing_stop":excluded_no_stop,"excluded_missing_entry":excluded_missing_entry,"excluded_missing_targets":excluded_missing_targets}
 
 
 async def _fetch_with_fallback(signal: NormalizedSignal, cfg: AnalyzeSourceRequest):
@@ -294,6 +327,7 @@ def _build_summary(
         "excluded_missing_stop": info["excluded_missing_stop"],
         "excluded_missing_entry": info["excluded_missing_entry"],
         "excluded_missing_targets": info["excluded_missing_targets"],
+        "excluded_no_original_revision": info.get("excluded_no_original_revision", 0),
         "market_data_missing": market_data_missing,
         "unsupported": unsupported,
         "entry_triggered": entry_triggered,
@@ -320,6 +354,7 @@ def _build_summary(
             "portfolio_fraction": cfg.portfolio_fraction,
             "require_stop": cfg.require_stop,
             "exclude_edited": cfg.exclude_edited,
+            "edit_policy": cfg.edit_policy,
             "conservative_intrabar": cfg.conservative_intrabar,
             "exit_allocation": "equal_weight_across_targets; unresolved remainder exits at stop or horizon close",
         },
@@ -329,11 +364,8 @@ def _build_summary(
     warnings: list[str] = []
     if not summary["history_complete"]:
         warnings.append("Channel history is partial; this run is a preview.")
-    if not cfg.exclude_edited and info["edited_snapshot_count"]:
-        warnings.append(
-            f"{info['edited_snapshot_count']} recommendations are current snapshots of edited Telegram messages. "
-            "Pre-edit text is unavailable unless Talos observed the edit live."
-        )
+    if info["edited_snapshot_count"]:
+        warnings.append(f"Edit replay policy: {cfg.edit_policy}. Edited snapshots: {info['edited_snapshot_count']}; strict exclusions without an observed original: {info.get('excluded_no_original_revision',0)}.")
     if not eligible_count:
         warnings.append(
             "No eligible parsed BUY signals. Check the exclusion counters below. Exchange API keys are not required for historical backtesting."
@@ -384,7 +416,7 @@ async def advance_run(run_id: int, batch_size: int = 4) -> AnalysisRunRecord:
         run.stage = "eligibility"
         db.commit()
 
-    info = _eligibility(source_identifier, cfg)
+    info = _eligibility(source_id, source_identifier, cfg)
     eligible = info["eligible"]
 
     with SessionLocal() as db:

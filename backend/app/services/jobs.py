@@ -6,6 +6,7 @@ from typing import Any
 
 from app.db.session import SessionLocal
 from app.models.jobs import JobRecord
+from app.services.runtime_wake import JOB_WAKE_EVENT, wake_jobs
 
 
 def utcnow() -> datetime:
@@ -16,6 +17,7 @@ def create_job(kind: str, payload: dict[str, Any], *, max_attempts: int = 20) ->
     with SessionLocal() as db:
         row = JobRecord(kind=kind, status="queued", payload_json=payload, max_attempts=max_attempts, next_run_at=utcnow())
         db.add(row); db.commit(); db.refresh(row)
+        wake_jobs()
         return row
 
 
@@ -192,10 +194,46 @@ async def worker_once(limit: int = 3) -> int:
     return len(ids)
 
 
+def _seconds_until_next_job(max_wait: float = 1800.0) -> float:
+    """Return how long the worker can sleep without touching Postgres.
+
+    This is queried only when the queue is idle. New jobs wake the worker through
+    JOB_WAKE_EVENT, so an idle Talos process no longer polls Neon every 3 seconds.
+    """
+    now = utcnow()
+    with SessionLocal() as db:
+        next_run = (
+            db.query(JobRecord.next_run_at)
+            .filter(JobRecord.status.in_(["queued", "retrying"]))
+            .order_by(JobRecord.next_run_at.asc())
+            .limit(1)
+            .scalar()
+        )
+    if not next_run:
+        return max_wait
+    if next_run.tzinfo is None:
+        next_run = next_run.replace(tzinfo=timezone.utc)
+    return max(0.0, min(max_wait, (next_run - now).total_seconds()))
+
+
 async def worker_loop(stop_event: asyncio.Event | None = None) -> None:
+    # Poll once at startup for durable recovery. After that, remain asleep in
+    # process memory until a job is created/retried or a scheduled retry is due.
     while not (stop_event and stop_event.is_set()):
+        JOB_WAKE_EVENT.clear()
         try:
             count = await worker_once()
-        except Exception:
+        except Exception as exc:
+            print(f"job worker cycle: {type(exc).__name__}: {exc}", flush=True)
             count = 0
-        await asyncio.sleep(0.75 if count else 3.0)
+        if count:
+            await asyncio.sleep(0.2)
+            continue
+        try:
+            delay = _seconds_until_next_job()
+        except Exception:
+            delay = 300.0
+        if delay <= 0:
+            await asyncio.sleep(0.2)
+            continue
+        await asyncio.to_thread(JOB_WAKE_EVENT.wait, delay)

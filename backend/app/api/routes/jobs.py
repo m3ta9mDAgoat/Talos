@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.jobs import JobRecord
 from app.services.jobs import create_job, job_dict
+from app.services.runtime_wake import wake_jobs
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -43,6 +44,7 @@ def retry(job_id: int, db: Session = Depends(get_db)):
     row.status = "queued"; row.attempts = 0; row.error = None
     from app.services.jobs import utcnow
     row.next_run_at = utcnow(); db.commit(); db.refresh(row)
+    wake_jobs()
     return job_dict(row)
 
 

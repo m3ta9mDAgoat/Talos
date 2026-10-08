@@ -104,7 +104,7 @@ def _entry_text(entry: dict[str, Any] | None) -> str:
     return "market"
 
 
-async def notify_signal(signal_id: int, event: str = "new") -> dict[str, Any]:
+async def notify_signal(signal_id: int, event: str = "new", *, raw_event_id: int | None = None) -> dict[str, Any]:
     cfg = notification_config()
     if event == "new" and not cfg.get("new_signal", True):
         return {"ok": False, "skipped": "new_signal_disabled"}
@@ -117,6 +117,16 @@ async def notify_signal(signal_id: int, event: str = "new") -> dict[str, Any]:
         targets = ", ".join(str(x) for x in (row.targets or [])) or "—"
         stop = (row.stop or {}).get("price") if row.stop else None
         prefix = "✏️ SIGNAL EDITED" if event == "edit" else "🛰 NEW SIGNAL"
+        detail = ""
+        if event == "edit" and raw_event_id is not None:
+            try:
+                from app.models.telegram_audit import TelegramSignalVersionRecord
+                version = db.query(TelegramSignalVersionRecord).filter(TelegramSignalVersionRecord.raw_event_id == raw_event_id).first()
+                if version:
+                    flags = ", ".join(version.integrity_flags_json or []) or "text-only/no trading-rule change"
+                    detail = f"\nChanged: {flags}"
+            except Exception:
+                detail = ""
         text = (
             f"{prefix}\n"
             f"{row.symbol} · {row.side.upper()}\n"
@@ -125,6 +135,7 @@ async def notify_signal(signal_id: int, event: str = "new") -> dict[str, Any]:
             f"Stop: {stop if stop is not None else '—'}\n"
             f"Confidence: {row.confidence * 100:.2f}%\n"
             f"Status: simulation monitoring"
+            f"{detail}"
         )
     return await send_message(text)
 
@@ -240,3 +251,16 @@ async def send_daily_summary(*, force: bool = False) -> dict[str, Any]:
 
 async def notify_system_error(text: str) -> dict[str, Any]:
     return await send_message(f"⚠️ TALOS ERROR\n{text[:3500]}")
+
+
+async def notify_signal_deleted(source_id: int, message_id: str) -> dict[str, Any]:
+    cfg = notification_config()
+    if not cfg.get("signal_edited", True):
+        return {"ok": False, "skipped": "signal_edited_disabled"}
+    text = (
+        "🗑 SIGNAL MESSAGE DELETED\n"
+        f"Source ID: {source_id}\n"
+        f"Telegram message: {message_id}\n"
+        "Talos preserved the previously observed versions for audit."
+    )
+    return await send_message(text)
