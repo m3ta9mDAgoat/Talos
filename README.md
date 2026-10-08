@@ -1,6 +1,19 @@
-# Talos v4.3.0
+# Talos v4.3.1
 
-Current build: `talos-v4.3-telegram-live-audit`
+Current build: `talos-v4.3.1-neon-saver-exact-splash`
+
+## v4.3.1 database + intro fixes
+- Uses the exact supplied Talos splash artwork (original PNG plus a 2x lossless upscale); no synthetic eye-glow overlay.
+- Keeps the visor zoom transition only.
+- Idle SQL workers are event-driven instead of polling Neon every 3–15 seconds.
+- Telegram source-list refresh is in-memory/event-triggered with a 30-minute safety refresh.
+- Telegram reconnect performs an immediate catch-up, so real-time delivery does not depend on minute polling.
+- Source processing queries only new/version-stale raw events instead of loading the complete archive every cycle.
+- Source statistics use SQL GROUP BY aggregates instead of transferring every label/state row.
+- Raw message text is stored once in `raw_events.text`; new event payloads no longer duplicate the same text.
+- Live-simulation SQL checks sleep when no simulations are active and wake immediately for a new/edited signal.
+- If PostgreSQL is temporarily unavailable/quota-blocked, the web/static frontend stays online in degraded mode instead of causing a Render 502.
+- `/api/v1/system/database/usage` reports current database size and the largest tables on demand.
 
 ## Telegram live audit
 - Event-stream watcher for new messages and edits, plus periodic catch-up.
@@ -88,8 +101,8 @@ Python remains the orchestration/integration layer. Numerical bottlenecks should
 
 ## Build verification
 
-- `/health` → version `4.0.0`
-- `/api/public/build` → build id `talos-v4.3-telegram-live-audit`
+- `/health` → version `4.3.1`
+- `/api/public/build` → build id `talos-v4.3.1-neon-saver-exact-splash`
 
 
 ## Telegram notification bot
@@ -114,9 +127,9 @@ The web process runs an embedded watcher by default (`EMBEDDED_LIVE_WATCHER=true
 Render Free can sleep; when it is asleep it cannot provide true 24/7 monitoring. The next wake/sync catches up messages, while a permanent worker is required for uninterrupted alerts.
 
 
-## v4.2 live UI
+## Live UI
 
-- Minimal helmet intro uses `/frontend/public/talos-helmet.png`.
-- On load the intro zooms into the visor/eyes and dissolves into the already-mounted dashboard.
+- The intro uses the exact supplied artwork in `/frontend/public/talos-splash.png` with a 2x version for high-DPI displays.
+- No eye-light animation is added; only the camera zooms into the visor and dissolves into the already-mounted dashboard.
 - Overview, markets, paper portfolio, portfolio and live execution status refresh automatically while visible. Existing job/source/live-monitor pages retain their own faster polling loops.
 - A light health heartbeat runs while the dashboard is open; durable workers/jobs remain server-side and do not depend on the browser.
