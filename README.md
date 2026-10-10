@@ -1,10 +1,16 @@
-# Talos v4.4.1 — Market Intelligence + Mission Control
+# Talos v4.5.1 — Full Application (Frontend + Backend)
 
-**Current upgrade:** See [`V4.4_FULL_INTELLIGENCE.md`](V4.4_FULL_INTELLIGENCE.md) for the implemented adapters, API, operating instructions, zero-spend precautions, tests, and release limitations. Render + Neon unchanged; original splash image unchanged.
+**Existing hosting preserved: Render + Neon.** This complete archive contains the React UI, FastAPI API, database models, OSINT collectors, backend tests, Docker files and deployment configuration. The v4.5.1 compatibility fix imports `os` before reading `TALOS_STATIC_DIR`, and aligns the displayed frontend/backend versions. Local development and Compose now proxy API requests so admin cookies work on the same browser origin.
+
+**Important:** Backend unit tests pass; the full Docker build and real Render/Neon service still require installation/deployment checks in an environment with npm packages, Python wheels and Docker access. Do not regard this archive as proof that live exchange orders, OSINT feeds or cloud credentials are already functioning. [Compatibility report](COMPATIBILITY_REPORT.md).
+
+Quick deployment: upload **all files at repository root**, preserving `backend/` and `frontend/`. On Render use **Root Directory blank**, **Dockerfile Path `./Dockerfile`**, **Docker Build Context `.`**, and health check `/health`. Set `DATABASE_URL` and `SECRET_KEY` in Environment, keep live trading disabled.  This is a substantive version upgrade of the available Talos v4.4 codebase, not a deployed service, or a new infrastructure. See [`CHANGELOG_V4.5.md`](CHANGELOG_V4.5.md), [`docs/V4_5_INTELLIGENCE.md`](docs/V4_5_INTELLIGENCE.md) and [`docs/RENDER_NEON_V45_DEPLOY.md`](docs/RENDER_NEON_V45_DEPLOY.md) for actual capabilities, operational limitations, API contracts, safety and upgrade steps.
+
+The previous v4.3/v4.4 core behavior and operational instructions follow for continuity.
 
 ---
 
-# Talos v4.3.1
+## Talos v4.3.1 previous-core reference
 
 Current build: `talos-v4.3.1-neon-saver-exact-splash`
 
@@ -139,3 +145,7 @@ Render Free can sleep; when it is asleep it cannot provide true 24/7 monitoring.
 - No eye-light animation is added; only the camera zooms into the visor and dissolves into the already-mounted dashboard.
 - Overview, markets, paper portfolio, portfolio and live execution status refresh automatically while visible. Existing job/source/live-monitor pages retain their own faster polling loops.
 - A light health heartbeat runs while the dashboard is open; durable workers/jobs remain server-side and do not depend on the browser.
+
+## Troubleshooting: Render root returns 404
+
+If `/health` works but `/` returns JSON `{"detail":"Not Found"}`, Render is probably using the backend-only build. The repository-root `Dockerfile` builds the React UI and copies it to `/app/static`. See [docs/FIX_RENDER_ROOT_404.md](docs/FIX_RENDER_ROOT_404.md) for the existing-service settings and checks. This v4.5.1 patch does not migrate off Render + Neon.

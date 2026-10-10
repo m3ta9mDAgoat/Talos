@@ -1,3 +1,23 @@
-Talos v4.3.1
-Build: talos-v4.3.1-neon-saver-exact-splash
-Expected /health version: 4.3.1
+Talos v4.5.1 / homepage fix
+
+Render existing service (Docker runtime):
+  Root Directory:          [blank]
+  Dockerfile Path:         ./Dockerfile
+  Docker Build Context:    .
+  Health Check Path:       /health
+
+The Render build log MUST show frontend-build, npm run build, and
+Docker copying /frontend/dist into /app/static.
+
+Expected URLs:
+  /                         React Dashboard (HTML 200)
+  /talos-splash-2x.png      Original splash asset (image 200)
+  /health                   FastAPI status JSON (200)
+  /api/public/build         Build info JSON (200)
+
+If root returns text beginning 'Talos API is online, but the dashboard
+build is missing', Render is still running backend without static assets.
+
+Backend unit tests: 30 passed locally. Frontend TypeScript syntax and 74 static
+frontend-to-backend API calls were checked. Node dependency installation, frontend build,
+Docker image, and actual Render/Neon deployment require further checks.
