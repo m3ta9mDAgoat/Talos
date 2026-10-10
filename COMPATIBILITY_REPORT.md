@@ -1,3 +1,15 @@
+# Talos v4.7.3 Compatibility / Verification
+
+- Backend 99 files; frontend 24 files. Root-relative paths as in previous GitHub release.
+- Replay now uses archived raw revisions for recovery if stored parsed BUY signals are empty.
+- Latest edited revision at original message time is explicitly biased (research only); `from_edit` remains available.
+- Fixed dashboard polling causing repeated expensive readiness requests.
+- Deduplication version changed so old completed empty replay cannot be reused after upgrading.
+- Regression: SQLite archive -> 2 candidates -> 2 mock persisted results; failed parsing explains rejection; duplicate jobs deduplicated.
+- Python syntax and TS/TSX syntax passed. Full Docker/React build and live PostgreSQL/Telegram/exchange integrations unverified.
+
+---
+
 v4.7.2 checks: 44 local backend unit tests; Python syntax compile; frontend TypeScript parser: no syntax diagnostics; static API paths review. Live Telegram MTProto, exchange candles, full npm/Vite/Docker build and deployed Neon/Render were NOT verified. Evidence comparisons cannot prove plagiarism.
 
 # Talos v4.6.0 — Compatibility and verification
