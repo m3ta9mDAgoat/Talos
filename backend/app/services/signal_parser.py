@@ -18,9 +18,10 @@ class TelegramSignalParser:
 
     _symbol_patterns = [
         re.compile(r"\b([A-Z0-9]{2,20})\s*[|/]\s*([A-Z0-9]{2,12})\b", re.I),
-        re.compile(r"\$([A-Z0-9]{2,20})\b", re.I),
+        re.compile(r"(?<![A-Za-z0-9])(?:#|\$)?([A-Z][A-Z0-9]{1,18})\s*[-_ ]?\s*(USDT|USDC|USD|BTC|ETH)\b", re.I),
+        re.compile(r"(?:#|\$)([A-Z][A-Z0-9]{1,18})\b", re.I),
     ]
-    _buy = re.compile(r"\bBUY\b|\bLONG\b|شراء|دخول", re.I)
+    _buy = re.compile(r"\bBUY\b|\bLONG\b|\bSPOT\b|شراء|دخول|صفقة\s*شراء", re.I)
     _sell = re.compile(r"\bSELL\b|\bSHORT\b|بيع", re.I)
 
     _entry_range_patterns = [
@@ -28,11 +29,11 @@ class TelegramSignalParser:
         re.compile(rf"(?:ZONE|من)\s*{_NUMBER}\s*(?:-|–|—|TO|الى|إلى)\s*{_NUMBER}", re.I),
     ]
     _entry_price_patterns = [
-        re.compile(rf"(?:ENTRY|ENTER|BUY|دخول|شراء)\s*(?:AT|@)?\s*[:：-]?\s*{_NUMBER}", re.I),
+        re.compile(rf"(?:ENTRY(?:\s+PRICE)?|ENTER|BUY(?:\s+PRICE)?|دخول|شراء|نقطة\s*الدخول)\s*(?:AT|@|ZONE|PRICE|سعر|عند)?\s*[:：=@-]?\s*{_NUMBER}", re.I),
     ]
 
-    _target_line = re.compile(rf"(?:TP\s*\d*|TARGET\s*\d*|هدف\s*\d*|\b\d+\s*:)\s*[:：=-]?\s*{_NUMBER}", re.I)
-    _targets_inline = re.compile(r"(?:TP|TARGETS?|الأهداف|اهداف|أهداف)\s*[:：=-]?\s*([0-9.,\s/|;-]+)", re.I)
+    _target_line = re.compile(rf"(?:TP\s*\d*|TARGET(?:\s*#?\d\d?(?=\s*[:：=@-]))?|TAKE\s*PROFIT(?:\s*#?\d\d?(?=\s*[:：=@-]))?|هدف\s*\d*|الهدف\s*\d*|\b\d+\s*:)\s*[:：=@-]?\s*{_NUMBER}", re.I)
+    _targets_inline = re.compile(r"(?:TPS?|TARGETS?|TAKE\s*PROFIT|الأهداف|اهداف|أهداف)\s*[:：=-]?\s*([0-9.,\s/|;–-]+)", re.I)
 
     _stop_price_patterns = [
         re.compile(rf"(?:SL|STOP(?:\s*LOSS)?|وقف)\s*[:：=-]?\s*{_NUMBER}", re.I),
@@ -98,6 +99,9 @@ class TelegramSignalParser:
                     entry = EntrySpec(type="price", price=self._float(match.group(1)))
                     score_parts += 1
                     break
+        if entry is None and re.search(r"(?:BUY|ENTER|ENTRY|شراء|دخول).{0,18}(?:NOW|MARKET|سوق|الآن|فوري)|(?:MARKET|NOW).{0,12}(?:BUY|شراء)", cleaned, re.I | re.S):
+            entry = EntrySpec(type="market")
+            score_parts += 1
         if entry is None:
             warnings.append("Could not determine entry price/zone.")
 

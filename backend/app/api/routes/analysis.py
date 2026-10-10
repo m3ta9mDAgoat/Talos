@@ -48,7 +48,7 @@ async def advance_analysis(run_id: int, batch_size: int = Query(default=4, ge=1,
 
 
 @router.get("/sources/{source_id}/readiness")
-def source_replay_readiness(source_id: int, edit_policy: str = "from_edit", require_stop: bool = False):
+def source_replay_readiness(source_id: int, edit_policy: str = "optimistic", require_stop: bool = False):
     try:
         cfg = AnalyzeSourceRequest(edit_policy=edit_policy, require_stop=require_stop)
         return replay_readiness(source_id, cfg)

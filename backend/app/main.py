@@ -26,8 +26,8 @@ from app.services.news_trading import paper_monitor_loop, sentiment_replay_loop
 from app.scripts.universal_worker import watcher_loop
 from app.services.security import SESSION_COOKIE, admin_exists, validate_session
 
-VERSION = "4.7.2"
-BUILD_ID = "talos-v4.7.2-replay-diagnostics-dedupe"
+VERSION = "4.7.3"
+BUILD_ID = "talos-v4.7.3-archive-first-replay"
 
 _runtime_lock = threading.Lock()
 _runtime_threads: dict[str, threading.Thread] = {}

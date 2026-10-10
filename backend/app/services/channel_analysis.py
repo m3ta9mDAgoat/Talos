@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from collections import Counter
+from sqlalchemy import or_
+from app.services.signal_parser import telegram_signal_parser
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -153,9 +155,99 @@ def _eligibility(source_record_id: int, source_identifier: str, cfg: AnalyzeSour
             excluded_missing_targets += 1; continue
         eligible.append({"id": r.id, "signal": signal, "metadata": metadata})
 
+    # Archive-first recovery: old classifiers frequently rejected channel-specific formatting.
+    # Replay must not depend entirely on canonical SignalRecord materialization.
+    # Only invoke the recovery scan when there are no eligible canonical trades.
+    archived_examined = archived_parsed = archived_rejected = 0
+    archived_reasons: Counter[str] = Counter()
+    archived_samples: list[dict[str, Any]] = []
+    archive_truncated = False
+    if not eligible and cfg.edit_policy in {"strict", "from_edit", "optimistic"}:
+        # Descending order ensures the latest known revision is evaluated once per message.
+        # Fetch only the necessary columns to limit Neon transfer size and avoid ORM bloat.
+        cap = min(12000, max(500, int(cfg.max_signals)))
+        with SessionLocal() as db:
+            rows = (db.query(RawEventRecord.id, RawEventRecord.external_id, RawEventRecord.occurred_at,
+                             RawEventRecord.text, RawEventRecord.event_type, RawEventRecord.metadata_json)
+                    .filter(RawEventRecord.source_identifier == source_identifier)
+                    .order_by(RawEventRecord.id.desc()).limit(cap + 1).all())
+        archive_truncated = len(rows) > cap
+        rows = rows[:cap]
+        latest: dict[str, Any] = {}
+        earliest: dict[str, Any] = {}
+        for raw in rows:
+            key = str(raw.external_id)
+            latest.setdefault(key, raw)
+            earliest[key] = raw
+        for key, raw in latest.items():
+            archived_examined += 1
+            original = earliest[key]
+            if str(raw.event_type or '').lower() == 'delete':
+                archived_reasons['deleted_message'] += 1
+                continue
+            if cfg.edit_policy == 'strict':
+                if str(original.event_type or '').lower() != 'message' or (original.metadata_json or {}).get('edit_date'):
+                    archived_reasons['original_revision_not_observed'] += 1
+                    continue
+                raw = original
+            raw_meta = dict(raw.metadata_json or {})
+            text = str(raw.text or '').strip()
+            if not text:
+                archived_reasons['empty_text'] += 1
+                continue
+            parsed = telegram_signal_parser.parse(text, timestamp=raw.occurred_at,
+                        source_id=source_identifier, source_message_id=key,
+                        default_quote='USDT')
+            sig = parsed.signal
+            if not sig:
+                why = 'symbol_or_format_unrecognized'
+            elif sig.side != Side.BUY:
+                why = 'not_spot_buy'
+            elif not sig.entry:
+                why = 'entry_not_found'
+            elif not sig.targets:
+                why = 'targets_not_found'
+            elif cfg.require_stop and not sig.stop:
+                why = 'stop_not_found'
+            else:
+                why = None
+            if why:
+                archived_rejected += 1
+                archived_reasons[why] += 1
+                if len(archived_samples) < 6 and why in {'symbol_or_format_unrecognized','entry_not_found','targets_not_found'}:
+                    # Only a short snippet from the selected channel, shown to its operator.
+                    archived_samples.append({'message_id': key, 'reason': why, 'text_preview': text[:220]})
+                continue
+            archived_parsed += 1
+            meta = dict(sig.metadata or {})
+            meta['replay_revision'] = 'archive_latest_at_original_time' if cfg.edit_policy == 'optimistic' else 'archive_replay'
+            meta['lookahead_risk'] = cfg.edit_policy == 'optimistic' and (raw.id != original.id or bool(raw_meta.get('edit_date')))
+            meta['archived_raw_event_id'] = raw.id
+            meta['archive_first_recovery'] = True
+            meta['original_message_at'] = original.occurred_at.isoformat()
+            replay_at = original.occurred_at
+            if replay_at.tzinfo is None:
+                replay_at = replay_at.replace(tzinfo=timezone.utc)
+            if cfg.edit_policy == 'from_edit' and (raw.id != original.id or bool(raw_meta.get('edit_date'))):
+                edit_at = raw_meta.get('edit_date')
+                try:
+                    replay_at = datetime.fromisoformat(str(edit_at).replace('Z', '+00:00')) if edit_at else raw.occurred_at
+                    if replay_at.tzinfo is None:
+                        replay_at = replay_at.replace(tzinfo=timezone.utc)
+                except (TypeError, ValueError):
+                    replay_at = raw.occurred_at
+            sig = sig.model_copy(update={'timestamp':replay_at,'metadata':meta,'status':SignalStatus.PARSED})
+            # Negative signal id references a raw archive snapshot, not a live SignalRecord.
+            # signal_backtests.signal_id has no FK and permits these synthetic replay IDs.
+            eligible.append({'id':-int(raw.id),'signal':sig,'metadata':raw_meta})
+        eligible.sort(key=lambda x:x['signal'].timestamp)
+
     return {"all_rows":all_rows,"parsed_buy":parsed_buy,"eligible":eligible,"status_counts":status_counts,"side_counts":side_counts,
         "edited_snapshot_count":edited_snapshot_count,"excluded_edited":excluded_edited,"excluded_no_original_revision":excluded_no_original,
-        "excluded_missing_stop":excluded_no_stop,"excluded_missing_entry":excluded_missing_entry,"excluded_missing_targets":excluded_missing_targets}
+        "excluded_missing_stop":excluded_no_stop,"excluded_missing_entry":excluded_missing_entry,"excluded_missing_targets":excluded_missing_targets,
+        "archive_recovery_scanned":archived_examined, "archive_recovery_parsed":archived_parsed,
+        "archive_recovery_rejected":archived_rejected, "archive_recovery_reasons":dict(archived_reasons),
+        "archive_recovery_examples":archived_samples, "archive_recovery_truncated":archive_truncated}
 
 
 async def _fetch_with_fallback(signal: NormalizedSignal, cfg: AnalyzeSourceRequest):
@@ -230,6 +322,7 @@ async def _analyze_one(item: dict[str, Any], cfg: AnalyzeSourceRequest, semaphor
     )
     payload = result.model_dump(mode="json")
     payload.update({
+        "signal_provenance": signal.metadata,
         "fetch_errors": fetch_errors[-10:],
         "timeframe": cfg.timeframe,
         "horizon_days": cfg.horizon_days,
@@ -319,6 +412,11 @@ def _build_summary(
         "source_identifier": source_identifier,
         "history_complete": bool((source_config or {}).get("history_complete", False)),
         "signals_total_considered": len(info["all_rows"]),
+        "archive_recovery_scanned":info.get('archive_recovery_scanned',0),
+        "archive_recovery_parsed":info.get('archive_recovery_parsed',0),
+        "archive_recovery_reasons":info.get('archive_recovery_reasons',{}),
+        "archive_recovery_examples":info.get('archive_recovery_examples',[]),
+        "archive_recovery_truncated":info.get('archive_recovery_truncated',False),
         "signal_status_counts": dict(info["status_counts"]),
         "signal_side_counts": dict(info["side_counts"]),
         "signals_parsed_buy": len(info["parsed_buy"]),
@@ -369,6 +467,10 @@ def _build_summary(
         warnings.append("Channel history is partial; this run is a preview.")
     if info["edited_snapshot_count"]:
         warnings.append(f"Edit replay policy: {cfg.edit_policy}. Edited snapshots: {info['edited_snapshot_count']}; strict exclusions without an observed original: {info.get('excluded_no_original_revision',0)}.")
+    if info.get('archive_recovery_parsed'):
+        warnings.append(f"Archive-first replay recovered {info['archive_recovery_parsed']} eligible recommendations excluded by the old signal-classification pipeline.")
+    if cfg.edit_policy == 'optimistic':
+        warnings.append('LOOK-AHEAD BIAS: edited message contents are assumed known at the original posting time. Research only; not an executable historical strategy.')
     if not eligible_count:
         warnings.append(
             "NO ELIGIBLE SIGNALS — no trades were evaluated. Inspect source readiness: archive, processing, classification and rejection counters. This is not a successful backtest."
@@ -525,13 +627,13 @@ def replay_readiness(source_id: int, config: AnalyzeSourceRequest | None = None)
     reasons = []
     if not st["raw_rows"]:
         reasons.append("No Telegram messages archived for this source. Import / verify its history in Sources first.")
-    if st["raw_rows"] and not st["processed_states"]:
+    if st["raw_rows"] and not st["processed_states"] and not count:
         reasons.append("Archived messages have not been classified. Run Process in Sources and wait for the job to finish.")
-    elif st["raw_rows"] > st["processed_states"]:
+    elif st["raw_rows"] > st["processed_states"] and not count:
         reasons.append(f"{st['raw_rows'] - st['processed_states']} archived revisions may be unprocessed; run Process in Sources.")
-    if st["processed_states"] and not st["signals"]:
+    if st["processed_states"] and not st["signals"] and not count:
         reasons.append("Messages were processed, but no trade signals were parsed. Inspect classification totals and source message format; importing more history may help.")
-    if st["signals"] and not parsed:
+    if st["signals"] and not parsed and not count:
         reasons.append("Signals exist, but none is a PARSED BUY for this source. Inspect signal statuses and directions.")
     if parsed and not count:
         reasons.append("BUY signals were found, but entry / targets / edit-policy / stop requirements exclude them. Inspect rejection counters.")
@@ -551,6 +653,11 @@ def replay_readiness(source_id: int, config: AnalyzeSourceRequest | None = None)
         "excluded_missing_stop": info["excluded_missing_stop"],
         "excluded_edited": info["excluded_edited"],
         "excluded_no_original_revision": info["excluded_no_original_revision"],
+        "archive_recovery_scanned": info.get("archive_recovery_scanned",0),
+        "archive_recovery_parsed": info.get("archive_recovery_parsed",0),
+        "archive_recovery_reasons": info.get("archive_recovery_reasons",{}),
+        "archive_recovery_examples": info.get("archive_recovery_examples",[]),
+        "archive_recovery_truncated": info.get("archive_recovery_truncated",False),
         "history_complete": history_complete,
         "reasons": reasons,
         "ready": count > 0,

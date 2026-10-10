@@ -57,7 +57,7 @@ def create_or_reuse_user_job(kind: str, payload: dict[str, Any], *, max_attempts
         with SessionLocal() as db:
             source_id = int(clean.get('source_id', 0)) if clean.get('source_id') is not None else 0
             if kind == 'telegram_replay' and source_id:
-                clean['_input_snapshot'] = _replay_snapshot(db, source_id)
+                clean['_input_snapshot'] = 'archive-first-v4.7.3|' + _replay_snapshot(db, source_id)
             sig = hashlib.sha256(json.dumps([kind, clean], sort_keys=True, default=str, separators=(',', ':')).encode()).hexdigest()
             # Serialize simultaneous POST requests across instances using a Postgres advisory transaction lock.
             if db.bind.dialect.name == 'postgresql':
