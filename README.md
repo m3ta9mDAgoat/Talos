@@ -1,3 +1,9 @@
+# Talos v4.7.6 — adaptive Telegram signal horizon
+
+Live paper signal simulations now select a per-trade review time from target distance and past 1m volatility. Duration, decision inputs, planned exit, and outcome are persisted on the original simulation record. Telegram completion notifications use a retryable database outbox. This is research-only and not live trading.
+
+See `docs/TALOS_V475_ADAPTIVE_HORIZON_AR.md` for the Arabic strategy and limitations. v4.7.6 additionally recovers the last pre-deadline market candle after worker restarts/advanced cursors without looking into future bars.
+
 # Talos v4.7.3 — Telegram Replay archive-first recovery
 
 **This version replaces the v4.7.2 replay-empty workaround.** It reads actual archived Telegram messages if the older classified signal table contains zero eligible BUY signals. It supports `#SOLUSDT`, `BTCUSDT`, `BTC/USDT`, `Entry`, `TP/Target`, `SL/Stop` variants, and revised content. It does not invent missing prices, entries, or targets.
@@ -46,3 +52,6 @@ Validation: 36 backend unit tests pass; 84 static API call matches; TSX parses s
 ### v4.7.1 notification improvements
 
 The automatic **late-news sentiment backtest** now records both profitable and losing missed simulated trades in a durable `news_missed_alerts` PostgreSQL outbox and submits each one to the existing notification bot. Two independently configurable flags (`missed_wins`, `missed_losses`) default to true. Replays initiated manually are report-only, not a historical alert flood. Delivery counts can be inspected in Admin. Historical OHLCV simulation is not a live or paper fill, and real-money news orders remain disabled.
+
+
+Talos v4.7.4: Telegram replay parser recognizes T1-T5 and keycap targets, and reruns historical signal text via backend.

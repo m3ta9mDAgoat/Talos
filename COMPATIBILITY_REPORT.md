@@ -1,3 +1,16 @@
+# Talos v4.7.6 Release Verification (2026-10-10)
+
+- Backend 99 files; frontend 24 files. Backend and frontend retain the two-stage, root-relative GitHub upload layout.
+- Live adaptive duration: fixed at entry from first target/stop geometry and **pre-entry** 1m volatility; 15min–72h policy bounds, entry waiting plan independent.
+- P&L and outcome persist in `live_signal_simulations.state.evaluation`, with entry/exit evidence and explicit fee/slippage assumptions. No real-money execution added.
+- Completion notifications queued in persisted `delivery_pending` and retried if Telegram delivery fails.
+- v4.7.6 additionally recovers the final pre-deadline candle after server restarts and advanced cursors; avoids using post-deadline prices.
+- Local checks: 13 automated SQLite/parser/horizon/monitor/outbox tests passed; Python compileall; frontend TS/TSX syntax transpile diagnostics=0.
+- Limitations: Full frontend dependency build was not run; FastAPI import blocked by absent `telethon` in test environment. No deployed Render, Neon, live MTProto, Telegram bot, or public exchange calls tested. Live adaptive horizons are separate from historical Replay policy.
+- Optional LLM fallback requires AI credentials in Secure Vault, and applies only to otherwise-unresolved structured signal formats. No success-rate guarantee.
+
+---
+
 # Talos v4.7.3 Compatibility / Verification
 
 - Backend 99 files; frontend 24 files. Root-relative paths as in previous GitHub release.
@@ -46,3 +59,6 @@ v4.7.2 checks: 44 local backend unit tests; Python syntax compile; frontend Type
 - New `SentimentBacktestPanel` inside existing React `News Strategy`, no new frontend runtime dependency.
 - Python syntax, baseline 36 tests, new simulator tests, JS/TSX syntax and static frontend↔backend API matcher are locally validated. Actual Render/Neon exchange time series and npm/Docker production build **not verified**.
 - **No real-money trade route** was added. Historical OHLCV 1m results do not demonstrate 5s fills. Read `docs/TALOS_V47_SENTIMENT_BACKTEST_AR.md` before interpreting metrics.
+
+
+Talos v4.7.4: backend parser fix; frontend API calls unchanged. Deployed exchange and Neon backtest remain unverified.
