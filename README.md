@@ -1,3 +1,9 @@
+# Talos v4.4.1 — Market Intelligence + Mission Control
+
+**Current upgrade:** See [`V4.4_FULL_INTELLIGENCE.md`](V4.4_FULL_INTELLIGENCE.md) for the implemented adapters, API, operating instructions, zero-spend precautions, tests, and release limitations. Render + Neon unchanged; original splash image unchanged.
+
+---
+
 # Talos v4.3.1
 
 Current build: `talos-v4.3.1-neon-saver-exact-splash`
