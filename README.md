@@ -1,3 +1,7 @@
+## v4.7.2 Telegram Replay and live edit evidence
+
+Telegram Replay now diagnoses empty successful-looking results; edit handling explicitly offers original-only, **include edited from edit time** (default), and a marked look-ahead research mode. Live Monitor reports actual per-source MTProto connection state and provides evidence from each observed revision, with explicit source-overlap indicators rather than ungrounded plagiarism verdicts. See `docs/TALOS_V472_TELEGRAM_EDIT_AUDIT.md` for details and limitations. Backtest data availability still depends on the archived source and external market data.
+
 # Talos v4.7.1 — Auditable Sentiment Replay
 
 New: deterministic versioned sentiment rules, frozen point-in-time headlines, durable replay jobs, missed profitable hypothetical trades, monthly metrics, CSV audit, and no live news auto orders. See `docs/TALOS_V47_SENTIMENT_BACKTEST_AR.md` and `docs/TALOS_V47_DEPLOY.md`.

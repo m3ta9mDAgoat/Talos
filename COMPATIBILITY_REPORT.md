@@ -1,3 +1,5 @@
+v4.7.2 checks: 44 local backend unit tests; Python syntax compile; frontend TypeScript parser: no syntax diagnostics; static API paths review. Live Telegram MTProto, exchange candles, full npm/Vite/Docker build and deployed Neon/Render were NOT verified. Evidence comparisons cannot prove plagiarism.
+
 # Talos v4.6.0 — Compatibility and verification
 
 ## Verified locally
