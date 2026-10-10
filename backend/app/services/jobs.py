@@ -4,6 +4,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from sqlalchemy import case
 from app.db.session import SessionLocal
 from app.models.jobs import JobRecord
 from app.services.runtime_wake import JOB_WAKE_EVENT, wake_jobs
@@ -24,6 +25,7 @@ def create_job(kind: str, payload: dict[str, Any], *, max_attempts: int = 20) ->
 def job_dict(row: JobRecord) -> dict[str, Any]:
     return {
         "id": row.id, "kind": row.kind, "status": row.status, "progress": row.progress,
+        "stage": (row.result_json or {}).get("stage") or (row.state_json or {}).get("stage") or ("Waiting for worker" if row.status == "queued" else "Processing"),
         "payload": row.payload_json or {}, "state": row.state_json or {}, "result": row.result_json or {},
         "attempts": row.attempts, "max_attempts": row.max_attempts, "next_run_at": row.next_run_at,
         "heartbeat_at": row.heartbeat_at, "error": row.error, "created_at": row.created_at,
@@ -105,6 +107,16 @@ async def _handle(row: JobRecord) -> tuple[bool, float, dict[str, Any], dict[str
             raise RuntimeError(run.error or "Strategy backtest failed")
         return run.status == "complete", float(run.progress or 0.0), state, result
 
+    if row.kind == "news_alerts":
+        from app.services.notifications import send_news_digest
+        result = await send_news_digest()
+        return True, 1.0, state, result
+
+    if row.kind == "news_auto_paper":
+        from app.services.news_trading import auto_paper_cycle
+        result = await auto_paper_cycle()
+        return True, 1.0, state, result
+
     if row.kind == "research_extract":
         from app.models.research import ResearchArtifactRecord
         from app.services.research_service import draft_strategy
@@ -137,6 +149,18 @@ async def _handle(row: JobRecord) -> tuple[bool, float, dict[str, Any], dict[str
     raise ValueError(f"Unknown job kind: {row.kind}")
 
 
+async def _heartbeat_until_done(job_id: int, done_event: asyncio.Event):
+    while not done_event.is_set():
+        try:
+            await asyncio.wait_for(done_event.wait(), timeout=30.0)
+        except asyncio.TimeoutError:
+            with SessionLocal() as db:
+                row = db.get(JobRecord, job_id)
+                if row and row.status == "running":
+                    row.heartbeat_at = utcnow()
+                    db.commit()
+
+
 async def run_one_job(job_id: int) -> dict[str, Any]:
     with SessionLocal() as db:
         row = db.get(JobRecord, job_id)
@@ -145,6 +169,8 @@ async def run_one_job(job_id: int) -> dict[str, Any]:
         row.status = "running"; row.heartbeat_at = utcnow(); row.updated_at = utcnow(); row.error = None
         db.commit()
 
+    stop_heartbeat = asyncio.Event()
+    heartbeat_task = asyncio.create_task(_heartbeat_until_done(job_id, stop_heartbeat))
     try:
         with SessionLocal() as db:
             snapshot = db.get(JobRecord, job_id)
@@ -178,6 +204,9 @@ async def run_one_job(job_id: int) -> dict[str, Any]:
             except Exception:
                 pass
         return result
+    finally:
+        stop_heartbeat.set()
+        await heartbeat_task
 
 
 async def worker_once(limit: int = 3) -> int:
@@ -188,7 +217,9 @@ async def worker_once(limit: int = 3) -> int:
         for row in stale:
             row.status = "retrying"; row.next_run_at = now; row.error = "Recovered after stale worker heartbeat"
         db.commit()
-        ids = [x.id for x in db.query(JobRecord).filter(JobRecord.status.in_(["queued", "retrying"]), JobRecord.next_run_at <= now).order_by(JobRecord.id.asc()).limit(limit).all()]
+        ids = [x.id for x in db.query(JobRecord).filter(JobRecord.status.in_(["queued", "retrying"]), JobRecord.next_run_at <= now).order_by(case((JobRecord.kind == "news_alerts", 0),
+                (JobRecord.kind == "news_auto_paper", 1), else_=2),
+                JobRecord.id.asc()).limit(limit).all()]
     for jid in ids:
         await run_one_job(jid)
     return len(ids)

@@ -264,3 +264,86 @@ async def notify_signal_deleted(source_id: int, message_id: str) -> dict[str, An
         "Talos preserved the previously observed versions for audit."
     )
     return await send_message(text)
+
+
+async def send_news_digest(limit: int = 8) -> dict[str, Any]:
+    """Notify important trade-relevant news, without pretending it predicts price."""
+    from sqlalchemy import select
+    from app.models.intelligence import IntelligenceEvent
+    from app.services.news_trading import get_candidate
+    state = get_runtime("news_bot_delivery", {})
+    last_id = int(state.get("last_id") or 0)
+    with SessionLocal() as db:
+        items = db.scalars(select(IntelligenceEvent.id).where(
+            IntelligenceEvent.id > last_id, IntelligenceEvent.importance >= 75,
+        ).order_by(IntelligenceEvent.id.asc()).limit(limit)).all()
+    delivered = 0
+    for event_id in items:
+        candidate = get_candidate(event_id)
+        # Don't spam with non-tradable headlines. Still notify missed/fresh candidates,
+        # since editorial signal is separate from auto-entry permission.
+        if candidate["symbol"] and candidate["event_type_at_first_observation"] in {"listing", "delisting", "security_incident"}:
+            age = int(candidate["age_sec"])
+            msg = (f"📰 TALOS NEWS ALERT #{event_id}\n{candidate['headline'][:280]}\n"
+                   f"{candidate['symbol']} · age since observation: {age}s\n"
+                   f"Status: {'PAPER-ELIGIBLE' if candidate['actionable'] else 'Review only / stale'}\n"
+                   f"Estimated success probability: unavailable (not calibrated)\n"
+                   f"Private chat: /paper {event_id} (only if still fresh and risk checks pass)")
+            try:
+                response = await send_message(msg)
+                if not response.get("ok"):
+                    # No configured bot: do not falsely mark notifications delivered.
+                    return {"ok": False, "delivered": delivered, "reason": response.get("skipped")}
+                delivered += 1
+            except Exception as exc:
+                return {"ok": False, "delivered": delivered, "error": str(exc)[:200]}
+        last_id = event_id
+        set_runtime("news_bot_delivery", {"last_id": last_id})
+    return {"ok": True, "delivered": delivered, "last_id": last_id}
+
+
+async def telegram_paper_command_loop() -> None:
+    """Optional private-chat command consumer, enabled only with an explicit env flag.
+
+    Telegram updates are acknowledged by a durable offset in Neon; only the
+    saved private notification chat may submit `/paper ID`. No live orders.
+    """
+    import asyncio
+    import os
+    if os.getenv("TELEGRAM_PAPER_COMMANDS_ENABLED", "false").lower() != "true":
+        return
+    while True:
+        try:
+            token, chat_id = _credentials()
+            if not token or not chat_id:
+                await asyncio.sleep(90)
+                continue
+            offset = int(get_runtime("news_bot_updates", {}).get("offset") or 0)
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.get(f"https://api.telegram.org/bot{token}/getUpdates", params={
+                    "offset": offset, "timeout": 20, "limit": 15,
+                    "allowed_updates": '["message"]',
+                })
+                response.raise_for_status()
+                updates = response.json().get("result") or []
+            for item in updates:
+                new_offset = int(item["update_id"]) + 1
+                message = item.get("message") or {}
+                chat = message.get("chat") or {}
+                command = (message.get("text") or "").strip()
+                if str(chat.get("id")) == str(chat_id) and chat.get("type") == "private":
+                    pieces = command.split()
+                    if len(pieces) == 2 and pieces[0].split("@")[0] == "/paper" and pieces[1].isdigit():
+                        try:
+                            from app.services.news_trading import paper_entry
+                            result = await paper_entry(int(pieces[1]), origin="telegram")
+                            await send_message(f"✅ Paper order accepted for news #{pieces[1]}; decision #{result['decision_id']}. No real-money trade.", force=True)
+                        except Exception as exc:
+                            await send_message(f"⛔ Paper order rejected for #{pieces[1]}: {str(exc)[:250]}", force=True)
+                    elif command.split()[0:1] == ["/help"]:
+                        await send_message("Talos news commands: /paper EVENT_ID — paper ONLY, private chat, real-time risk checks. Live execution requires Admin UI.", force=True)
+                # ACK after handling, not before, to allow recovery after a crash.
+                set_runtime("news_bot_updates", {"offset": new_offset})
+        except Exception as exc:
+            print(f"[talos-telegram-commands] {type(exc).__name__}: {str(exc)[:140]}", flush=True)
+            await asyncio.sleep(30)

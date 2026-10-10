@@ -6,7 +6,7 @@ from app.models.signal import SignalRecord
 from app.models.source import SourceRecord
 from app.models.processing import ProcessingStateRecord
 from app.models.telegram_audit import TelegramSignalVersionRecord
-from app.models.trading import BrokerProfileRecord, PaperAccountRecord, PaperOrderRecord, PaperPositionRecord, ExecutionAuditRecord, LiveSignalSimulationRecord
+from app.models.trading import BrokerProfileRecord, PaperAccountRecord, PaperOrderRecord, PaperPositionRecord, ExecutionAuditRecord, LiveSignalSimulationRecord, NewsTradeDecisionRecord, NewsSentimentReplayRun, NewsSentimentReplayRecord
 from app.models.strategy import StrategyConfigRecord
 from app.models.security import AdminUserRecord, SecretRecord, RuntimeConfigRecord
 from app.models.research import ResearchArtifactRecord, StrategyRunRecord, StrategyTradeRecord, OptimizationRunRecord, StrategyDeploymentRecord

@@ -15,17 +15,19 @@ from fastapi.staticfiles import StaticFiles
 from app.api.routes import (
     analysis, audit, auth, backtests, exchanges, jobs, live, optimizer, paper,
     processing, signals, sources, strategies, studio, system, research,
-    settings as settings_routes, telegram_audit, osint,
+    settings as settings_routes, telegram_audit, osint, news_trading,
 )
 from app.core.config import settings
 from app.db.init_db import init_db
 from app.intelligence.collect import intelligence_loop
 from app.services.jobs import worker_loop
+from app.services.notifications import telegram_paper_command_loop
+from app.services.news_trading import paper_monitor_loop, sentiment_replay_loop
 from app.scripts.universal_worker import watcher_loop
 from app.services.security import SESSION_COOKIE, admin_exists, validate_session
 
-VERSION = "4.5.1"
-BUILD_ID = "talos-v4.5.1-render-root-compatibility"
+VERSION = "4.7.0"
+BUILD_ID = "talos-v4.7.0-sentiment-audit-backtest"
 
 _runtime_lock = threading.Lock()
 _runtime_threads: dict[str, threading.Thread] = {}
@@ -85,6 +87,9 @@ async def _database_recovery_loop() -> None:
             if settings.embedded_live_watcher:
                 _start_async_daemon("watcher", lambda: watcher_loop())
             _start_async_daemon("osint", lambda: intelligence_loop())
+            _start_async_daemon("telegram-paper-commands", telegram_paper_command_loop)
+            _start_async_daemon("news-paper-monitor", paper_monitor_loop)
+            _start_async_daemon("news-sentiment-replay", sentiment_replay_loop)
             return
 
 
@@ -98,6 +103,9 @@ async def lifespan(_: FastAPI):
         if settings.embedded_live_watcher:
             _start_async_daemon("watcher", lambda: watcher_loop())
         _start_async_daemon("osint", lambda: intelligence_loop())
+        _start_async_daemon("telegram-paper-commands", telegram_paper_command_loop)
+        _start_async_daemon("news-paper-monitor", paper_monitor_loop)
+        _start_async_daemon("news-sentiment-replay", sentiment_replay_loop)
     else:
         _start_async_daemon("db-recovery", lambda: _database_recovery_loop())
     yield
@@ -119,6 +127,8 @@ _ADMIN_PREFIXES = (
     "/api/v1/live",
     "/api/v1/exchanges/connections",
     "/api/v1/osint/admin",
+    "/api/v1/news-trade/admin",
+    "/api/v1/news-trade/preview",
 )
 
 
@@ -146,6 +156,7 @@ async def health() -> dict:
         "job_worker": bool(_runtime_threads.get("jobs") and _runtime_threads["jobs"].is_alive()),
         "live_watcher": bool(_runtime_threads.get("watcher") and _runtime_threads["watcher"].is_alive()),
         "osint_collector": bool(_runtime_threads.get("osint") and _runtime_threads["osint"].is_alive()),
+        "sentiment_replay_worker": bool(_runtime_threads.get("news-sentiment-replay") and _runtime_threads["news-sentiment-replay"].is_alive()),
     }
 
 
@@ -159,12 +170,13 @@ async def build_info() -> dict:
             "paper_research_upload", "market_charts", "generic_strategy_backtests",
             "optimizer", "paper_trading", "live_exchange_adapters", "secure_admin_vault",
             "telegram_notification_bot", "live_signal_simulation_watcher",
-            "isolated_background_runtime", "telegram_event_stream", "telegram_edit_version_archive", "telegram_delete_audit", "telegram_integrity_score", "neon_idle_saver", "database_degraded_mode", "intelligence_multisource", "intelligence_revision_audit", "osint_point_in_time_features", "osint_signal_links",
+            "isolated_background_runtime", "telegram_event_stream", "telegram_edit_version_archive", "telegram_delete_audit", "telegram_integrity_score", "neon_idle_saver", "database_degraded_mode", "intelligence_multisource", "intelligence_revision_audit", "osint_point_in_time_features", "osint_signal_links", "durable_progress_across_pages", "news_trade_preview", "news_paper_risk_strategy", "news_trade_telegram_commands", "sentiment_rule_versioning", "missed_trade_counterfactual", "durable_sentiment_backtests",
         ],
     }
 
 
 app.include_router(osint.router, prefix="/api/v1")
+app.include_router(news_trading.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(settings_routes.router, prefix="/api/v1")
 app.include_router(system.router, prefix="/api/v1")

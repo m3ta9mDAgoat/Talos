@@ -345,6 +345,17 @@ def collect_one(source: Source, client: httpx.Client | None = None, *, force: bo
                 last_error=error,
                 **({"last_success_at": datetime.now(timezone.utc)} if error is None else {})))
             db.commit()
+    # Dispatch important news processing as soon as this source finishes;
+    # do not wait for all 23 network adapters (some of which may time out).
+    if error is None and result.get("added", 0) > 0:
+        try:
+            from app.services.jobs import create_job
+            from app.services.news_trading import config
+            create_job("news_alerts", {}, max_attempts=3)
+            if config()["auto_paper"]:
+                create_job("news_auto_paper", {}, max_attempts=3)
+        except Exception as notify_error:
+            logger.warning("OSINT news job dispatch failed: %s", type(notify_error).__name__)
     return {"source": source.key, "status": "ok" if error is None else "error", "count": count,
             **result, **({"error": error} if error else {})}
 

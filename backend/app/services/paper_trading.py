@@ -14,11 +14,11 @@ def ensure_default_account(db: Session) -> PaperAccountRecord:
     return row
 
 
-async def paper_buy(db: Session, account: PaperAccountRecord, *, symbol: str, quote_amount: float, signal_id: int|None=None, fee_bps: float=10.0) -> dict:
-    venue = await best_venue(symbol)
+async def paper_buy(db: Session, account: PaperAccountRecord, *, symbol: str, quote_amount: float, signal_id: int|None=None, fee_bps: float=10.0, broker_id: str|None=None, slippage_bps: float=0.0) -> dict:
+    venue = await best_venue(symbol, [broker_id] if broker_id else None)
     best = venue.get("best")
     if not best or not best.get("last"): raise ValueError(f"No live public ticker found for {symbol}")
-    price = float(best["ask"] or best["last"])
+    price = float(best["ask"] or best["last"]) * (1 + slippage_bps / 10000.0)
     fee = quote_amount * fee_bps / 10000.0
     total = quote_amount + fee
     if total > account.cash_balance: raise ValueError("Insufficient paper cash")
@@ -29,7 +29,7 @@ async def paper_buy(db: Session, account: PaperAccountRecord, *, symbol: str, qu
     pos = PaperPositionRecord(account_id=account.id, signal_id=signal_id, symbol=symbol, quantity=qty,
                               entry_price=price, current_price=price, broker_id=best["broker_id"], status="open")
     db.add_all([order,pos]); db.commit(); db.refresh(order); db.refresh(pos)
-    return {"order_id": order.id, "position_id": pos.id, "symbol":symbol,"quantity":qty,"fill_price":price,"fee":fee,"broker":best["broker_id"]}
+    return {"order_id": order.id, "position_id": pos.id, "symbol":symbol,"quantity":qty,"fill_price":price,"fee":fee,"broker":best["broker_id"], "assumed_slippage_bps":slippage_bps}
 
 
 async def refresh_positions(db: Session, account: PaperAccountRecord) -> dict:
@@ -48,13 +48,13 @@ async def refresh_positions(db: Session, account: PaperAccountRecord) -> dict:
     return {"account_id":account.id,"cash":account.cash_balance,"equity":account.equity,"realized_pnl":account.realized_pnl,"unrealized_pnl":unreal,"open_positions":len(positions)}
 
 
-async def close_position(db: Session, account: PaperAccountRecord, position_id: int, fee_bps: float=10.0) -> dict:
+async def close_position(db: Session, account: PaperAccountRecord, position_id: int, fee_bps: float=10.0, slippage_bps: float=0.0) -> dict:
     p = db.get(PaperPositionRecord, position_id)
     if not p or p.account_id != account.id or p.status != "open": raise ValueError("Open paper position not found")
     venue = await best_venue(p.symbol, [p.broker_id] if p.broker_id else None)
     best = venue.get("best")
     if not best: raise ValueError("Ticker unavailable")
-    price=float(best["bid"] or best["last"]); gross=price*p.quantity; fee=gross*fee_bps/10000.0
+    price=float(best["bid"] or best["last"]) * (1 - slippage_bps / 10000.0); gross=price*p.quantity; fee=gross*fee_bps/10000.0
     pnl=(price-p.entry_price)*p.quantity-fee
     account.cash_balance += gross-fee; account.realized_pnl += pnl
     p.current_price=price; p.realized_pnl=pnl; p.unrealized_pnl=0; p.status="closed"; p.closed_at=datetime.now(timezone.utc)
