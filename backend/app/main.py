@@ -8,22 +8,23 @@ from typing import Awaitable, Callable
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import (
     analysis, audit, auth, backtests, exchanges, jobs, live, optimizer, paper,
     processing, signals, sources, strategies, studio, system, research,
-    settings as settings_routes, telegram_audit,
+    settings as settings_routes, telegram_audit, osint,
 )
 from app.core.config import settings
 from app.db.init_db import init_db
+from app.intelligence.collect import intelligence_loop
 from app.services.jobs import worker_loop
 from app.scripts.universal_worker import watcher_loop
 from app.services.security import SESSION_COOKIE, admin_exists, validate_session
 
-VERSION = "4.3.1"
-BUILD_ID = "talos-v4.3.1-neon-saver-exact-splash"
+VERSION = "4.5.0"
+BUILD_ID = "talos-v4.5-universal-intelligence"
 
 _runtime_lock = threading.Lock()
 _runtime_threads: dict[str, threading.Thread] = {}
@@ -82,6 +83,7 @@ async def _database_recovery_loop() -> None:
                 _start_async_daemon("jobs", lambda: worker_loop())
             if settings.embedded_live_watcher:
                 _start_async_daemon("watcher", lambda: watcher_loop())
+            _start_async_daemon("osint", lambda: intelligence_loop())
             return
 
 
@@ -94,6 +96,7 @@ async def lifespan(_: FastAPI):
             _start_async_daemon("jobs", lambda: worker_loop())
         if settings.embedded_live_watcher:
             _start_async_daemon("watcher", lambda: watcher_loop())
+        _start_async_daemon("osint", lambda: intelligence_loop())
     else:
         _start_async_daemon("db-recovery", lambda: _database_recovery_loop())
     yield
@@ -114,6 +117,7 @@ _ADMIN_PREFIXES = (
     "/api/v1/settings",
     "/api/v1/live",
     "/api/v1/exchanges/connections",
+    "/api/v1/osint/admin",
 )
 
 
@@ -140,6 +144,7 @@ async def health() -> dict:
         "database_error": None if _database_ready else _database_error,
         "job_worker": bool(_runtime_threads.get("jobs") and _runtime_threads["jobs"].is_alive()),
         "live_watcher": bool(_runtime_threads.get("watcher") and _runtime_threads["watcher"].is_alive()),
+        "osint_collector": bool(_runtime_threads.get("osint") and _runtime_threads["osint"].is_alive()),
     }
 
 
@@ -153,11 +158,12 @@ async def build_info() -> dict:
             "paper_research_upload", "market_charts", "generic_strategy_backtests",
             "optimizer", "paper_trading", "live_exchange_adapters", "secure_admin_vault",
             "telegram_notification_bot", "live_signal_simulation_watcher",
-            "isolated_background_runtime", "telegram_event_stream", "telegram_edit_version_archive", "telegram_delete_audit", "telegram_integrity_score", "neon_idle_saver", "database_degraded_mode",
+            "isolated_background_runtime", "telegram_event_stream", "telegram_edit_version_archive", "telegram_delete_audit", "telegram_integrity_score", "neon_idle_saver", "database_degraded_mode", "intelligence_multisource", "intelligence_revision_audit", "osint_point_in_time_features", "osint_signal_links",
         ],
     }
 
 
+app.include_router(osint.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(settings_routes.router, prefix="/api/v1")
 app.include_router(system.router, prefix="/api/v1")
@@ -178,6 +184,26 @@ app.include_router(research.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(studio.hooks)
 
-_static = Path("static")
-if _static.exists():
-    app.mount("/", StaticFiles(directory=_static, html=True), name="frontend")
+# Resolve bundled frontend independently of Render's working directory.
+# The root Dockerfile copies the production React build into /app/static.
+_static = Path(os.getenv("TALOS_STATIC_DIR", str(Path(__file__).resolve().parents[1] / "static"))).resolve()
+_frontend_index = _static / "index.html"
+if _frontend_index.is_file():
+    app.mount("/", StaticFiles(directory=str(_static), html=True), name="frontend")
+else:
+    print(
+        f"[talos-frontend] MISSING React build: expected {_frontend_index}. "
+        "Render must use repository-root Dockerfile (./Dockerfile), "
+        "not backend/Dockerfile or a bare uvicorn command.",
+        flush=True,
+    )
+
+    @app.get("/", include_in_schema=False)
+    async def missing_frontend():
+        return PlainTextResponse(
+            "Talos API is online, but the dashboard build is missing. "
+            "In Render select Docker runtime, blank Root Directory, "
+            "Dockerfile Path ./Dockerfile and Docker Build Context .; "
+            "redeploy latest commit. Check /health and /api/public/build for diagnostics.",
+            status_code=503,
+        )

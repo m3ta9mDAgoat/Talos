@@ -1,3 +1,5 @@
+from app.models.intelligence import IntelligenceEvent, IntelligenceRevision, IntelligenceSourceState, IntelligenceSignalLink, IntelligenceIndicator
+from app.models.osint import OsintItem
 from app.models.analysis import AnalysisRunRecord, MessageLabelRecord, SignalBacktestRecord
 from app.models.raw_event import RawEventRecord
 from app.models.signal import SignalRecord

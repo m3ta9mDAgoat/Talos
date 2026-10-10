@@ -15,6 +15,7 @@ from app.schemas.signal import EntrySpec, NormalizedSignal, StopSpec
 from app.services.backtest import signal_backtester
 from app.services.market_data import market_data_resolver
 from app.services.strategy_engine import simulate_technical
+from app.services.osint_features import bar_osint_features, OSINT_FEATURE_NAMES
 from app.services.trade_metrics import summarize_returns, trade_return_pct
 
 
@@ -71,7 +72,16 @@ async def advance_strategy_run(run_id:int,batch_size:int=8)->StrategyRunRecord:
             for _ in range(batch_size):
                 if idx>=len(symbols):break
                 symbol=symbols[idx]; start=_parse_dt(cfg.get('start')) if cfg.get('start') else now()-timedelta(days=365); end=_parse_dt(cfg.get('end')) if cfg.get('end') else now()
-                venue,_,cs=await _candles(symbol,timeframe,start,end,exchanges); trades=simulate_technical(cs,definition,fee,slip) if cs else []
+                venue,_,cs=await _candles(symbol,timeframe,start,end,exchanges)
+                osint_bars = None
+                if cs and any(c.get('feature') in OSINT_FEATURE_NAMES for c in (definition.get('conditions') or [])):
+                    # A single snapshot for the full replay, never a SQL query per candle.
+                    with SessionLocal() as osint_db:
+                        osint_bars, osint_warning = bar_osint_features(osint_db, cs, symbol,
+                            int(definition.get('osint_lookback_hours',24)))
+                    if osint_warning:
+                        state.setdefault('osint_warnings', {})[symbol] = osint_warning
+                trades=simulate_technical(cs,definition,fee,slip,osint_bars) if cs else []
                 with SessionLocal() as db:
                     for t in trades: db.add(StrategyTradeRecord(run_id=run_id,strategy_config_id=strategy_id,symbol=symbol,venue=venue,entered_at=t['entered_at'],exited_at=t['exited_at'],entry_price=t['entry_price'],exit_price=t['exit_price'],return_pct=t['return_pct'],status=t['status'],result_json=t))
                     rr=db.get(StrategyRunRecord,run_id); idx+=1; rr.state_json={'symbol_index':idx}; rr.progress=idx/max(1,len(symbols)); db.commit()

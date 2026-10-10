@@ -27,8 +27,11 @@ def rsi(values:list[float],i:int,p:int)->float|None:
     return 100-(100/(1+ag/al))
 
 
-def feature(candles:list[Candle],i:int,spec:dict[str,Any])->float|None:
+def feature(candles:list[Candle],i:int,spec:dict[str,Any],osint_features:list[dict]|None=None)->float|None:
     name=spec.get('feature','close'); p=int(spec.get('period') or 14); closes=[c.close for c in candles]
+    if str(name).startswith('osint_'):
+        if osint_features is None or i>=len(osint_features): return None
+        return osint_features[i].get(name)
     if name=='close': return closes[i]
     if name=='sma': return sma(closes,i,p)
     if name=='ema': return ema(closes,i,p)
@@ -55,17 +58,17 @@ def compare(left:float|None,op:str,right:float)->bool:
     return False
 
 
-def entry_ok(candles:list[Candle],i:int,definition:dict[str,Any])->bool:
-    checks=[compare(feature(candles,i,c),str(c.get('op','<')),float(c.get('value',0))) for c in definition.get('conditions') or []]
+def entry_ok(candles:list[Candle],i:int,definition:dict[str,Any],osint_features:list[dict]|None=None)->bool:
+    checks=[compare(feature(candles,i,c,osint_features),str(c.get('op','<')),float(c.get('value',0))) for c in definition.get('conditions') or []]
     if not checks:return False
     return any(checks) if definition.get('entry_logic')=='any' else all(checks)
 
 
-def simulate_technical(candles:list[Candle],definition:dict[str,Any],fee_bps:float,slippage_bps:float)->list[dict[str,Any]]:
+def simulate_technical(candles:list[Candle],definition:dict[str,Any],fee_bps:float,slippage_bps:float,osint_features:list[dict]|None=None)->list[dict[str,Any]]:
     tp=float(definition.get('take_profit_pct',5)); sl=float(definition.get('stop_loss_pct',2.5)); maxbars=int(definition.get('max_holding_bars',72)); out=[]; i=1
     cost=2*(fee_bps+slippage_bps)/10000
     while i<len(candles)-1:
-        if not entry_ok(candles,i,definition):
+        if not entry_ok(candles,i,definition,osint_features):
             i+=1; continue
         ent_i=i+1; entry=candles[ent_i].open*(1+slippage_bps/10000); tp_px=entry*(1+tp/100); sl_px=entry*(1-sl/100); exit_px=None; status='timeout'; j=ent_i
         mfe=0.0; mae=0.0

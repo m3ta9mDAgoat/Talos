@@ -3,6 +3,7 @@ services:
     name: talos
     runtime: docker
     repo: https://github.com/m3ta9mDAgoat/Talos
+    plan: free
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health
@@ -25,9 +26,3 @@ services:
         sync: false
       - key: TELEGRAM_SESSION_STRING
         sync: false
-      - key: OSINT_ENABLED
-        value: "true"
-      - key: OSINT_INTERVAL_SECONDS
-        value: "1800"
-      - key: OSINT_MAX_DB_BYTES
-        value: "650000000"
