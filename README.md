@@ -1,151 +1,25 @@
-# Talos v4.5.1 — Full Application (Frontend + Backend)
+# Talos v4.7.1 — Auditable Sentiment Replay
 
-**Existing hosting preserved: Render + Neon.** This complete archive contains the React UI, FastAPI API, database models, OSINT collectors, backend tests, Docker files and deployment configuration. The v4.5.1 compatibility fix imports `os` before reading `TALOS_STATIC_DIR`, and aligns the displayed frontend/backend versions. Local development and Compose now proxy API requests so admin cookies work on the same browser origin.
-
-**Important:** Backend unit tests pass; the full Docker build and real Render/Neon service still require installation/deployment checks in an environment with npm packages, Python wheels and Docker access. Do not regard this archive as proof that live exchange orders, OSINT feeds or cloud credentials are already functioning. [Compatibility report](COMPATIBILITY_REPORT.md).
-
-Quick deployment: upload **all files at repository root**, preserving `backend/` and `frontend/`. On Render use **Root Directory blank**, **Dockerfile Path `./Dockerfile`**, **Docker Build Context `.`**, and health check `/health`. Set `DATABASE_URL` and `SECRET_KEY` in Environment, keep live trading disabled.  This is a substantive version upgrade of the available Talos v4.4 codebase, not a deployed service, or a new infrastructure. See [`CHANGELOG_V4.5.md`](CHANGELOG_V4.5.md), [`docs/V4_5_INTELLIGENCE.md`](docs/V4_5_INTELLIGENCE.md) and [`docs/RENDER_NEON_V45_DEPLOY.md`](docs/RENDER_NEON_V45_DEPLOY.md) for actual capabilities, operational limitations, API contracts, safety and upgrade steps.
-
-The previous v4.3/v4.4 core behavior and operational instructions follow for continuity.
+New: deterministic versioned sentiment rules, frozen point-in-time headlines, durable replay jobs, missed profitable hypothetical trades, monthly metrics, CSV audit, and no live news auto orders. See `docs/TALOS_V47_SENTIMENT_BACKTEST_AR.md` and `docs/TALOS_V47_DEPLOY.md`.
 
 ---
 
-## Talos v4.3.1 previous-core reference
+# Talos 4.6.0: Durable Jobs + News-to-Chart Strategy
 
-Current build: `talos-v4.3.1-neon-saver-exact-splash`
+This is the complementary frontend GitHub upload (not a separate standalone deployment).
+**Upload both batches, backend first, frontend second, into the root of the SAME repository.**
 
-## v4.3.1 database + intro fixes
-- Uses the exact supplied Talos splash artwork (original PNG plus a 2x lossless upscale); no synthetic eye-glow overlay.
-- Keeps the visor zoom transition only.
-- Idle SQL workers are event-driven instead of polling Neon every 3–15 seconds.
-- Telegram source-list refresh is in-memory/event-triggered with a 30-minute safety refresh.
-- Telegram reconnect performs an immediate catch-up, so real-time delivery does not depend on minute polling.
-- Source processing queries only new/version-stale raw events instead of loading the complete archive every cycle.
-- Source statistics use SQL GROUP BY aggregates instead of transferring every label/state row.
-- Raw message text is stored once in `raw_events.text`; new event payloads no longer duplicate the same text.
-- Live-simulation SQL checks sleep when no simulations are active and wake immediately for a new/edited signal.
-- If PostgreSQL is temporarily unavailable/quota-blocked, the web/static frontend stays online in degraded mode instead of causing a Render 502.
-- `/api/v1/system/database/usage` reports current database size and the largest tables on demand.
+See `docs/TALOS_V46_DEPLOY.md` for Render configuration and `docs/TALOS_V46_NEWS_TRADING.md` for conservative risk rules. There is no autonomous live-money execution in the new News Strategy module.
 
-## Telegram live audit
-- Event-stream watcher for new messages and edits, plus periodic catch-up.
-- Delete events are archived when Telegram exposes them to the connected account.
-- Original, edited and deleted revisions are stored as immutable raw events.
-- Parsed signal revisions are stored in `telegram_signal_versions`.
-- Live simulations update targets after an edit without retroactively crediting newly-added targets.
-- Notification bot reports new signals, edits, deletes, entries, targets, stops and daily summaries.
-- Integrity metrics report observed edit patterns without inferring intent.
-- Telegram Replay supports `strict`, `from_edit`, and `optimistic` edited-message policies.
+- Backend archive: 97 runtime files in `backend/` + root `Dockerfile` and `render.yaml` = 99 files.
+- Frontend archive: updated React UI and assets plus repository metadata and documentation (<100 files).
+- Root Dockerfile builds and serves the frontend with the backend. Avoid nested top-level folders.
+- Required Render env: `DATABASE_URL`, existing `SECRET_KEY`, `EMBEDDED_JOB_WORKER=true`, `EMBEDDED_LIVE_WATCHER=true`, `LIVE_TRADING_ENABLED=false`.
+- Telegram: configure TELEGRAM_NOTIFY bot token and private chat ID in Admin; send /start. Optional `TELEGRAM_PAPER_COMMANDS_ENABLED=true` for *paper* command only.
 
-Single-user trading research and execution platform.
-
-## Core flow
-
-- Sources: Telegram, RSS/Atom, REST/JSON, permitted web scraping, webhook, social APIs.
-- Archive raw events once in PostgreSQL.
-- Telegram recommendations are processed once and stored as normalized signals.
-- **Telegram Replay** replays those recommendations from their original publication timestamps. It is historical verification, not a predictive strategy.
-- Research papers can be uploaded as PDF, text is extracted, then converted into a structured strategy specification for review.
-- Strategies use the generic backtest → optimizer → paper → live pipeline.
-- Public market data and charts use CCXT without API keys.
-- Private balances and live orders use encrypted broker credentials entered from Admin.
-- Long work runs as SQL-backed jobs with checkpoints, automatic retry, stale-job recovery and resume after process restarts.
-
-## Supported exchanges
-
-Binance, OKX, Bybit, Bitget, KuCoin, MEXC (spot through CCXT).
-
-## Render environment
-
-Required:
-
-```text
-APP_NAME=Talos
-APP_ENV=production
-DATABASE_URL=postgresql+psycopg://...
-SECRET_KEY=<random long value>
-LIVE_TRADING_ENABLED=false
-```
-
-Generate a `SECRET_KEY` locally:
-
-```powershell
-python -c "import secrets; print(secrets.token_urlsafe(48))"
-```
-
-In Render: **Service → Environment → Add Environment Variable → SECRET_KEY → paste the generated value → Save/Deploy**.
-
-The small **Admin** button at the bottom of Talos uses this value only for first-time admin initialization. Broker, Telegram and AI/API credentials can then be stored from the Admin vault. Stored secrets are encrypted before they are written to PostgreSQL and are never returned in plaintext to the browser.
-
-## Telegram
-
-For private/public channels and groups that the dedicated Talos Telegram account can access:
-
-1. Add Telegram as a source.
-2. Start `Import / verify history`.
-3. Talos scans newest → oldest until Telegram returns an explicit empty page.
-4. The job automatically schedules processing of the archived messages.
-5. Run **Telegram Replay** to verify the recommendations historically.
-
-Telegram's server-side estimated message count can differ from the number of messages actually accessible to the account. Talos reports the verified accessible count separately.
-
-## Jobs / automation
-
-The web process runs the job loop while it is awake. Jobs persist in PostgreSQL, so closing the page does not cancel work. If a free Render instance sleeps/restarts, the job remains queued/retrying and resumes after the service wakes again.
-
-For a permanent VPS/local Docker deployment, run the dedicated worker:
-
-```bash
-python -m app.scripts.job_worker
-```
-
-`docker-compose.yml` already includes it.
-
-Automatic retry is used for import, source processing/sync, historical replay, strategy backtests, research extraction and optimization. **Live broker orders are intentionally not blindly retried after an ambiguous broker response**, because that can duplicate real orders; live execution requires idempotent broker/order reconciliation before such a retry is safe.
-
-## Research PDFs
-
-Upload a PDF in Research. Talos extracts text with `pypdf`, stores the paper metadata/text, and runs methodology extraction as a durable job. The resulting specification can be reviewed and saved as a versioned strategy.
-
-## Performance architecture
-
-Python remains the orchestration/integration layer. Numerical bottlenecks should be profiled before moving them to native code. A future C++/pybind11 core is appropriate for millions of repeated simulation/optimization evaluations, but moving Telegram, HTTP, databases and broker integration to C++ would add complexity without useful speedup.
-
-## Build verification
-
-- `/health` → version `4.3.1`
-- `/api/public/build` → build id `talos-v4.3.1-neon-saver-exact-splash`
+Validation: 36 backend unit tests pass; 84 static API call matches; TSX parses successfully; full docker/npm build and third-party services were not available for end-to-end testing.
 
 
-## Telegram notification bot
+### v4.7.1 notification improvements
 
-Talos v4.2 can notify the owner when a new Telegram recommendation is detected, when a watched recommendation is edited, when entry/targets/stop are reached in the live simulation, when a long-running job reaches a terminal error, and with a daily summary.
-
-Setup from the small **Admin** control in the sidebar:
-
-1. Create a bot with `@BotFather` (`/newbot`).
-2. Send `/start` to the new bot from the Telegram account that should receive alerts.
-3. Admin → Secure Vault → `TELEGRAM_NOTIFY` → save `bot_token`.
-4. Admin → Notification bot → **Discover chats** → click your chat. This fills `chat_id`; save `TELEGRAM_NOTIFY` again.
-5. Use **Send test**.
-6. Choose notification switches and the daily-summary UTC hour.
-
-The dedicated Telegram account used to read source channels remains separate from the notification bot.
-
-### Continuous watcher
-
-The web process runs an embedded watcher by default (`EMBEDDED_LIVE_WATCHER=true`). It syncs enabled sources, processes only changed/new messages, starts a simulation for new parsed Telegram BUY recommendations, checks active simulations, and sends notifications. On a permanent VPS, run `python -m app.scripts.universal_worker` as a separate worker and set `EMBEDDED_LIVE_WATCHER=false` on the web service to avoid duplicate watchers.
-
-Render Free can sleep; when it is asleep it cannot provide true 24/7 monitoring. The next wake/sync catches up messages, while a permanent worker is required for uninterrupted alerts.
-
-
-## Live UI
-
-- The intro uses the exact supplied artwork in `/frontend/public/talos-splash.png` with a 2x version for high-DPI displays.
-- No eye-light animation is added; only the camera zooms into the visor and dissolves into the already-mounted dashboard.
-- Overview, markets, paper portfolio, portfolio and live execution status refresh automatically while visible. Existing job/source/live-monitor pages retain their own faster polling loops.
-- A light health heartbeat runs while the dashboard is open; durable workers/jobs remain server-side and do not depend on the browser.
-
-## Troubleshooting: Render root returns 404
-
-If `/health` works but `/` returns JSON `{"detail":"Not Found"}`, Render is probably using the backend-only build. The repository-root `Dockerfile` builds the React UI and copies it to `/app/static`. See [docs/FIX_RENDER_ROOT_404.md](docs/FIX_RENDER_ROOT_404.md) for the existing-service settings and checks. This v4.5.1 patch does not migrate off Render + Neon.
+The automatic **late-news sentiment backtest** now records both profitable and losing missed simulated trades in a durable `news_missed_alerts` PostgreSQL outbox and submits each one to the existing notification bot. Two independently configurable flags (`missed_wins`, `missed_losses`) default to true. Replays initiated manually are report-only, not a historical alert flood. Delivery counts can be inspected in Admin. Historical OHLCV simulation is not a live or paper fill, and real-money news orders remain disabled.
