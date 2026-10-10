@@ -416,7 +416,7 @@ async def paper_monitor_loop() -> None:
 # ─────────────────────────────────────────────────────────────────────
 import asyncio
 import hashlib
-from app.models.trading import NewsSentimentReplayRun, NewsSentimentReplayRecord
+from app.models.trading import NewsSentimentReplayRun, NewsSentimentReplayRecord, NewsMissedAlertRecord
 
 SENTIMENT_VERSION = "sentiment-rules-1.0.0"
 SENTIMENT_DEFAULT = {
@@ -756,9 +756,41 @@ async def process_replay_batch(batch: int = 5) -> dict:
                     result.update({"status": "rejected", "selected": False, "label": "رفضته إدارة المخاطر",
                                    "net_pnl_quote": None, "net_return_pct": None})
             with SessionLocal() as db:
+                run = db.get(NewsSentimentReplayRun, run_id)
+                trace = result.pop("trace")
                 row = NewsSentimentReplayRecord(run_id=run_id, strategy_version=SENTIMENT_VERSION,
-                        trace_json=result.pop("trace"), **result)
+                        trace_json=trace, **result)
                 db.add(row)
+                # The outbox and the replay result commit atomically. Manual / historical
+                # replay runs produce records only and never spam the notification bot.
+                if (run.kind == "auto" and result["selected"] and
+                    result["status"] == "simulated" and trace.get("missed_realtime_window") and
+                    result.get("net_pnl_quote") is not None and result["net_pnl_quote"] != 0):
+                    payload = {
+                        "event_id": event_id, "run_id": run_id, "symbol": result["symbol"],
+                        "net_return_pct": float(result["net_return_pct"]),
+                        "net_pnl_quote": float(result["net_pnl_quote"]),
+                        "published_at": result["published_at"].isoformat() if result["published_at"] else None,
+                        "first_seen_at": result["first_seen_at"].isoformat() if result["first_seen_at"] else None,
+                        "assumed_entry_at": result["assumed_entry_at"].isoformat() if result["assumed_entry_at"] else None,
+                        "actual_proxy_entry_at": result["actual_proxy_entry_at"].isoformat() if result["actual_proxy_entry_at"] else None,
+                        "exited_at": result["exited_at"].isoformat() if result["exited_at"] else None,
+                        "detect_lag_sec": trace.get("observed_detection_lag_sec"),
+                        "latency_target_sec": trace.get("target_latency_sec"),
+                        "exit_reason": trace.get("historical_replay", {}).get("exit_reason"),
+                        "strategy_version": SENTIMENT_VERSION, "strategy_hash": run.strategy_hash,
+                        "source_key": trace.get("source_key"),
+                        "data_warning": "1m OHLCV proxy, NOT actual 5-second fill or realized PnL",
+                    }
+                    try:
+                        with db.begin_nested():
+                            db.add(NewsMissedAlertRecord(event_id=event_id, run_id=run_id,
+                                result="win" if result["net_pnl_quote"] > 0 else "loss",
+                                status="pending", payload_json=payload))
+                            db.flush()
+                    except IntegrityError:
+                        # Another run already published this event; never duplicate it.
+                        pass
                 run = db.get(NewsSentimentReplayRun, run_id)
                 run.last_event_id = event_id
                 run.processed += 1
@@ -800,6 +832,7 @@ async def sentiment_replay_loop():
                 except ValueError as exc:
                     print(f"[sentiment-replay] auto window blocked: {exc}", flush=True)
             state = await process_replay_batch(batch=5)
+            await send_pending_missed_alerts(max_count=3)
             await asyncio.sleep(2 if state.get("active") else 60)
         except Exception as exc:
             print(f"[sentiment-replay] {type(exc).__name__}: {str(exc)[:240]}", flush=True)
@@ -892,3 +925,112 @@ def sentiment_metrics(*, run_id: int | None = None, days: int = 30) -> dict:
                 "cash_proxy_total_return_pct": round((equity/total_cash-1)*100, 4),
                 "cash_proxy_max_drawdown_pct": round(max_dd, 4),
                 "note": "Counterfactual minute-OHLC backtest, with publication-time access ASSUMED, not demonstrated. 1m entries lag target by up to 60s. No historical bid/ask, market impact, true fills or intrabar equity drawdown. Results are not realized/ paper/ live P&L."}
+
+
+def missed_alert_message(payload: dict, result: str) -> str:
+    """Telegram messages are explicitly counterfactual and distinguish 1m proxy fills."""
+    def dt(name):
+        return (payload.get(name) or "—").replace("T", " ")[:19] + (" UTC" if payload.get(name) else "")
+    net = float(payload["net_pnl_quote"])
+    ret = float(payload["net_return_pct"])
+    lag = payload.get("detect_lag_sec")
+    lag_label = f"{float(lag):.1f}s" if lag is not None else "unknown"
+    title = "🟢 MISSED WIN (SIMULATION)" if result == "win" else "🔴 MISSED LOSS (SIMULATION)"
+    return (
+        f"{title}\n"
+        f"TALOS | {payload.get('symbol') or 'unknown'} | Event #{payload['event_id']}\n"
+        f"News published: {dt('published_at')}\n"
+        f"Talos first saw: {dt('first_seen_at')} (late by {lag_label})\n"
+        f"Target request latency: {payload.get('latency_target_sec')}s (assumed, NOT measured)\n"
+        f"Target hypothetical entry: {dt('assumed_entry_at')}\n"
+        f"1m candle proxy entry: {dt('actual_proxy_entry_at')}\n"
+        f"Simulated exit: {dt('exited_at')} | {payload.get('exit_reason') or 'unknown'}\n"
+        f"NET after assumed fees/slippage: {ret:+.3f}% | {net:+.4f} USDT\n"
+        f"Rules: {payload.get('strategy_version')} | research only\n"
+        "⚠️ Historical counterfactual. 1m bars cannot prove a 5-second fill or live profit. No real/paper order was submitted."
+    )
+
+
+async def send_pending_missed_alerts(*, max_count: int = 3) -> dict:
+    """DB outbox retries Telegram outages; disabled toggles preserve pending results.
+
+    A single worker claims each record with an expiring lease; sends are at-least-once.
+    A rare process crash after Telegram accepts a message can duplicate its delivery.
+    """
+    from sqlalchemy import or_, update
+    from app.services.notifications import notification_config, send_message
+    cfg = notification_config()
+    if not cfg.get("enabled", True):
+        return {"sent": 0, "paused": "notifications disabled"}
+    done = 0
+    for _ in range(max_count):
+        now = utcnow()
+        with SessionLocal() as db:
+            record = db.scalar(select(NewsMissedAlertRecord).where(
+                or_(NewsMissedAlertRecord.status == "pending",
+                    (NewsMissedAlertRecord.status == "sending") &
+                    (NewsMissedAlertRecord.claimed_at < now - timedelta(minutes=2))),
+                or_(NewsMissedAlertRecord.next_attempt_at.is_(None), NewsMissedAlertRecord.next_attempt_at <= now)
+            ).order_by(NewsMissedAlertRecord.id).limit(1))
+            if record is None:
+                break
+            # Skip disabled category without discarding the alert; continue on re-enable.
+            gate = "missed_wins" if record.result == "win" else "missed_losses"
+            if not cfg.get(gate, True):
+                # Deliberately defer this record, allowing alerts of the other category.
+                record.next_attempt_at = now + timedelta(minutes=5)
+                db.commit()
+                continue
+            # Compare-and-swap permits safe concurrent workers with one SQL update.
+            claim = db.execute(update(NewsMissedAlertRecord).where(
+                NewsMissedAlertRecord.id == record.id,
+                or_(NewsMissedAlertRecord.status == "pending",
+                    (NewsMissedAlertRecord.status == "sending") &
+                    (NewsMissedAlertRecord.claimed_at < now - timedelta(minutes=2)))
+            ).values(status="sending", claimed_at=now, attempts=NewsMissedAlertRecord.attempts+1))
+            if claim.rowcount != 1:
+                db.rollback()
+                continue
+            message_id = record.id
+            payload = dict(record.payload_json)
+            result = record.result
+            db.commit()
+        try:
+            response = await send_message(missed_alert_message(payload, result))
+            if not response.get("ok"):
+                # No configured chat / service disabled: keep pending, do not mark sent.
+                raise RuntimeError(response.get("skipped", "Telegram did not accept message"))
+            with SessionLocal() as db:
+                item = db.get(NewsMissedAlertRecord, message_id)
+                if item and item.status == "sending":
+                    item.status = "sent"
+                    item.sent_at = utcnow()
+                    item.telegram_message_id = response.get("message_id")
+                    item.last_error = None
+                    db.commit()
+                    done += 1
+        except Exception as exc:
+            with SessionLocal() as db:
+                item = db.get(NewsMissedAlertRecord, message_id)
+                if item and item.status == "sending":
+                    item.status = "pending"
+                    item.claimed_at = None
+                    # Reduce polling and Telegram rate-limit pressure after failures.
+                    retry_sec = min(3600, 30 * (2 ** min(item.attempts-1, 7)))
+                    item.next_attempt_at = utcnow() + timedelta(seconds=retry_sec)
+                    # Avoid exposing Telegram bot token through exception URLs in logs/DB.
+                    item.last_error = f"{type(exc).__name__}: delivery pending (attempt {item.attempts})"
+                    db.commit()
+            print(f"[news-missed-alert] {type(exc).__name__}: alert #{message_id} queued for retry", flush=True)
+            break
+        await asyncio.sleep(1.1)  # Telegram private chat throughput protection
+    return {"sent": done}
+
+
+def missed_alert_delivery_stats() -> dict:
+    with SessionLocal() as db:
+        rows = db.execute(select(NewsMissedAlertRecord.status, NewsMissedAlertRecord.result,
+                                 func.count(NewsMissedAlertRecord.id)).group_by(
+                                 NewsMissedAlertRecord.status, NewsMissedAlertRecord.result)).all()
+    return {"delivery": {f"{status}_{result}": int(count) for status, result, count in rows},
+            "note": "At-least-once delivery; manual historical runs do not send individual alerts."}

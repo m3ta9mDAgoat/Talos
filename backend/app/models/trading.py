@@ -178,3 +178,26 @@ class NewsSentimentReplayRecord(Base):
     trace_json: Mapped[dict[str, Any]] = mapped_column("trace", JSON, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     __table_args__ = (UniqueConstraint("run_id", "event_id", name="uq_sentiment_replay_run_event"),)
+
+
+class NewsMissedAlertRecord(Base):
+    """Postgres-backed outbox, with one missed-news alert per archived event.
+
+    The alert payload is frozen at decision time; Telegram failure cannot erase it.
+    Delivery is at-least-once: a crash after Telegram accepts the POST but before
+    the database ACK can occasionally duplicate a message.
+    """
+    __tablename__ = "news_missed_alerts"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    event_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True, index=True)
+    run_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    result: Mapped[str] = mapped_column(String(12), nullable=False)  # win | loss
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", index=True)
+    payload_json: Mapped[dict[str, Any]] = mapped_column("payload", JSON, nullable=False, default=dict)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    telegram_message_id: Mapped[int | None] = mapped_column(Integer)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)

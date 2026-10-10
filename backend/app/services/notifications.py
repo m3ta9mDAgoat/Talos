@@ -20,6 +20,8 @@ DEFAULTS: dict[str, Any] = {
     "targets": True,
     "stop": True,
     "simulation_complete": True,
+    "missed_wins": True,
+    "missed_losses": True,
     "daily_summary": True,
     "daily_summary_hour_utc": 20,
     "simulation_horizon_days": 14,

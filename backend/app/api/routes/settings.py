@@ -38,6 +38,8 @@ class NotificationWrite(BaseModel):
     targets: bool | None = None
     stop: bool | None = None
     simulation_complete: bool | None = None
+    missed_wins: bool | None = None
+    missed_losses: bool | None = None
     daily_summary: bool | None = None
     daily_summary_hour_utc: int | None = Field(default=None, ge=0, le=23)
     simulation_horizon_days: int | None = Field(default=None, ge=1, le=365)
@@ -136,3 +138,9 @@ async def notification_daily_summary():
         return await send_daily_summary(force=True)
     except Exception as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/notifications/missed-status")
+def missed_notification_status():
+    from app.services.news_trading import missed_alert_delivery_stats
+    return missed_alert_delivery_stats()
