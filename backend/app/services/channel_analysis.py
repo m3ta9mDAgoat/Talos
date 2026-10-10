@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-from collections import Counter
+from collections import Counter, OrderedDict
 from sqlalchemy import or_
 from app.services.signal_parser import telegram_signal_parser
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Callable
 
 from app.core.enums import MarketType, Side, SignalStatus
 from app.db.session import SessionLocal
@@ -21,6 +21,41 @@ from app.schemas.signal import EntrySpec, NormalizedSignal, StopSpec
 from app.services.backtest import signal_backtester
 from app.services.market_data import market_data_resolver
 from app.services.trade_metrics import summarize_returns, trade_return_pct
+
+
+
+# Only a single replay's validated signal candidates are retained at once.
+# These are disposable process-local accelerators, NOT checkpoints: after a
+# Render restart the source is parsed again and SQL trade rows are authoritative.
+_REPLAY_PREPARED: OrderedDict[int, dict[str, Any]] = OrderedDict()
+# A restart rebuilds this disposable set from SQL. SQL rows are the durable truth.
+_REPLAY_COMPLETED: OrderedDict[int, set[int]] = OrderedDict()
+
+
+async def _prepared_replay(run_id: int, source_id: int, source_identifier: str,
+                           cfg: AnalyzeSourceRequest) -> dict[str, Any]:
+    cached = _REPLAY_PREPARED.get(run_id)
+    if cached is not None:
+        _REPLAY_PREPARED.move_to_end(run_id)
+        return cached
+    # Parsing thousands of Telegram messages is CPU / database work.  Never
+    # execute it synchronously on a worker asyncio loop (the heartbeat needs
+    # that loop to stay responsive).
+    prepared = await asyncio.to_thread(_eligibility, source_id, source_identifier, cfg)
+    # The summary needs counts, not the SQLAlchemy ORM objects themselves.
+    # Avoid retaining several thousand ORM records in a long-running process.
+    prepared['all_rows'] = range(len(prepared['all_rows']))
+    prepared['parsed_buy'] = range(len(prepared['parsed_buy']))
+    _REPLAY_PREPARED[run_id] = prepared
+    _REPLAY_PREPARED.move_to_end(run_id)
+    while len(_REPLAY_PREPARED) > 1:
+        _REPLAY_PREPARED.popitem(last=False)
+    return prepared
+
+
+def _release_replay(run_id: int) -> None:
+    _REPLAY_PREPARED.pop(run_id, None)
+    _REPLAY_COMPLETED.pop(run_id, None)
 
 
 def _utcnow() -> datetime:
@@ -287,25 +322,36 @@ def _eligibility(source_record_id: int, source_identifier: str, cfg: AnalyzeSour
 
 async def _fetch_with_fallback(signal: NormalizedSignal, cfg: AnalyzeSourceRequest):
     end = signal.timestamp + timedelta(days=cfg.horizon_days)
-    candidates = await market_data_resolver.resolve(signal.symbol, cfg.exchanges)
     errors: list[str] = []
-    if not candidates:
-        return None, [], ["Symbol is not currently resolvable on configured public CCXT spot venues."]
-    for candidate in candidates:
+    any_resolved = False
+    # Loading six full CCXT market catalogues at once causes enormous peak
+    # memory pressure on small Render containers. Check exchanges in preference
+    # order, only loading the next venue when the previous one cannot serve the
+    # required historical window. Market existence must not imply candle data.
+    for exchange in cfg.exchanges:
         try:
-            candles = await market_data_resolver.candles(
-                exchange_id=candidate.exchange,
-                symbol=candidate.symbol,
-                timeframe=cfg.timeframe,
-                start=signal.timestamp,
-                end=end,
-            )
+            candidates = await market_data_resolver.resolve(signal.symbol, [exchange])
         except Exception as exc:
-            errors.append(f"{candidate.exchange}: {type(exc).__name__}: {exc}")
+            errors.append(f"{exchange}: catalogue error {type(exc).__name__}: {exc}")
             continue
-        if candles:
-            return candidate, candles, errors
-        errors.append(f"{candidate.exchange}: no candles returned for requested historical window")
+        for candidate in candidates:
+            any_resolved = True
+            try:
+                candles = await market_data_resolver.candles(
+                    exchange_id=candidate.exchange,
+                    symbol=candidate.symbol,
+                    timeframe=cfg.timeframe,
+                    start=signal.timestamp,
+                    end=end,
+                )
+            except Exception as exc:
+                errors.append(f"{candidate.exchange}: {type(exc).__name__}: {exc}")
+                continue
+            if candles:
+                return candidate, candles, errors
+            errors.append(f"{candidate.exchange}: no candles returned for requested historical window")
+    if not any_resolved:
+        errors.append("Symbol is not currently resolvable on configured public CCXT spot venues.")
     return None, [], errors
 
 
@@ -529,123 +575,122 @@ def _build_summary(
     return summary
 
 
-async def advance_run(run_id: int, batch_size: int = 4) -> AnalysisRunRecord:
-    """Advance a run by a small durable batch and persist progress.
+async def advance_run(run_id: int, batch_size: int = 1,
+                      progress_hook: Callable[[str, float], None] | None = None) -> AnalysisRunRecord:
+    """Evaluate exactly one Telegram signal and checkpoint it before returning.
 
-    This endpoint is intentionally restart-safe. The browser can close, Render can
-    sleep, or the process can restart; the next call resumes by querying which
-    signal_ids already have SignalBacktestRecord rows for this run.
+    Resume uses stored SignalBacktestRecord rows. Parsing the archive and loading
+    prior completion IDs happen once per process/run, not for every signal.
+    Full metrics are recalculated every 50 results and at completion to avoid
+    quadratic database reads on large archives.
     """
-    batch_size = max(1, min(int(batch_size), 12))
-
     with SessionLocal() as db:
         run = db.get(AnalysisRunRecord, run_id)
         if not run:
             raise ValueError("Analysis run not found")
-        source = db.get(SourceRecord, run.source_id)
-        if not source:
-            run.status = "error"
-            run.stage = "source"
-            run.error = "Source not found"
-            run.completed_at = _utcnow()
-            db.commit(); db.refresh(run)
+        src = db.get(SourceRecord, run.source_id)
+        if src is None:
+            run.status = 'error'; run.error = 'Source not found'; run.stage = 'source'
+            run.completed_at = _utcnow(); db.commit(); db.refresh(run)
             return run
-        if run.status in {"complete", "error", "no_data"}:
+        if run.status in {'complete', 'error', 'no_data'}:
             return run
         cfg = AnalyzeSourceRequest(**(run.config_json or {}))
-        # Snapshot every scalar needed after this SQLAlchemy session closes.
-        # SQLAlchemy expires ORM attributes on commit by default, so keeping a
-        # SourceRecord/AnalysisRunRecord outside this block can raise
-        # DetachedInstanceError on PostgreSQL/Render.
-        source_id = int(source.id)
-        source_identifier = str(source.identifier)
-        source_config = dict(source.config or {})
+        source_id, source_identifier = int(src.id), str(src.identifier)
+        source_config = dict(src.config or {})
         if run.started_at is None:
             run.started_at = _utcnow()
-        run.status = "running"
-        run.stage = "eligibility"
+        run.status = 'running'; run.stage = 'preparing_signals'
         db.commit()
 
-    info = _eligibility(source_id, source_identifier, cfg)
-    eligible = info["eligible"]
-
-    with SessionLocal() as db:
-        existing_ids = {
-            int(x[0]) for x in db.query(SignalBacktestRecord.signal_id)
-            .filter(SignalBacktestRecord.analysis_run_id == run_id)
-            .all()
-        }
-        records = (
-            db.query(SignalBacktestRecord)
-            .filter(SignalBacktestRecord.analysis_run_id == run_id)
-            .order_by(SignalBacktestRecord.timestamp.asc())
-            .all()
-        )
-
-    remaining = [x for x in eligible if int(x["id"]) not in existing_ids]
-    if not eligible:
-        summary = _build_summary(source_id=source_id, source_identifier=source_identifier, source_config=source_config, cfg=cfg, info=info, records=records)
+    info = await _prepared_replay(run_id, source_id, source_identifier, cfg)
+    eligible = info['eligible']
+    total = len(eligible)
+    if run_id not in _REPLAY_COMPLETED:
         with SessionLocal() as db:
-            row = db.get(AnalysisRunRecord, run_id)
-            row.status = "no_data"; row.stage = "no_eligible_signals"; row.progress = 1.0
-            row.summary_json = summary; row.completed_at = _utcnow(); db.commit(); db.refresh(row)
-            return row
+            prior = set(int(x[0]) for x in db.query(SignalBacktestRecord.signal_id).filter(
+                SignalBacktestRecord.analysis_run_id == run_id).all())
+        _REPLAY_COMPLETED[run_id] = prior
+        _REPLAY_COMPLETED.move_to_end(run_id)
+        while len(_REPLAY_COMPLETED) > 1:
+            _REPLAY_COMPLETED.popitem(last=False)
+    processed_ids = _REPLAY_COMPLETED[run_id]
+    processed = len(processed_ids)
 
-    if remaining:
-        batch = remaining[:batch_size]
-        semaphore = asyncio.Semaphore(min(4, batch_size))
-        outcomes = await asyncio.gather(*(_analyze_one(item, cfg, semaphore) for item in batch))
+    if not total:
+        summary = _build_summary(source_id=source_id, source_identifier=source_identifier,
+                  source_config=source_config, cfg=cfg, info=info, records=[])
         with SessionLocal() as db:
-            for outcome in outcomes:
-                signal: NormalizedSignal = outcome["signal"]
-                record = outcome["record"]
-                # Idempotence: if a retry races with a prior request, do not duplicate.
-                exists = (
-                    db.query(SignalBacktestRecord)
-                    .filter(SignalBacktestRecord.analysis_run_id == run_id)
-                    .filter(SignalBacktestRecord.signal_id == int(outcome["signal_id"]))
-                    .first()
-                )
-                if exists:
-                    continue
+            run = db.get(AnalysisRunRecord, run_id)
+            run.status = 'no_data'; run.stage = 'no_eligible_signals'; run.progress = 1.0
+            run.summary_json = summary; run.completed_at = _utcnow()
+            db.commit(); db.refresh(run)
+        _release_replay(run_id)
+        return run
+
+    next_item = next((item for item in eligible if int(item['id']) not in processed_ids), None)
+    if next_item is not None:
+        symbol = next_item['signal'].symbol
+        stage = f'Market data · trade {processed + 1:,}/{total:,} · {symbol}'
+        if progress_hook:
+            progress_hook(stage, 0.05 + 0.94 * (processed / total))
+        # Exactly one network-backed trade at a time; venue fallback inside
+        # _analyze_one is sequential too (no fan-out of six catalogues).
+        outcome = await _analyze_one(next_item, cfg, asyncio.Semaphore(1))
+        record = outcome['record']
+        signal: NormalizedSignal = outcome['signal']
+        sid = int(outcome['signal_id'])
+        with SessionLocal() as db:
+            exists = db.query(SignalBacktestRecord.id).filter(
+                SignalBacktestRecord.analysis_run_id == run_id,
+                SignalBacktestRecord.signal_id == sid).first()
+            if not exists:
                 db.add(SignalBacktestRecord(
-                    analysis_run_id=run_id,
-                    source_id=source_id,
-                    signal_id=int(outcome["signal_id"]),
-                    timestamp=signal.timestamp,
-                    symbol=signal.symbol,
-                    exchange=record["exchange"],
-                    market_symbol=record["market_symbol"],
-                    status=record["status"],
-                    return_pct=record["return_pct"],
-                    result_json=record["result_json"],
-                ))
-            db.commit()
+                    analysis_run_id=run_id, source_id=source_id, signal_id=sid,
+                    timestamp=signal.timestamp, symbol=signal.symbol,
+                    exchange=record['exchange'], market_symbol=record['market_symbol'],
+                    status=record['status'], return_pct=record['return_pct'],
+                    result_json=record['result_json']))
+                db.commit()  # Durable checkpoint BEFORE advancing the cursor.
+        processed_ids.add(sid)
+        processed = len(processed_ids)
+    else:
+        processed = len(processed_ids)
+
+    complete = processed >= total
+    progress = 1.0 if complete else min(0.99, 0.05 + 0.94 * processed / total)
+    # A full summary after every trade would be O(N^2) over the SQL result table.
+    refresh_summary = complete or processed == 1 or processed % 50 == 0
+    summary = None
+    if refresh_summary:
+        with SessionLocal() as db:
+            records = db.query(SignalBacktestRecord).filter(
+                SignalBacktestRecord.analysis_run_id == run_id).order_by(
+                SignalBacktestRecord.timestamp.asc()).all()
+        summary = _build_summary(source_id=source_id, source_identifier=source_identifier,
+                  source_config=source_config, cfg=cfg, info=info, records=records)
 
     with SessionLocal() as db:
-        records = (
-            db.query(SignalBacktestRecord)
-            .filter(SignalBacktestRecord.analysis_run_id == run_id)
-            .order_by(SignalBacktestRecord.timestamp.asc())
-            .all()
-        )
-
-    summary = _build_summary(source_id=source_id, source_identifier=source_identifier, source_config=source_config, cfg=cfg, info=info, records=records)
-    processed = len(records)
-    complete = processed >= len(eligible)
-    progress = 1.0 if complete else min(0.99, 0.05 + 0.94 * processed / max(1, len(eligible)))
-
-    with SessionLocal() as db:
-        row = db.get(AnalysisRunRecord, run_id)
-        row.status = "complete" if complete else "running"
-        row.stage = "complete" if complete else f"market_data:{processed}/{len(eligible)}"
-        row.progress = progress
-        row.summary_json = summary
-        row.error = None
+        run = db.get(AnalysisRunRecord, run_id)
+        prior_summary = dict(run.summary_json or {})
+        if summary is None:
+            summary = {**prior_summary, 'signals_eligible': total,
+                       'signals_processed': processed,
+                       'signals_remaining': max(0, total - processed),
+                       'outcome': 'in_progress'}
+        run.progress = progress
+        run.stage = 'complete' if complete else f'market_data:{processed}/{total}'
+        run.status = 'complete' if complete else 'running'
+        run.summary_json = summary
+        run.error = None
         if complete:
-            row.completed_at = _utcnow()
-        db.commit(); db.refresh(row)
-        return row
+            run.completed_at = _utcnow()
+        db.commit(); db.refresh(run)
+    if progress_hook:
+        progress_hook(f'{"Complete" if complete else "Evaluated"} · {processed:,}/{total:,} trades', progress)
+    if complete:
+        _release_replay(run_id)
+    return run
 
 
 def replay_readiness(source_id: int, config: AnalyzeSourceRequest | None = None) -> dict[str, Any]:

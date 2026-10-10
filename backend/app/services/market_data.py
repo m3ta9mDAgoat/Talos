@@ -34,7 +34,7 @@ class CCXTMarketDataResolver:
             cls = getattr(ccxt, exchange_id, None)
             if cls is None:
                 raise ValueError(f"Unsupported CCXT exchange: {exchange_id}")
-            self._instances[exchange_id] = cls({"enableRateLimit": True, "timeout": 20000})
+            self._instances[exchange_id] = cls({"enableRateLimit": True, "timeout": 20000, "options": {"defaultType": "spot"}})
         return self._instances[exchange_id]
 
     async def _load_markets(self, exchange_id: str) -> dict[str, Any]:

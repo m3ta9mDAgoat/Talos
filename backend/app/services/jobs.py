@@ -5,9 +5,10 @@ import hashlib
 import json
 import threading
 from datetime import datetime, timedelta, timezone
+import math
 from typing import Any
 
-from sqlalchemy import case, func, text
+from sqlalchemy import case, func, text, update
 from app.db.session import SessionLocal
 from app.models.jobs import JobRecord
 from app.models.signal import SignalRecord
@@ -57,7 +58,7 @@ def create_or_reuse_user_job(kind: str, payload: dict[str, Any], *, max_attempts
         with SessionLocal() as db:
             source_id = int(clean.get('source_id', 0)) if clean.get('source_id') is not None else 0
             if kind == 'telegram_replay' and source_id:
-                clean['_input_snapshot'] = 'channel-adaptive-reparse-v4.7.6|' + _replay_snapshot(db, source_id)
+                clean['_input_snapshot'] = 'replay-sequential-eta-bingx-v4.7.8|' + _replay_snapshot(db, source_id)
             sig = hashlib.sha256(json.dumps([kind, clean], sort_keys=True, default=str, separators=(',', ':')).encode()).hexdigest()
             # Serialize simultaneous POST requests across instances using a Postgres advisory transaction lock.
             if db.bind.dialect.name == 'postgresql':
@@ -78,6 +79,57 @@ def create_or_reuse_user_job(kind: str, payload: dict[str, Any], *, max_attempts
             return row, False
 
 
+def _parse_utc(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return None
+
+
+def _job_eta(row: JobRecord) -> dict[str, Any]:
+    """Honest estimates from measured throughput, shared by every UI job badge.
+
+    For replay we use completed trades/total trades, not approximate 5% stage
+    overhead. Generic jobs show an approximate ETA only after meaningful progress.
+    Restart/retry time can skew estimates, so cap and clearly label them.
+    """
+    state = dict(row.state_json or {})
+    started = _parse_utc(state.get('eta_started_at'))
+    finished = row.status in {'complete', 'no_data', 'cancelled', 'error'}
+    if finished:
+        return {'eta_seconds': 0 if row.status in {'complete', 'no_data'} else None,
+                'eta_at': None, 'eta_basis': 'finished',
+                'work_completed': state.get('work_completed'), 'work_total': state.get('work_total')}
+    if row.status == 'queued' and not started:
+        return {'eta_seconds': None, 'eta_at': None, 'eta_basis': 'waiting'}
+    if row.status == 'retrying':
+        return {'eta_seconds': None, 'eta_at': None, 'eta_basis': 'retrying'}
+    if not started:
+        return {'eta_seconds': None, 'eta_at': None, 'eta_basis': 'warming_up'}
+    elapsed = max(0.0, (utcnow() - started).total_seconds())
+    completed, total = state.get('work_completed'), state.get('work_total')
+    if completed is not None and total:
+        completed, total = int(completed), int(total)
+        # Use smoothed intervals BETWEEN persisted trade completions. Measuring
+        # from job start would include one-time archive parsing and inflate ETA.
+        observed = state.get('eta_trade_seconds_ema')
+        if completed < 2 or observed is None:
+            return {'eta_seconds': None, 'eta_at': None, 'eta_basis': 'measuring_trade_speed',
+                    'work_completed': completed, 'work_total': total}
+        seconds = min(30*24*3600, math.ceil(max(0, total-completed) * float(observed)))
+        return {'eta_seconds': seconds, 'eta_at': (utcnow()+timedelta(seconds=seconds)).isoformat(),
+                'eta_basis': 'observed_trades', 'work_completed': completed, 'work_total': total}
+    progress = float(row.progress or 0)
+    if elapsed >= 10 and 0.10 <= progress < 0.995:
+        seconds = min(30*24*3600, math.ceil(elapsed * (1-progress) / progress))
+        return {'eta_seconds': seconds, 'eta_at': (utcnow()+timedelta(seconds=seconds)).isoformat(),
+                'eta_basis': 'observed_progress'}
+    return {'eta_seconds': None, 'eta_at': None, 'eta_basis': 'measuring_speed'}
+
+
 def job_dict(row: JobRecord) -> dict[str, Any]:
     return {
         "id": row.id, "kind": row.kind, "status": row.status, "progress": row.progress,
@@ -86,6 +138,7 @@ def job_dict(row: JobRecord) -> dict[str, Any]:
         "attempts": row.attempts, "max_attempts": row.max_attempts, "next_run_at": row.next_run_at,
         "heartbeat_at": row.heartbeat_at, "error": row.error, "created_at": row.created_at,
         "updated_at": row.updated_at, "completed_at": row.completed_at,
+        **_job_eta(row),
     }
 
 
@@ -154,11 +207,38 @@ async def _handle(row: JobRecord) -> tuple[bool, float, dict[str, Any], dict[str
             cfg = AnalyzeSourceRequest(**dict(p.get("config") or {}))
             run = create_run(int(p["source_id"]), cfg)
             run_id = run.id; state["run_id"] = run_id
-        run = await advance_run(int(run_id), batch_size=int(p.get("batch_size", 6)))
+        def mark(stage: str, progress: float) -> None:
+            # Save the run pointer and stage BEFORE the expensive archive scan.
+            # Recovery after a container restart must reuse the original run.
+            with SessionLocal() as checkpoint_db:
+                active = checkpoint_db.get(JobRecord, row.id)
+                if active and active.status == 'running':
+                    active.state_json = {**(active.state_json or {}), **state, 'stage': stage}
+                    active.result_json = {**(active.result_json or {}), 'run_id': int(run_id), 'stage': stage}
+                    active.progress = max(float(active.progress or 0), float(progress))
+                    active.heartbeat_at = utcnow()
+                    checkpoint_db.commit()
+        mark('Preparing eligible Telegram signals', 0.01)
+        run = await advance_run(int(run_id), batch_size=1, progress_hook=mark)
+        total = int((run.summary_json or {}).get('signals_eligible') or 0)
+        completed = int((run.summary_json or {}).get('signals_processed') or 0)
+        prior_completed = int(state.get('work_completed') or 0)
+        now_sample = utcnow()
+        previous_sample = _parse_utc(state.get('eta_last_trade_at'))
+        if completed > prior_completed:
+            if prior_completed > 0 and previous_sample is not None:
+                delta = (now_sample - previous_sample).total_seconds()
+                if 0 < delta < 600:
+                    measured = delta / (completed - prior_completed)
+                    previous_ema = state.get('eta_trade_seconds_ema')
+                    state['eta_trade_seconds_ema'] = (0.75 * float(previous_ema) + 0.25 * measured) if previous_ema else measured
+                    state['eta_samples'] = int(state.get('eta_samples') or 0) + 1
+            state['eta_last_trade_at'] = now_sample.isoformat()
+        state.update({'stage': run.stage, 'work_total': total, 'work_completed': completed})
         result = {"run_id": run.id, "status": run.status, "stage": run.stage, "summary": run.summary_json or {}, "error": run.error}
         if run.status == "error":
             raise RuntimeError(run.error or "Replay failed")
-        return run.status in ("complete", "no_data"), float(run.progress or 0.0), state, {**result, "outcome": (run.summary_json or {}).get("outcome")}
+        return run.status in ("complete", "no_data"), float(run.progress or 0.0), state, {**result, "outcome": (run.summary_json or {}).get("outcome"), "stage": run.stage}
 
     if row.kind == "strategy_backtest":
         from app.services.strategy_backtest import create_strategy_run, advance_strategy_run
@@ -170,7 +250,7 @@ async def _handle(row: JobRecord) -> tuple[bool, float, dict[str, Any], dict[str
         result = {"run_id": run.id, "status": run.status, "stage": run.stage, "summary": run.summary_json or {}, "error": run.error}
         if run.status == "error":
             raise RuntimeError(run.error or "Strategy backtest failed")
-        return run.status in ("complete", "no_data"), float(run.progress or 0.0), state, {**result, "outcome": (run.summary_json or {}).get("outcome")}
+        return run.status in ("complete", "no_data"), float(run.progress or 0.0), state, {**result, "outcome": (run.summary_json or {}).get("outcome"), "stage": run.stage}
 
     if row.kind == "news_alerts":
         from app.services.notifications import send_news_digest
@@ -227,23 +307,39 @@ async def _heartbeat_until_done(job_id: int, done_event: asyncio.Event):
 
 
 async def run_one_job(job_id: int) -> dict[str, Any]:
+    # A queued job can be visible to multiple Render instances. Claim it with
+    # one SQL UPDATE rather than SELECT-then-SET to avoid duplicate evaluation.
     with SessionLocal() as db:
-        row = db.get(JobRecord, job_id)
-        if not row: raise ValueError("Job not found")
-        if row.status in {"complete", "no_data", "cancelled"}: return job_dict(row)
-        row.status = "running"; row.heartbeat_at = utcnow(); row.updated_at = utcnow(); row.error = None
+        claimed = db.execute(
+            update(JobRecord)
+            .where(JobRecord.id == job_id, JobRecord.status.in_(['queued', 'retrying']))
+            .values(status='running', heartbeat_at=utcnow(), updated_at=utcnow(), error=None)
+        ).rowcount
         db.commit()
+        row = db.get(JobRecord, job_id)
+        if not row:
+            raise ValueError('Job not found')
+        if claimed != 1:
+            # Another instance owns this work, or it was cancelled/completed.
+            return job_dict(row)
+        if not (row.state_json or {}).get('eta_started_at'):
+            row.state_json = {**(row.state_json or {}), 'eta_started_at': utcnow().isoformat()}
+            db.commit()
 
     stop_heartbeat = asyncio.Event()
     heartbeat_task = asyncio.create_task(_heartbeat_until_done(job_id, stop_heartbeat))
     try:
         with SessionLocal() as db:
             snapshot = db.get(JobRecord, job_id)
-            done, progress, state, result = await _handle(snapshot)
+        # Do not hold a PostgreSQL transaction or pool connection open while
+        # fetching minutes of historical candles from public exchanges.
+        done, progress, state, result = await _handle(snapshot)
         with SessionLocal() as db:
             row = db.get(JobRecord, job_id)
+            if row.status == 'cancelled':
+                return job_dict(row)
             row.progress = max(float(row.progress or 0.0), float(progress or 0.0))
-            row.state_json = state; row.result_json = result; row.updated_at = utcnow(); row.heartbeat_at = utcnow()
+            row.state_json = {**(row.state_json or {}), **state}; row.result_json = result; row.updated_at = utcnow(); row.heartbeat_at = utcnow()
             row.attempts = 0
             if done:
                 row.status = "no_data" if row.kind == "telegram_replay" and result.get("outcome") == "no_eligible_signals" else "complete"
@@ -254,6 +350,8 @@ async def run_one_job(job_id: int) -> dict[str, Any]:
     except Exception as exc:
         with SessionLocal() as db:
             row = db.get(JobRecord, job_id)
+            if row.status == 'cancelled':
+                return job_dict(row)
             row.attempts = int(row.attempts or 0) + 1
             row.error = f"{type(exc).__name__}: {exc}"
             row.updated_at = utcnow(); row.heartbeat_at = utcnow()

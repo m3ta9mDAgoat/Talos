@@ -64,7 +64,7 @@ async def advance_strategy_run(run_id:int,batch_size:int=8)->StrategyRunRecord:
         run=db.get(StrategyRunRecord,run_id)
         if not run:raise ValueError('Run not found')
         strat=_strategy(db,run.strategy_config_id); strategy_id=run.strategy_config_id; params=dict(strat.parameters_json or {}); kind=params.get('kind','signal_copy'); definition=dict(params.get('definition') or {}); cfg=dict(run.config_json or {}); state=dict(run.state_json or {})
-        timeframe=cfg.get('timeframe') or definition.get('timeframe') or '1h'; exchanges=cfg.get('exchanges') or ['binance','okx','bybit','bitget','kucoin','mexc']; fee=float(cfg.get('fee_bps',10)); slip=float(cfg.get('slippage_bps',5))
+        timeframe=cfg.get('timeframe') or definition.get('timeframe') or '1h'; exchanges=cfg.get('exchanges') or ['binance','okx','bybit','bitget','kucoin','mexc','bingx']; fee=float(cfg.get('fee_bps',10)); slip=float(cfg.get('slippage_bps',5))
         run.status='running'; run.stage=f'backtest:{kind}'; run.error=None; db.commit()
     try:
         if kind=='technical':

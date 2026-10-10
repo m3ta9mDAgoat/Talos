@@ -72,7 +72,7 @@ def update_config(changes: dict[str, Any]) -> dict[str, Any]:
         value = settings[key]
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)) or not low <= float(value) <= high:
             raise ValueError(f"{key} must be between {low} and {high}")
-    if settings["broker_id"] not in {"binance", "okx", "bybit", "bitget", "kucoin", "mexc"}:
+    if settings["broker_id"] not in {"binance", "okx", "bybit", "bitget", "kucoin", "mexc", "bingx"}:
         raise ValueError("Unsupported broker")
     if settings["quote_currency"] != "USDT":
         raise ValueError("News strategy currently supports spot USDT only")
@@ -453,7 +453,7 @@ def replay_settings(overrides: dict | None = None) -> dict:
         v = cfg[k]
         if isinstance(v, bool) or not isinstance(v, (float, int)) or not math.isfinite(v) or not a <= v <= b:
             raise ValueError(f"Invalid {k}; expected {a} to {b}")
-    if cfg["broker_id"] not in {"binance", "okx", "bybit", "bitget", "kucoin", "mexc"}:
+    if cfg["broker_id"] not in {"binance", "okx", "bybit", "bitget", "kucoin", "mexc", "bingx"}:
         raise ValueError("Unsupported OHLCV market")
     if cfg["quote_amount"] > cfg["starting_equity"] * cfg["max_position_fraction"]:
         raise ValueError("Trade size exceeds hypothetical starting equity risk limit")

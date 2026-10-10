@@ -41,7 +41,7 @@ class StrategyWrite(BaseModel):
     name:str; kind:str; version:str='1.0'; stage:str='draft'; enabled:bool=True; definition:dict[str,Any]=Field(default_factory=dict); optimization_space:dict[str,list[float]]=Field(default_factory=dict); notes:str=''
 
 class RunCreate(BaseModel):
-    timeframe:str='1h'; start:str|None=None; end:str|None=None; horizon_days:int=14; fee_bps:float=10; slippage_bps:float=5; portfolio_fraction:float=0.10; exchanges:list[str]=Field(default_factory=lambda:['binance','okx','bybit','bitget','kucoin','mexc'])
+    timeframe:str='1h'; start:str|None=None; end:str|None=None; horizon_days:int=14; fee_bps:float=10; slippage_bps:float=5; portfolio_fraction:float=0.10; exchanges:list[str]=Field(default_factory=lambda:['binance','okx','bybit','bitget','kucoin','mexc','bingx'])
 
 class ResearchSave(BaseModel):
     title:str; url:str|None=None; doi:str|None=None; abstract:str|None=None; notes:str|None=None; metadata:dict[str,Any]=Field(default_factory=dict)

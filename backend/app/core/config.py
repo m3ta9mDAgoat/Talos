@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     kucoin_password: str | None = None
     mexc_api_key: str | None = None
     mexc_api_secret: str | None = None
+    bingx_api_key: str | None = None
+    bingx_api_secret: str | None = None
 
     live_trading_enabled: bool = False
     embedded_job_worker: bool = True

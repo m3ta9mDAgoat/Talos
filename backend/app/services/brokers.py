@@ -6,7 +6,7 @@ from typing import Any
 from app.core.config import settings
 from app.services.security import get_secret, get_runtime
 
-SUPPORTED = ["binance", "okx", "bybit", "bitget", "kucoin", "mexc"]
+SUPPORTED = ["binance", "okx", "bybit", "bitget", "kucoin", "mexc", "bingx"]
 
 
 def _credentials(broker_id: str) -> dict[str, str | None]:

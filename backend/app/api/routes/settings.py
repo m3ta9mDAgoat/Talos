@@ -18,6 +18,7 @@ PROVIDERS = {
     "bitget": ["api_key", "api_secret", "password"],
     "kucoin": ["api_key", "api_secret", "password"],
     "mexc": ["api_key", "api_secret"],
+    "bingx": ["api_key", "api_secret"],
     "ai": ["base_url", "model", "api_key"],
 }
 
