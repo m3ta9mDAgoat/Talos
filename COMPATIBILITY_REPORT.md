@@ -1,64 +1,37 @@
-# Talos v4.7.6 Release Verification (2026-10-10)
+# Talos v4.7.8 — Compatibility and verification report
 
-- Backend 99 files; frontend 24 files. Backend and frontend retain the two-stage, root-relative GitHub upload layout.
-- Live adaptive duration: fixed at entry from first target/stop geometry and **pre-entry** 1m volatility; 15min–72h policy bounds, entry waiting plan independent.
-- P&L and outcome persist in `live_signal_simulations.state.evaluation`, with entry/exit evidence and explicit fee/slippage assumptions. No real-money execution added.
-- Completion notifications queued in persisted `delivery_pending` and retried if Telegram delivery fails.
-- v4.7.6 additionally recovers the final pre-deadline candle after server restarts and advanced cursors; avoids using post-deadline prices.
-- Local checks: 13 automated SQLite/parser/horizon/monitor/outbox tests passed; Python compileall; frontend TS/TSX syntax transpile diagnostics=0.
-- Limitations: Full frontend dependency build was not run; FastAPI import blocked by absent `telethon` in test environment. No deployed Render, Neon, live MTProto, Telegram bot, or public exchange calls tested. Live adaptive horizons are separate from historical Replay policy.
-- Optional LLM fallback requires AI credentials in Secure Vault, and applies only to otherwise-unresolved structured signal formats. No success-rate guarantee.
+## Implemented
 
----
+- Preserved the existing SQL schemas and service route names. No destructive data migration.
+- Telegram Replay job now evaluates **exactly one signal per step**, and persists each result to `signal_backtests` before updating progress.
+- Safe atomic job claim across parallel worker instances; prior working jobs can resume after stale-heartbeat recovery.
+- Archive candidate set and completed IDs cached within the process and reconstructed from persistent records on restart; full aggregation only every 50 trades / at finalization.
+- `Jobs`, `Operations`, `Sources` and in-page replay jobs use the same job badge with ETA estimates or an honest `ETA calculating` message.
+- BingX public CCXT spot market-data resolution, candle retrieval, fallback, configuration and UI selection are enabled. Exchange selection is sequential and takes the first available venue with actual candles.
+- Replay deduplication fingerprint bumped to v4.7.8.
 
-# Talos v4.7.3 Compatibility / Verification
+## Local tests and results
 
-- Backend 99 files; frontend 24 files. Root-relative paths as in previous GitHub release.
-- Replay now uses archived raw revisions for recovery if stored parsed BUY signals are empty.
-- Latest edited revision at original message time is explicitly biased (research only); `from_edit` remains available.
-- Fixed dashboard polling causing repeated expensive readiness requests.
-- Deduplication version changed so old completed empty replay cannot be reused after upgrading.
-- Regression: SQLite archive -> 2 candidates -> 2 mock persisted results; failed parsing explains rejection; duplicate jobs deduplicated.
-- Python syntax and TS/TSX syntax passed. Full Docker/React build and live PostgreSQL/Telegram/exchange integrations unverified.
+| Verification | Result |
+|---|---|
+| Python package bytecode compilation | PASS |
+| TypeScript/TSX syntax parsing (`transpileModule` with original filenames) | PASS |
+| Two-signal SQL Replay checkpoint, progress, completion and cancellation | PASS |
+| 56-trade SQL replay, exactly one in-flight trade | PASS |
+| Resume after clearing both in-process caches, no repeated row | PASS |
+| Only first / 50th / final full summary runs for 56 trades | PASS (3 summaries) |
+| ETA estimated from persisted `work_completed` and `work_total` | PASS |
+| Two simultaneous workers try to claim same queued job | PASS (only one executes) |
+| Sequential venue fallback (try exchange 2 only after exchange 1 has no candles) | PASS |
+| BingX CCXT spot filtering and historical OHLCV adapter with mocked exchange | PASS |
+| React/Vite full build | NOT TESTED (dependencies unavailable) |
+| Actual Render/Neon/Telegram/BingX network integrations | NOT TESTED |
 
----
+These tests verify functionality of local code and mocked adapters, not exchange price accuracy or performance at production scale.
 
-v4.7.2 checks: 44 local backend unit tests; Python syntax compile; frontend TypeScript parser: no syntax diagnostics; static API paths review. Live Telegram MTProto, exchange candles, full npm/Vite/Docker build and deployed Neon/Render were NOT verified. Evidence comparisons cannot prove plagiarism.
+## Operational expectations
 
-# Talos v4.6.0 — Compatibility and verification
-
-## Verified locally
-- 36/36 Python backend tests passed (including paper entry/deduplication/stale news checks).
-- Python sources compiled with compileall.
-- TypeScript/TSX source syntax parsed using locally installed TypeScript.
-- 84 statically resolvable API invocations match 108 backend FastAPI route declarations.
-- Frontend and backend both report version 4.6.0.
-- Backend and frontend archives are separately verified ZIPs of fewer than 100 files.
-- Backend archive contains full 97-file runtime backend + root Dockerfile + render.yaml, tests omitted to meet upload limit.
-
-## Requires deployed integration test
-- Node dependency install and actual Vite optimized build (`npm install && npm run build`).
-- Docker build (Docker not available in local runtime).
-- PostgreSQL/Neon and Render deployment, Telegram chat and exchange connections.
-- True replay completion under live market source coverage, 8 existing error sources (root causes require production data).
-- Real-world data latency, slippage and paper/live reconciliation.
-
-## Safety and intentional feature limits
-- News Strategy supports only spot-crypto listing alerts for simulated long buys, not all asset classes.
-- News headlines' importance and classification-confidence values are not trade-win probabilities.
-- 1-minute OHLCV historical high is not evidence of an attainable execution price.
-- Optional auto-paper mode is OFF by default. Autonomous live-money mode is not implemented and cannot be enabled in this new module.
-- The pre-existing separate manual/admin Live Execution feature is unchanged.
-- Telegram `/paper EVENT_ID` command only authorizes a guarded PAPER trade in the configured private chat.
-- News from 45–360 minute feed schedules does not qualify as real-time news trading. Render Free may sleep.
-
-## v4.7.0 sentiment replay changes
-- New SQL models `news_sentiment_replay_runs`, `news_sentiment_replay_records` register through `app.models`; the existing database tables are unchanged.
-- New API paths: `/api/v1/news-trade/sentiment/catalog`, `/sentiment/runs`, `/sentiment/records`, `/sentiment/metrics`, `/sentiment/export.csv`, and admin-only `POST /api/v1/news-trade/admin/sentiment/backtest`.
-- Added background `sentiment_replay_loop` with persisted job cursor and frozen event order (by publication time), automatic windows and manual backtest windows.
-- New `SentimentBacktestPanel` inside existing React `News Strategy`, no new frontend runtime dependency.
-- Python syntax, baseline 36 tests, new simulator tests, JS/TSX syntax and static frontend↔backend API matcher are locally validated. Actual Render/Neon exchange time series and npm/Docker production build **not verified**.
-- **No real-money trade route** was added. Historical OHLCV 1m results do not demonstrate 5s fills. Read `docs/TALOS_V47_SENTIMENT_BACKTEST_AR.md` before interpreting metrics.
-
-
-Talos v4.7.4: backend parser fix; frontend API calls unchanged. Deployed exchange and Neon backtest remain unverified.
+- Before the first trade completes, the job exposes the preparation/current market-data stage but its **ETA is not yet available**. After enough successful per-trade checkpoints, ETA is approximate: different symbols and exchange fallback paths can take substantially different amounts of time.
+- Persisted result rows are the source of truth. Cancelling the old #22 job does not delete source Telegram messages.
+- A trade with unavailable candles records `no_market_data`; this is not a winning or losing trade. Examine individual `fetch_errors` for the venue that failed.
+- If the proxy continues to return 502, Render logs and Events are needed to distinguish process OOM, network timeout, application exception or database outage. This software patch is not a guarantee against provider limitations.
