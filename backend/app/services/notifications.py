@@ -120,15 +120,34 @@ async def notify_signal(signal_id: int, event: str = "new", *, raw_event_id: int
         stop = (row.stop or {}).get("price") if row.stop else None
         prefix = "✏️ SIGNAL EDITED" if event == "edit" else "🛰 NEW SIGNAL"
         detail = ""
-        if event == "edit" and raw_event_id is not None:
+        if event == "edit":
             try:
                 from app.models.telegram_audit import TelegramSignalVersionRecord
-                version = db.query(TelegramSignalVersionRecord).filter(TelegramSignalVersionRecord.raw_event_id == raw_event_id).first()
-                if version:
-                    flags = ", ".join(version.integrity_flags_json or []) or "text-only/no trading-rule change"
-                    detail = f"\nChanged: {flags}"
+                from app.models.raw_event import RawEventRecord
+                from app.services.telegram_integrity import classify_revision, earlier_cross_source_matches
+                event_id = raw_event_id or (row.metadata_json or {}).get("raw_event_id")
+                if event_id:
+                    version = db.query(TelegramSignalVersionRecord).filter(TelegramSignalVersionRecord.raw_event_id == int(event_id)).first()
+                    if version:
+                        flags = ", ".join(version.integrity_flags_json or []) or "no parsed trading field change"
+                        original_found = db.query(TelegramSignalVersionRecord.id).filter(
+                            TelegramSignalVersionRecord.source_id == version.source_id,
+                            TelegramSignalVersionRecord.source_message_id == version.source_message_id,
+                            TelegramSignalVersionRecord.revision_type == "message").first() is not None
+                        assessment = classify_revision(version.revision_type, list(version.integrity_flags_json or []), original_found)
+                        detail = f"\nEdit assessment: {assessment['kind']}\nChanged: {flags}"
+                        original = db.get(RawEventRecord, int(event_id))
+                        if original is not None:
+                            matched = earlier_cross_source_matches(db, original, limit=1)
+                            if matched:
+                                evidence = matched[0]
+                                detail += (f"\nEarlier matching text observed: {evidence['source']} "
+                                           f"#{evidence['message_id']} ({evidence['similarity']*100:.1f}% text similarity)."
+                                           " Not proof of plagiarism.")
+                        if not original_found:
+                            detail += "\nOriginal unobserved: previous version cannot be reconstructed."
             except Exception:
-                detail = ""
+                detail = "\nEdit evidence unavailable; inspect Live Monitor."
         text = (
             f"{prefix}\n"
             f"{row.symbol} · {row.side.upper()}\n"

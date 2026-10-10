@@ -4,7 +4,7 @@ import hashlib
 import threading
 from collections import Counter, OrderedDict
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -115,7 +115,12 @@ def _upsert_version(
     values = dict(parsed_values or {})
     values["revision_type"] = revision_type
     deleted = revision_type == "delete"
-    changes, flags = _diff(prev, values, deleted=deleted)
+    # Include the actual revision text: omitting it mislabeled every edit as text-only.
+    changes, flags = _diff(prev, {**values, "raw_text": row.text}, deleted=deleted)
+    if prev and not deleted and not parsed_values and prev.status == "parsed":
+        # A new unparseable revision is not proof that its old trading fields were erased.
+        changes = {"unparsable_revision": True, "text_changed": " ".join((prev.raw_text or "").split()) != " ".join((row.text or "").split())}
+        flags = ["signal_became_unparsable"]
     revision_at = _revision_at(row)
     payload = dict(
         raw_event_id=row.id,
@@ -309,7 +314,7 @@ def process_raw_event(source_id: int, raw_event_id: int, *, force: bool = False)
             return _process_one(db, source, row, force=force)
 
 
-def process_source(source_id: int, *, force: bool = False) -> dict:
+def process_source(source_id: int, *, force: bool = False, progress_callback: Callable[[int, int], None] | None = None) -> dict:
     with _PROCESS_LOCK:
         with SessionLocal() as db:
             source = db.get(SourceRecord, source_id)
@@ -318,6 +323,10 @@ def process_source(source_id: int, *, force: bool = False) -> dict:
             rows = _pending_rows(db, source, force=force)
             examined=processed=skipped_cached=created=updated=parsed=review=ignored=errors=deleted=0
             created_signal_ids: list[int]=[]; updated_signal_ids: list[int]=[]; classes: Counter[str]=Counter()
+            total_rows = len(rows)
+            if progress_callback:
+                try: progress_callback(0, total_rows)
+                except Exception: pass
             for row in rows:
                 examined += 1
                 try:
@@ -334,8 +343,11 @@ def process_source(source_id: int, *, force: bool = False) -> dict:
                     elif result.get("signal_status") == "review": review += 1
                     elif not result.get("deleted"): ignored += 1
                     if result.get("classification"): classes[str(result["classification"])] += 1
-                    if processed and processed % 250 == 0:
+                    if examined % 50 == 0:
                         db.commit()
+                        if progress_callback:
+                            try: progress_callback(examined, total_rows)
+                            except Exception: pass
                 except Exception as exc:
                     db.rollback(); errors += 1
                     state = db.query(ProcessingStateRecord).filter(ProcessingStateRecord.raw_event_id == row.id).first()
@@ -346,6 +358,10 @@ def process_source(source_id: int, *, force: bool = False) -> dict:
                     else:
                         state.status="error"; state.last_error=f"{type(exc).__name__}: {exc}"; state.processed_at=datetime.now(timezone.utc)
                     db.commit()
+            db.commit()
+            if progress_callback:
+                try: progress_callback(examined, total_rows)
+                except Exception: pass
             source = db.get(SourceRecord, source_id)
             now = datetime.now(timezone.utc)
             source.config = {**(source.config or {}), "processing": {"classifier_version":CLASSIFIER_VERSION,

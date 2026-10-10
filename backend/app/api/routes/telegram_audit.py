@@ -21,3 +21,9 @@ def source_message_history(source_id: int, message_id: str):
         return message_history(source_id, message_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/sources/{source_id}/watcher")
+def source_watcher_status(source_id: int):
+    from app.services.telegram_live_watch import stream_status
+    return stream_status(source_id)

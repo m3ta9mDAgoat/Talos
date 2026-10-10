@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import threading
 from datetime import datetime, timezone
 from typing import Any
 
@@ -20,6 +21,28 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+_SOURCE_LOCK = threading.RLock()
+_SOURCE_STATES: dict[int, dict[str, Any]] = {}
+
+
+def _mark_source(source_id: int, **values: Any) -> None:
+    with _SOURCE_LOCK:
+        _SOURCE_STATES[source_id] = {**_SOURCE_STATES.get(source_id, {}), **values}
+
+
+def stream_status(source_id: int) -> dict[str, Any]:
+    """Process-local MTProto stream status; no guess from worker-thread uptime."""
+    with _SOURCE_LOCK:
+        state = dict(_SOURCE_STATES.get(source_id, {}))
+    return {"source_id":source_id,"connected":bool(state.get("connected",False)),
+        "last_connected_at":state.get("last_connected_at"),
+        "last_event_at":state.get("last_event_at"),
+        "last_edit_at":state.get("last_edit_at"),
+        "last_event_message_id":state.get("last_event_message_id"),
+        "last_error":state.get("last_error"),
+        "note":"Connected means this process registered Telegram stream handlers. It does not guarantee all historical edits were observable or that the next event will arrive without interruption."}
+
+
 async def watch_source(source_id: int) -> None:
     backoff = 2
     while True:
@@ -29,6 +52,7 @@ async def watch_source(source_id: int) -> None:
                 return
             identifier = str(source.identifier)
         try:
+            _mark_source(source_id,connected=False)
             # Catch up once whenever the MTProto stream connects/reconnects. This
             # closes any gap caused by Render sleep/network interruption without
             # polling Telegram + Postgres every minute while the stream is healthy.
@@ -38,7 +62,13 @@ async def watch_source(source_id: int) -> None:
             except Exception as exc:
                 print(f"telegram catchup source {source_id}: {type(exc).__name__}: {exc}", flush=True)
             connector = TelegramSource()
-            async for event in connector.stream(channel=identifier):
+            def connected():
+                _mark_source(source_id, connected=True, last_connected_at=utcnow().isoformat(), last_error=None)
+            async for event in connector.stream(channel=identifier, on_connected=connected):
+                meta = event.metadata or {}
+                _mark_source(source_id, last_event_at=utcnow().isoformat(),
+                    last_event_message_id=str(event.external_id),
+                    **({"last_edit_at":utcnow().isoformat()} if meta.get("event_type")=="edit" else {}))
                 with SessionLocal() as db:
                     row, inserted = persist_single_event(db, identifier, event)
                     raw_event_id = int(row.id)
@@ -70,8 +100,10 @@ async def watch_source(source_id: int) -> None:
                         print(f"notify edit signal {signal_id}: {exc}", flush=True)
                 backoff = 2
         except asyncio.CancelledError:
+            _mark_source(source_id, connected=False, last_error="Stream task cancelled")
             raise
         except Exception as exc:
+            _mark_source(source_id, connected=False, last_error=f"{type(exc).__name__}: {exc}")
             print(f"telegram stream source {source_id}: {type(exc).__name__}: {exc}", flush=True)
             await asyncio.sleep(backoff)
             backoff = min(60, backoff * 2)
@@ -106,6 +138,7 @@ async def stream_supervisor(stop_event: asyncio.Event | None = None) -> None:
                     task = tasks.pop(sid)
                     if not task.done():
                         task.cancel()
+                    _mark_source(sid, connected=False)
             for sid in wanted:
                 if sid not in tasks:
                     tasks[sid] = asyncio.create_task(watch_source(sid), name=f"telegram-live-{sid}")

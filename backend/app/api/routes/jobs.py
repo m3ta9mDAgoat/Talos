@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.jobs import JobRecord
-from app.services.jobs import create_job, job_dict
+from app.services.jobs import create_or_reuse_user_job, job_dict
 from app.services.runtime_wake import wake_jobs
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -22,7 +22,11 @@ class JobCreate(BaseModel):
 def new_job(req: JobCreate):
     allowed = {"source_import_full", "source_process", "source_sync", "telegram_replay", "strategy_backtest", "optimization", "research_extract"}
     if req.kind not in allowed: raise HTTPException(400, f"Unsupported job kind: {req.kind}")
-    return job_dict(create_job(req.kind, req.payload, max_attempts=req.max_attempts))
+    try:
+        row, reused = create_or_reuse_user_job(req.kind, req.payload, max_attempts=req.max_attempts)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return {**job_dict(row), "reused": reused}
 
 
 @router.get("")

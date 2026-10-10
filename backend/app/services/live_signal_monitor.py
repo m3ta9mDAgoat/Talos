@@ -24,6 +24,18 @@ def ensure_live_simulation(signal_id: int, source_id: int | None = None) -> Live
         if existing:
             existing_id = int(existing.id)
         else:
+            # If the first parseable signal was an edit, no original trade was
+            # observable. Start the live paper clock when Talos actually saw it.
+            # Do not invent a trade at the original post timestamp.
+            meta = dict(signal.metadata_json or {})
+            first_observed = utcnow()
+            revised_at = meta.get("edit_date") if meta.get("revision_type") in {"edit", "snapshot"} else None
+            effective_from = first_observed
+            if revised_at:
+                try:
+                    effective_from = max(first_observed, datetime.fromisoformat(str(revised_at).replace("Z", "+00:00")).astimezone(timezone.utc))
+                except (ValueError, TypeError):
+                    effective_from = first_observed
             targets = [{"price": float(x), "hit": False, "hit_at": None} for x in (signal.targets or [])]
             row = LiveSignalSimulationRecord(
                 signal_id=signal.id,
@@ -32,7 +44,9 @@ def ensure_live_simulation(signal_id: int, source_id: int | None = None) -> Live
                 side=signal.side,
                 status="waiting_entry",
                 target_state_json=targets,
-                state_json={"signal_timestamp": signal.timestamp.isoformat(), "signal_revision_raw_event_id": (signal.metadata_json or {}).get("raw_event_id")},
+                started_at=effective_from,
+                state_json={"signal_timestamp": signal.timestamp.isoformat(), "observed_from": effective_from.isoformat(),
+                    "first_parseable_was_edit": bool(revised_at), "signal_revision_raw_event_id": meta.get("raw_event_id")},
             )
             db.add(row); db.commit(); db.refresh(row)
             wake_simulations()

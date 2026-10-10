@@ -9,6 +9,9 @@ from app.core.enums import MarketType, Side, SignalStatus
 from app.db.session import SessionLocal
 from app.models.analysis import AnalysisRunRecord, SignalBacktestRecord
 from app.models.signal import SignalRecord
+from app.models.raw_event import RawEventRecord
+from app.models.processing import ProcessingStateRecord
+from sqlalchemy import func
 from app.models.source import SourceRecord
 from app.models.telegram_audit import TelegramSignalVersionRecord
 from app.schemas.analysis import AnalyzeSourceRequest
@@ -368,12 +371,19 @@ def _build_summary(
         warnings.append(f"Edit replay policy: {cfg.edit_policy}. Edited snapshots: {info['edited_snapshot_count']}; strict exclusions without an observed original: {info.get('excluded_no_original_revision',0)}.")
     if not eligible_count:
         warnings.append(
-            "No eligible parsed BUY signals. Check the exclusion counters below. Exchange API keys are not required for historical backtesting."
+            "NO ELIGIBLE SIGNALS — no trades were evaluated. Inspect source readiness: archive, processing, classification and rejection counters. This is not a successful backtest."
         )
     if processed_count and market_data_missing == processed_count:
         warnings.append(
             "All processed eligible signals are missing public historical market data. Inspect individual trade errors; this can happen for delisted/renamed pairs or exchange history limits."
         )
+    if not eligible_count:
+        summary["outcome"] = "no_eligible_signals"
+        summary["diagnostic"] = "Run completed without trade results. The replay cannot produce trades unless archived Telegram messages are parsed into eligible BUY signals with entry and targets."
+    elif processed_count and market_data_missing == processed_count:
+        summary["outcome"] = "no_market_data"
+    else:
+        summary["outcome"] = "evaluated"
     if warnings:
         summary["warnings"] = warnings
     return summary
@@ -400,7 +410,7 @@ async def advance_run(run_id: int, batch_size: int = 4) -> AnalysisRunRecord:
             run.completed_at = _utcnow()
             db.commit(); db.refresh(run)
             return run
-        if run.status in {"complete", "error"}:
+        if run.status in {"complete", "error", "no_data"}:
             return run
         cfg = AnalyzeSourceRequest(**(run.config_json or {}))
         # Snapshot every scalar needed after this SQLAlchemy session closes.
@@ -437,7 +447,7 @@ async def advance_run(run_id: int, batch_size: int = 4) -> AnalysisRunRecord:
         summary = _build_summary(source_id=source_id, source_identifier=source_identifier, source_config=source_config, cfg=cfg, info=info, records=records)
         with SessionLocal() as db:
             row = db.get(AnalysisRunRecord, run_id)
-            row.status = "complete"; row.stage = "complete"; row.progress = 1.0
+            row.status = "no_data"; row.stage = "no_eligible_signals"; row.progress = 1.0
             row.summary_json = summary; row.completed_at = _utcnow(); db.commit(); db.refresh(row)
             return row
 
@@ -496,3 +506,52 @@ async def advance_run(run_id: int, batch_size: int = 4) -> AnalysisRunRecord:
             row.completed_at = _utcnow()
         db.commit(); db.refresh(row)
         return row
+
+
+def replay_readiness(source_id: int, config: AnalyzeSourceRequest | None = None) -> dict[str, Any]:
+    """Show observed archive/processing/eligibility counts; never invent replay output."""
+    from app.services.processing import source_processing_stats
+    cfg = config or AnalyzeSourceRequest()
+    with SessionLocal() as db:
+        src = db.get(SourceRecord, int(source_id))
+        if not src:
+            raise ValueError("Source not found")
+        sid, identifier, name = src.id, src.identifier, src.name
+        history_complete = bool((src.config or {}).get("history_complete", False))
+        st = source_processing_stats(db, src)
+    info = _eligibility(sid, identifier, cfg)
+    count = len(info["eligible"])
+    parsed = len(info["parsed_buy"])
+    reasons = []
+    if not st["raw_rows"]:
+        reasons.append("No Telegram messages archived for this source. Import / verify its history in Sources first.")
+    if st["raw_rows"] and not st["processed_states"]:
+        reasons.append("Archived messages have not been classified. Run Process in Sources and wait for the job to finish.")
+    elif st["raw_rows"] > st["processed_states"]:
+        reasons.append(f"{st['raw_rows'] - st['processed_states']} archived revisions may be unprocessed; run Process in Sources.")
+    if st["processed_states"] and not st["signals"]:
+        reasons.append("Messages were processed, but no trade signals were parsed. Inspect classification totals and source message format; importing more history may help.")
+    if st["signals"] and not parsed:
+        reasons.append("Signals exist, but none is a PARSED BUY for this source. Inspect signal statuses and directions.")
+    if parsed and not count:
+        reasons.append("BUY signals were found, but entry / targets / edit-policy / stop requirements exclude them. Inspect rejection counters.")
+    if not st["raw_rows"] and st["signals"]:
+        reasons.append("Signals exist without matching archived source rows; check source identifier mapping.")
+    if not reasons and count:
+        reasons.append(f"{count} eligible BUY signals ready for historical market-data evaluation.")
+    return {
+        "source_id": sid, "name": name, "identifier": identifier,
+        "raw_events": st["raw_rows"], "unique_messages": st["unique_messages"],
+        "processed_revisions": st["processed_states"], "processing_status": st["processing_status"],
+        "classifications": st["classifications"], "signals_stored": st["signals"],
+        "signals_considered": len(info["all_rows"]), "signal_status_counts": dict(info["status_counts"]),
+        "signal_side_counts": dict(info["side_counts"]), "parsed_buy": parsed, "eligible_buy": count,
+        "excluded_missing_entry": info["excluded_missing_entry"],
+        "excluded_missing_targets": info["excluded_missing_targets"],
+        "excluded_missing_stop": info["excluded_missing_stop"],
+        "excluded_edited": info["excluded_edited"],
+        "excluded_no_original_revision": info["excluded_no_original_revision"],
+        "history_complete": history_complete,
+        "reasons": reasons,
+        "ready": count > 0,
+    }

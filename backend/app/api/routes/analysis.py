@@ -8,7 +8,7 @@ from app.models.analysis import AnalysisRunRecord, MessageLabelRecord, SignalBac
 from app.models.raw_event import RawEventRecord
 from app.models.source import SourceRecord
 from app.schemas.analysis import AnalysisRunRead, AnalysisTradeRead, AnalyzeSourceRequest, ManualLabelRequest, ReviewMessageRead
-from app.services.channel_analysis import advance_run, create_run
+from app.services.channel_analysis import advance_run, create_run, replay_readiness
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
@@ -45,6 +45,15 @@ async def advance_analysis(run_id: int, batch_size: int = Query(default=4, ge=1,
                 db.commit(); db.refresh(row)
                 return _run_read(row)
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}") from exc
+
+
+@router.get("/sources/{source_id}/readiness")
+def source_replay_readiness(source_id: int, edit_policy: str = "from_edit", require_stop: bool = False):
+    try:
+        cfg = AnalyzeSourceRequest(edit_policy=edit_policy, require_stop=require_stop)
+        return replay_readiness(source_id, cfg)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/sources/{source_id}/latest", response_model=AnalysisRunRead | None)

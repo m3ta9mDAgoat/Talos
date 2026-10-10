@@ -153,7 +153,7 @@ class TelegramSource(DataSource):
         """
         return await self.historical(channel=channel, limit=limit, reverse=False)
 
-    async def stream(self, *, channel: str, **_: Any) -> AsyncIterator[Event]:
+    async def stream(self, *, channel: str, on_connected=None, **_: Any) -> AsyncIterator[Event]:
         import asyncio
         from datetime import datetime, timezone
 
@@ -185,6 +185,8 @@ class TelegramSource(DataSource):
         self.client.add_event_handler(on_new, events.NewMessage(chats=entity))
         self.client.add_event_handler(on_edit, events.MessageEdited(chats=entity))
         self.client.add_event_handler(on_delete, events.MessageDeleted(chats=entity))
+        if callable(on_connected):
+            on_connected()
         try:
             while True:
                 yield await queue.get()
@@ -203,6 +205,11 @@ class TelegramSource(DataSource):
             "grouped_id": str(message.grouped_id) if getattr(message, "grouped_id", None) else None,
             "views": getattr(message, "views", None),
             "forwards": getattr(message, "forwards", None),
+            # Explicit Telegram forwarding metadata is useful for attribution but
+            # absence of metadata does not establish authorship or plagiarism.
+            "forward_origin": str(getattr(getattr(message, "fwd_from", None), "from_id", "") or "") or None,
+            "forward_author": getattr(getattr(message, "fwd_from", None), "from_name", None),
+            "forward_channel_post": getattr(getattr(message, "fwd_from", None), "channel_post", None),
         }
         return Event(
             source="telegram",

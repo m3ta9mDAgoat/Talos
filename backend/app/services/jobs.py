@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
+import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import case
+from sqlalchemy import case, func, text
 from app.db.session import SessionLocal
 from app.models.jobs import JobRecord
+from app.models.signal import SignalRecord
+from app.models.raw_event import RawEventRecord
+from app.models.processing import ProcessingStateRecord
+from app.models.source import SourceRecord
 from app.services.runtime_wake import JOB_WAKE_EVENT, wake_jobs
 
 
@@ -20,6 +27,55 @@ def create_job(kind: str, payload: dict[str, Any], *, max_attempts: int = 20) ->
         db.add(row); db.commit(); db.refresh(row)
         wake_jobs()
         return row
+
+
+_DEDUPE_LOCK = threading.RLock()
+
+
+def _replay_snapshot(db, source_id: int) -> str:
+    """Change token when archived revisions or processing changes (including edits)."""
+    source = db.get(SourceRecord, source_id)
+    if source is None:
+        raise ValueError("Source not found")
+    raw = db.query(func.count(RawEventRecord.id), func.max(RawEventRecord.id)).filter(
+        RawEventRecord.source_identifier == source.identifier).one()
+    signal = db.query(func.count(SignalRecord.id), func.max(SignalRecord.id)).filter(
+        SignalRecord.source_id == source.identifier).one()
+    processed = db.query(func.count(ProcessingStateRecord.id), func.max(ProcessingStateRecord.processed_at)).filter(
+        ProcessingStateRecord.source_id == source_id).one()
+    return json.dumps([raw[0], raw[1], signal[0], signal[1], processed[0], str(processed[1])], separators=(',', ':'))
+
+
+def create_or_reuse_user_job(kind: str, payload: dict[str, Any], *, max_attempts: int = 20) -> tuple[JobRecord, bool]:
+    """Deduplicate repeat button presses, including across Render workers on Postgres.
+
+    A replay is reusable even when complete, until new archived/processed input arrives.
+    Other jobs are reusable while active, preventing accidental double execution.
+    """
+    clean = dict(payload)
+    with _DEDUPE_LOCK:
+        with SessionLocal() as db:
+            source_id = int(clean.get('source_id', 0)) if clean.get('source_id') is not None else 0
+            if kind == 'telegram_replay' and source_id:
+                clean['_input_snapshot'] = _replay_snapshot(db, source_id)
+            sig = hashlib.sha256(json.dumps([kind, clean], sort_keys=True, default=str, separators=(',', ':')).encode()).hexdigest()
+            # Serialize simultaneous POST requests across instances using a Postgres advisory transaction lock.
+            if db.bind.dialect.name == 'postgresql':
+                lock_id = int(sig[:15], 16)
+                db.execute(text('SELECT pg_advisory_xact_lock(:lock)'), {'lock': lock_id})
+            recent = db.query(JobRecord).filter(JobRecord.kind == kind).order_by(JobRecord.id.desc()).limit(350).all()
+            for old in recent:
+                prior = dict(old.payload_json or {})
+                same_source = source_id and int(prior.get('source_id', -1)) == source_id
+                same_payload = hashlib.sha256(json.dumps([kind, prior], sort_keys=True, default=str, separators=(',', ':')).encode()).hexdigest() == sig
+                if old.status in ('queued', 'running', 'retrying') and (same_payload or (kind in ('source_process', 'source_import_full') and same_source)):
+                    return old, True
+                if kind == 'telegram_replay' and same_payload and old.status in ('complete', 'no_data'):
+                    return old, True
+            row = JobRecord(kind=kind, status='queued', payload_json=clean, max_attempts=max_attempts, next_run_at=utcnow())
+            db.add(row); db.commit(); db.refresh(row)
+            wake_jobs()
+            return row, False
 
 
 def job_dict(row: JobRecord) -> dict[str, Any]:
@@ -65,8 +121,17 @@ async def _handle(row: JobRecord) -> tuple[bool, float, dict[str, Any], dict[str
 
     if row.kind == "source_process":
         from app.services.processing import process_source
-        result = await asyncio.to_thread(process_source, int(p["source_id"]), force=bool(p.get("force", False)))
-        return True, 1.0, state, result
+        def update_progress(examined: int, total: int):
+            # Called from worker thread at committed checkpoints, not from the browser.
+            with SessionLocal() as progress_db:
+                record = progress_db.get(JobRecord, row.id)
+                if record and record.status == 'running':
+                    record.progress = min(0.99, examined / total) if total else 0.99
+                    record.state_json = {**(record.state_json or {}), 'stage': f'Classifying {examined:,}/{total:,} archived revisions'}
+                    record.heartbeat_at = utcnow()
+                    progress_db.commit()
+        result = await asyncio.to_thread(process_source, int(p["source_id"]), force=bool(p.get("force", False)), progress_callback=update_progress)
+        return True, 1.0, state, {**result, 'stage': 'Processed all pending archived revisions'}
 
     if row.kind == "source_sync":
         from app.services.universal_sources import sync_source
@@ -93,7 +158,7 @@ async def _handle(row: JobRecord) -> tuple[bool, float, dict[str, Any], dict[str
         result = {"run_id": run.id, "status": run.status, "stage": run.stage, "summary": run.summary_json or {}, "error": run.error}
         if run.status == "error":
             raise RuntimeError(run.error or "Replay failed")
-        return run.status == "complete", float(run.progress or 0.0), state, result
+        return run.status in ("complete", "no_data"), float(run.progress or 0.0), state, {**result, "outcome": (run.summary_json or {}).get("outcome")}
 
     if row.kind == "strategy_backtest":
         from app.services.strategy_backtest import create_strategy_run, advance_strategy_run
@@ -105,7 +170,7 @@ async def _handle(row: JobRecord) -> tuple[bool, float, dict[str, Any], dict[str
         result = {"run_id": run.id, "status": run.status, "stage": run.stage, "summary": run.summary_json or {}, "error": run.error}
         if run.status == "error":
             raise RuntimeError(run.error or "Strategy backtest failed")
-        return run.status == "complete", float(run.progress or 0.0), state, result
+        return run.status in ("complete", "no_data"), float(run.progress or 0.0), state, {**result, "outcome": (run.summary_json or {}).get("outcome")}
 
     if row.kind == "news_alerts":
         from app.services.notifications import send_news_digest
@@ -165,7 +230,7 @@ async def run_one_job(job_id: int) -> dict[str, Any]:
     with SessionLocal() as db:
         row = db.get(JobRecord, job_id)
         if not row: raise ValueError("Job not found")
-        if row.status in {"complete", "cancelled"}: return job_dict(row)
+        if row.status in {"complete", "no_data", "cancelled"}: return job_dict(row)
         row.status = "running"; row.heartbeat_at = utcnow(); row.updated_at = utcnow(); row.error = None
         db.commit()
 
@@ -181,7 +246,8 @@ async def run_one_job(job_id: int) -> dict[str, Any]:
             row.state_json = state; row.result_json = result; row.updated_at = utcnow(); row.heartbeat_at = utcnow()
             row.attempts = 0
             if done:
-                row.status = "complete"; row.progress = 1.0; row.completed_at = utcnow()
+                row.status = "no_data" if row.kind == "telegram_replay" and result.get("outcome") == "no_eligible_signals" else "complete"
+                row.progress = 1.0; row.completed_at = utcnow()
             else:
                 row.status = "queued"; row.next_run_at = utcnow() + timedelta(seconds=1)
             db.commit(); db.refresh(row); return job_dict(row)
