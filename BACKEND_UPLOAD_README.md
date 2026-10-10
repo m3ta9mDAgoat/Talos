@@ -1,26 +1,9 @@
-# Talos v4.5.1 — Backend GitHub Upload (99 files)
+# Talos v4.5.1 — backend update (99 files)
 
-هذه الحزمة تحتوي على ملفات الباكند الأساسية من النسخة الأصلية Talos v4.5.1، مهيأة للرفع إلى GitHub في دفعة واحدة (أقل من 100 ملف).
+This archive is ONLY a GitHub backend update, not a standalone full application. It keeps all 95 backend runtime files, plus the Render-root Dockerfile, render.yaml, an .env.example and this README. The 12 backend tests are present in the separately supplied full zip only.
 
-## محتويات الحزمة
-- `backend/`: 95 ملف تشغيل أساسي، مطابق للنسخة الأصلية من حيث المحتوى.
-- `Dockerfile`: ملف النشر من جذر المستودع، يبني الـ frontend والـ backend معًا.
-- `render.yaml`: إعدادات النشر الأصلية على Render.
-- `.env.example`: نموذج متغيرات البيئة بدون مفاتيح حقيقية.
-- `BACKEND_UPLOAD_README.md`: هذا الملف.
+The included backend/app/main.py fixes the missing `import os` and reports application version 4.5.1. It matches the backend delivered in the companion complete v4.5.1 archive.
 
-**عدد الملفات الكلي: 99 ملفًا.** تم استبعاد 12 ملف اختبار موجودة داخل `backend/tests/` فقط لتقليل العدد؛ جميع ملفات الباكند التشغيلية محفوظة بدون تعديل.
+Extract directly into the ROOT of the existing GitHub repository and preserve the `backend/` paths. Do not delete existing `frontend/` or any other repo files: the root Dockerfile requires `frontend/` to build. For a clean deployment use the FULL zip instead (it also includes the new development proxy and Docker Compose Nginx proxy).
 
-## الرفع إلى GitHub
-1. فك ضغط الحزمة على جهازك.
-2. افتح المستودع الصحيح على GitHub ثم **Add file > Upload files**.
-3. ارفع الملفات من داخل الحزمة إلى **جذر المستودع**، مع الحفاظ على المسارات (`backend/app/...`)؛ لا ترفع الحزمة كمجلد إضافي فوق جذر المستودع.
-4. وافق على تحديث الملفات المتطابقة إذا كانت موجودة.
-5. تأكد من وجود مجلد `frontend/` الأصلي مسبقًا في المستودع. هذه حزمة باكند فقط ولا تحتوي على كود الفرونت إند. `Dockerfile` الموجود في الجذر يتطلب `frontend/` أثناء النشر.
-6. في Render استخدم Dockerfile Path `./Dockerfile`، وDocker Build Context Directory `.`، وRoot Directory فارغ.
-7. احتفظ بمفاتيح API وTelegram وبيانات Neon داخل **Render Environment**، ولا ترفع ملفات `.env` الحقيقية إلى GitHub.
-
-## ملاحظات
-- ليست هذه الحزمة نسخة full repository: يجب دمجها مع ملفات frontend/root الموجودة من Talos v4.5.1.
-- ملفات `backend/tests/` مستبعدة من حزمة الرفع فقط؛ أعدها من النسخة الكاملة إن أردت تشغيل الاختبارات.
-- لم يتم تنفيذ نشر فعلي إلى GitHub أو Render.
+Render: Root Directory blank; Dockerfile `./Dockerfile`; build context `.`; health check `/health`; preserve Neon DATABASE_URL and original SECRET_KEY in environment variables. Keep `LIVE_TRADING_ENABLED=false` until reviewed and tested. Do not commit actual .env or API credentials.

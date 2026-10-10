@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -23,8 +24,8 @@ from app.services.jobs import worker_loop
 from app.scripts.universal_worker import watcher_loop
 from app.services.security import SESSION_COOKIE, admin_exists, validate_session
 
-VERSION = "4.5.0"
-BUILD_ID = "talos-v4.5-universal-intelligence"
+VERSION = "4.5.1"
+BUILD_ID = "talos-v4.5.1-render-root-compatibility"
 
 _runtime_lock = threading.Lock()
 _runtime_threads: dict[str, threading.Thread] = {}
