@@ -123,6 +123,7 @@ def _eligibility(source_record_id: int, source_identifier: str, cfg: AnalyzeSour
     eligible: list[dict[str, Any]] = []
     excluded_edited = excluded_no_stop = excluded_missing_entry = excluded_missing_targets = excluded_no_original = 0
     edited_snapshot_count = 0
+    reparsed_canonical_count = 0
     for r in parsed_buy:
         metadata = dict(r.metadata_json or {})
         edit_date = metadata.get("edit_date")
@@ -147,6 +148,33 @@ def _eligibility(source_record_id: int, source_identifier: str, cfg: AnalyzeSour
         elif edit_date:
             signal = signal.model_copy(update={"metadata": {**signal.metadata, "replay_revision": "current_snapshot_from_original_time", "lookahead_risk": True}})
 
+        # Old canonical records may have been marked PARSED with no TP because
+        # the former generic parser did not recognize T1/T2 and emoji keycaps.
+        # Recover the exact selected revision IN MEMORY, without mutating archive
+        # data or overriding edited-message replay policy.
+        if (not signal.targets or signal.entry is None or (cfg.require_stop and signal.stop is None)) and signal.raw_text:
+            newer = telegram_signal_parser.parse(
+                signal.raw_text,
+                timestamp=signal.timestamp,
+                source_id=source_identifier,
+                source_message_id=str(r.source_message_id),
+            ).signal
+            if newer and newer.symbol == signal.symbol and newer.side == signal.side:
+                additions = {}
+                if not signal.targets and newer.targets:
+                    additions['targets'] = newer.targets
+                if signal.entry is None and newer.entry is not None:
+                    additions['entry'] = newer.entry
+                if signal.stop is None and newer.stop is not None:
+                    additions['stop'] = newer.stop
+                if additions:
+                    reparsed_canonical_count += 1
+                    signal = signal.model_copy(update={
+                        **additions,
+                        'metadata': {**signal.metadata, 'replay_reparsed_canonical': True,
+                                     'replay_parser_version': 'adaptive_telegram_v4_7_5'},
+                    })
+
         if cfg.require_stop and signal.stop is None:
             excluded_no_stop += 1; continue
         if signal.entry is None:
@@ -157,12 +185,13 @@ def _eligibility(source_record_id: int, source_identifier: str, cfg: AnalyzeSour
 
     # Archive-first recovery: old classifiers frequently rejected channel-specific formatting.
     # Replay must not depend entirely on canonical SignalRecord materialization.
-    # Only invoke the recovery scan when there are no eligible canonical trades.
+    # Run recovery whenever the canonical parser has excluded records: a few
+    # valid signals must never mask thousands of rejected archived messages.
     archived_examined = archived_parsed = archived_rejected = 0
     archived_reasons: Counter[str] = Counter()
     archived_samples: list[dict[str, Any]] = []
     archive_truncated = False
-    if not eligible and cfg.edit_policy in {"strict", "from_edit", "optimistic"}:
+    if len(eligible) < len(parsed_buy) and cfg.edit_policy in {"strict", "from_edit", "optimistic"}:
         # Descending order ensures the latest known revision is evaluated once per message.
         # Fetch only the necessary columns to limit Neon transfer size and avoid ORM bloat.
         cap = min(12000, max(500, int(cfg.max_signals)))
@@ -179,7 +208,10 @@ def _eligibility(source_record_id: int, source_identifier: str, cfg: AnalyzeSour
             key = str(raw.external_id)
             latest.setdefault(key, raw)
             earliest[key] = raw
+        eligible_ids = {str(row['signal'].source_message_id) for row in eligible}
         for key, raw in latest.items():
+            if key in eligible_ids:
+                continue
             archived_examined += 1
             original = earliest[key]
             if str(raw.event_type or '').lower() == 'delete':
@@ -209,6 +241,8 @@ def _eligibility(source_record_id: int, source_identifier: str, cfg: AnalyzeSour
                 why = 'targets_not_found'
             elif cfg.require_stop and not sig.stop:
                 why = 'stop_not_found'
+            elif sig.status != SignalStatus.PARSED:
+                why = 'needs_review_inconsistent_fields'
             else:
                 why = None
             if why:
@@ -243,7 +277,8 @@ def _eligibility(source_record_id: int, source_identifier: str, cfg: AnalyzeSour
         eligible.sort(key=lambda x:x['signal'].timestamp)
 
     return {"all_rows":all_rows,"parsed_buy":parsed_buy,"eligible":eligible,"status_counts":status_counts,"side_counts":side_counts,
-        "edited_snapshot_count":edited_snapshot_count,"excluded_edited":excluded_edited,"excluded_no_original_revision":excluded_no_original,
+        "edited_snapshot_count":edited_snapshot_count,"reparsed_canonical_count":reparsed_canonical_count,
+        "excluded_edited":excluded_edited,"excluded_no_original_revision":excluded_no_original,
         "excluded_missing_stop":excluded_no_stop,"excluded_missing_entry":excluded_missing_entry,"excluded_missing_targets":excluded_missing_targets,
         "archive_recovery_scanned":archived_examined, "archive_recovery_parsed":archived_parsed,
         "archive_recovery_rejected":archived_rejected, "archive_recovery_reasons":dict(archived_reasons),
@@ -421,6 +456,7 @@ def _build_summary(
         "signal_side_counts": dict(info["side_counts"]),
         "signals_parsed_buy": len(info["parsed_buy"]),
         "signals_eligible": eligible_count,
+        "reparsed_canonical_count": info.get("reparsed_canonical_count", 0),
         "signals_processed": processed_count,
         "signals_remaining": max(0, eligible_count - processed_count),
         "edited_snapshot_count": info["edited_snapshot_count"],
@@ -467,6 +503,8 @@ def _build_summary(
         warnings.append("Channel history is partial; this run is a preview.")
     if info["edited_snapshot_count"]:
         warnings.append(f"Edit replay policy: {cfg.edit_policy}. Edited snapshots: {info['edited_snapshot_count']}; strict exclusions without an observed original: {info.get('excluded_no_original_revision',0)}.")
+    if info.get('reparsed_canonical_count'):
+        warnings.append(f"Recovered trading levels from {info['reparsed_canonical_count']} stored signals with channel-specific formats.")
     if info.get('archive_recovery_parsed'):
         warnings.append(f"Archive-first replay recovered {info['archive_recovery_parsed']} eligible recommendations excluded by the old signal-classification pipeline.")
     if cfg.edit_policy == 'optimistic':
@@ -650,6 +688,7 @@ def replay_readiness(source_id: int, config: AnalyzeSourceRequest | None = None)
         "signal_side_counts": dict(info["side_counts"]), "parsed_buy": parsed, "eligible_buy": count,
         "excluded_missing_entry": info["excluded_missing_entry"],
         "excluded_missing_targets": info["excluded_missing_targets"],
+        "reparsed_canonical_count": info.get("reparsed_canonical_count", 0),
         "excluded_missing_stop": info["excluded_missing_stop"],
         "excluded_edited": info["excluded_edited"],
         "excluded_no_original_revision": info["excluded_no_original_revision"],

@@ -44,6 +44,11 @@ def live_simulations(limit: int = 300):
                 "last_checked_at": r.last_checked_at,
                 "completed_at": r.completed_at,
                 "state": r.state_json or {},
+                "entry_deadline": ((r.state_json or {}).get('entry_plan') or {}).get('entry_deadline'),
+                "adaptive_horizon_minutes": ((r.state_json or {}).get('hold_plan') or {}).get('holding_minutes'),
+                "evaluation_deadline": ((r.state_json or {}).get('hold_plan') or {}).get('deadline'),
+                "horizon_selection_basis": ((r.state_json or {}).get('hold_plan') or {}).get('basis'),
+                "evaluation": (r.state_json or {}).get('evaluation'),
             }
             for r in rows
         ]

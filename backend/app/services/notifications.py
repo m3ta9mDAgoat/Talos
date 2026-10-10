@@ -148,6 +148,11 @@ async def notify_signal(signal_id: int, event: str = "new", *, raw_event_id: int
                             detail += "\nOriginal unobserved: previous version cannot be reconstructed."
             except Exception:
                 detail = "\nEdit evidence unavailable; inspect Live Monitor."
+        audit_status = "ready for PAPER simulation" if row.status == "parsed" and row.entry and row.targets and row.stop else "NEEDS REVIEW — no completed simulation yet"
+        explanation = "\nNote: Extraction confidence is NOT trade win probability."
+        if audit_status.startswith("NEEDS REVIEW"):
+            explanation += "\nMissing fields: " + ", ".join(k for k, missing in [
+                ("entry", not row.entry), ("targets", not row.targets), ("stop", not row.stop)] if missing)
         text = (
             f"{prefix}\n"
             f"{row.symbol} · {row.side.upper()}\n"
@@ -155,7 +160,8 @@ async def notify_signal(signal_id: int, event: str = "new", *, raw_event_id: int
             f"Targets: {targets}\n"
             f"Stop: {stop if stop is not None else '—'}\n"
             f"Confidence: {row.confidence * 100:.2f}%\n"
-            f"Status: simulation monitoring"
+            f"Status: {audit_status}"
+            f"{explanation}"
             f"{detail}"
         )
     return await send_message(text)
@@ -169,6 +175,7 @@ async def notify_simulation_event(sim_id: int, event: str, detail: str | None = 
         "stop": "stop",
         "complete": "simulation_complete",
         "expired": "simulation_complete",
+        "evaluated": "simulation_complete",
     }.get(event)
     if gate and not cfg.get(gate, True):
         return {"ok": False, "skipped": f"{gate}_disabled"}
@@ -185,6 +192,7 @@ async def notify_simulation_event(sim_id: int, event: str, detail: str | None = 
             "stop": "🔴 STOP HIT",
             "complete": "✅ SIMULATION COMPLETE",
             "expired": "⌛ SIMULATION EXPIRED",
+            "evaluated": "📊 SIGNAL SIMULATION RESULT",
         }.get(event, "TALOS UPDATE")
         text = (
             f"{label}\n"
@@ -198,6 +206,17 @@ async def notify_simulation_event(sim_id: int, event: str, detail: str | None = 
             text += f"MFE: {sim.mfe_pct:.4f}%\n"
         if sim.mae_pct is not None:
             text += f"MAE: {sim.mae_pct:.4f}%\n"
+        plan = (sim.state_json or {}).get('hold_plan') or (sim.state_json or {}).get('entry_plan') or {}
+        evaluation = (sim.state_json or {}).get('evaluation') or {}
+        if plan:
+            text += f"Selected duration: {plan.get('holding_minutes',plan.get('entry_wait_minutes','—'))} minutes\n"
+            text += f"Planned review: {plan.get('deadline',plan.get('entry_deadline','—'))}\n"
+        if evaluation:
+            text += f"Outcome: {evaluation.get('outcome', 'unverifiable')}\n"
+            text += f"Evaluation reason: {evaluation.get('reason', '—')}\n"
+            if evaluation.get('net_return_pct') is not None:
+                text += f"Net hypothetical return: {evaluation['net_return_pct']:+.4f}%\n"
+            text += 'Research-only simulation; not a real exchange fill.\n'
         if detail:
             text += detail
         if signal and signal.source_message_id:

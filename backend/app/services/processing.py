@@ -21,7 +21,7 @@ from app.services.message_classifier import classifier
 from app.services.signal_parser import telegram_signal_parser
 
 CLASSIFIER_VERSION = "rules-1.1"
-PARSER_VERSION = "hybrid-telegram-3.0"
+PARSER_VERSION = "adaptive-telegram-4.7.6"
 _PROCESS_LOCK = threading.RLock()
 
 
@@ -213,18 +213,34 @@ def _process_one(db: Session, source: SourceRecord, row: RawEventRecord, *, forc
         c = classifier().classify(text, has_media=has_media)
         message_class, class_conf, reasons = c.message_class, c.confidence, c.reasons
 
+    # Structural parsing is authoritative for NEW_SIGNAL detection. The old
+    # classifier may not recognize a new channel's labels even when the fields
+    # are present. Do not parse result/admin chatter as original recommendations.
+    deterministic = None
+    if message_class in {MessageClass.NEW_SIGNAL, MessageClass.UNKNOWN} or (revision_type == "edit" and existing_signal):
+        deterministic = telegram_signal_parser.parse(
+            text, timestamp=row.occurred_at, source_id=source.identifier,
+            source_message_id=str(row.external_id),
+            default_quote=str((source.config or {}).get("default_quote", "USDT")))
+        if message_class == MessageClass.UNKNOWN and deterministic.signal is not None and deterministic.signal.status == SignalStatus.PARSED:
+            message_class = MessageClass.NEW_SIGNAL
+            class_conf = max(0.95, class_conf)
+            reasons = [*reasons, "structured_signal_parser"]
+    # LLM is *not* called to classify every UNKNOWN post: only borderline,
+    # structured candidates may reach the guarded fallback below.
     pre_ai_signal = None
     if message_class == MessageClass.UNKNOWN:
         try:
             from app.services.ai_signal_parser import parse_signal as ai_parse_signal
-            pre_ai_signal = ai_parse_signal(text, timestamp=row.occurred_at, source_id=source.identifier,
-                source_message_id=str(row.external_id), default_quote=str((source.config or {}).get("default_quote", "USDT")))
+            pre_ai_signal = ai_parse_signal(text, timestamp=row.occurred_at,
+                source_id=source.identifier, source_message_id=str(row.external_id),
+                default_quote=str((source.config or {}).get("default_quote", "USDT")))
             if pre_ai_signal is not None:
                 message_class = MessageClass.NEW_SIGNAL
-                class_conf = max(0.75, pre_ai_signal.confidence)
-                reasons = [*reasons, "ai_signal_classification"]
+                class_conf = max(0.95, class_conf)
+                reasons = [*reasons, "validated_ai_format_fallback"]
         except Exception:
-            pre_ai_signal = None
+            pass
 
     if not label:
         label = MessageLabelRecord(raw_event_id=row.id, source_id=source.id, predicted_class=message_class.value,
@@ -243,17 +259,21 @@ def _process_one(db: Session, source: SourceRecord, row: RawEventRecord, *, forc
     created = updated = False
 
     if should_parse:
-        response = telegram_signal_parser.parse(text, timestamp=row.occurred_at, source_id=source.identifier,
-            source_message_id=row.external_id, default_quote=str((source.config or {}).get("default_quote", "USDT")))
+        response = deterministic or telegram_signal_parser.parse(text, timestamp=row.occurred_at,
+            source_id=source.identifier, source_message_id=str(row.external_id),
+            default_quote=str((source.config or {}).get("default_quote", "USDT")))
         signal = pre_ai_signal or response.signal
         warnings = list(response.warnings)
-        if signal is None or response.confidence < 0.70:
+        if not pre_ai_signal and (signal is None or signal.status != SignalStatus.PARSED):
             try:
                 from app.services.ai_signal_parser import parse_signal as ai_parse_signal
-                ai_signal = ai_parse_signal(text, timestamp=row.occurred_at, source_id=source.identifier,
-                    source_message_id=str(row.external_id), default_quote=str((source.config or {}).get("default_quote", "USDT")))
-                if ai_signal is not None:
-                    signal = ai_signal; response.confidence=max(response.confidence, ai_signal.confidence); warnings.append("AI fallback parser used")
+                ai_signal = ai_parse_signal(text, timestamp=row.occurred_at,
+                    source_id=source.identifier, source_message_id=str(row.external_id),
+                    default_quote=str((source.config or {}).get("default_quote", "USDT")))
+                if ai_signal is not None and ai_signal.status == SignalStatus.PARSED:
+                    signal = ai_signal
+                    response.confidence = max(response.confidence, ai_signal.confidence)
+                    warnings.append("Validated opt-in LLM format fallback used")
             except Exception:
                 pass
         if signal is not None:

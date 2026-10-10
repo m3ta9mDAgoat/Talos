@@ -1,187 +1,239 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import datetime, timezone
-
 from app.core.enums import MarketType, Side, SignalStatus, StopTrigger
 from app.schemas.signal import EntrySpec, NormalizedSignal, ParseSignalResponse, StopSpec
 
-_NUMBER = r"([0-9]+(?:[.,][0-9]+)?)"
+# Release 4.7.6. All extractors are deterministic and preserve the verbatim text.
+# Regex matching is bounded to structured sections: no arithmetic guesswork and no
+# propagation of numeric values from reply previews into the trading instruction.
+NUM = r"(?<![\dA-Za-z])(?:\d+(?:[.,]\d+)?)(?![\dA-Za-z])"
+F = r"(\d+(?:[.,]\d+)?)"
+RANGE_SEP = r"(?:-|–|—|~|\bto\b|الى|إلى|حتى|→)"
+SIDE_BUY = re.compile(r"\b(?:BUY|LONG|SPOT\s*BUY|BULLISH\s*ENTRY)\b|شراء|شِراء|دخول\s*شراء", re.I)
+SIDE_SELL = re.compile(r"\b(?:SELL|SHORT)\b|بيع|دخول\s*بيع", re.I)
+ENTRY_LABEL = re.compile(r"\b(?:buy|entry|entries|entry\s*zone|buy\s*zone|buy\s*price|entry\s*price|buying\s*zone|enter|zone|purchase)\b|(?:شراء|دخول|منطقة\s*الدخول|سعر\s*الدخول|منطقة\s*الشراء|سعر\s*الشراء)", re.I)
+TP_LABEL = re.compile(r"\b(?:targets?|take\s*profit|take\s*profits|tps?|profits?|goals?|objectives?|tp\s*\d+|t\s*\d+)\b|(?:الاهداف|الأهداف|هدف|الهدف|الغايات)", re.I)
+SL_LABEL = re.compile(r"\b(?:stop(?:\s*loss)?|s\s*\/?\s*l|invalidation)\b|(?:ستوب|وقف|وقف\s*الخسارة|إلغاء\s*الصفقة)", re.I)
+CLOSE_LABEL = re.compile(r"\b(?:close|closing|candle\s*close|closed)\b|إغلاق|اغلاق|إقفال|اقفال", re.I)
+TIMEFRAME = re.compile(r"(?<!\d)(\d{1,2})\s*(h|hr|hrs|hour|hours|m|min|minute|minutes|d|day|days|ساعات|ساعة|دقائق|دقيقة|أيام|يوم)(?!\w)", re.I)
+PAIR = re.compile(r"(?<![A-Za-z0-9])#?([A-Z][A-Z0-9]{1,17})\s*[/|:_-]\s*(USDT|USDC|USD|BTC|ETH|BUSD|FDUSD)(?!\w)", re.I)
+SUFFIX_PAIR = re.compile(r"(?<![A-Za-z0-9])#?([A-Z][A-Z0-9]{1,17})(USDT|USDC|BUSD|FDUSD)(?!\w)", re.I)
+COIN_LABEL = re.compile(r"(?:coin|token|pair|asset|عملة|العملة|رمز)\s*[:：=]\s*#?\$?([A-Z][A-Z0-9]{1,17})(?!\w)", re.I)
+HASH = re.compile(r"(?<![\w])#([A-Z][A-Z0-9]{1,17})(?!\w)", re.I)
+NUMBER = re.compile(NUM, re.I)
+LIST_LINE = re.compile(rf"^\s*(?:[-•*✔✅🎯↪→]\s*)?(?:\d{{1,2}}\s*[\).:：-]|T\s*\d{{1,2}}\s*[:：).=-]|TP\s*\d{{1,2}}\s*[:：).=-]|هدف\s*\d{{1,2}}\s*[:：).=-])\s*{F}\s*(?:\b|$)", re.I)
+TARGET_INDEX = re.compile(rf"(?:\b(?:TP|T|TARGET|GOAL)\s*#?\s*\d{{1,2}}|هدف\s*\d{{1,2}})\s*[:：=@-]?\s*{F}", re.I)
+
+
+def _normalize(text: str) -> str:
+    # Decompose Telegram keycap emojis without deleting digits, translate Arabic
+    # digits and punctuation; leave original untouched in NormalizedSignal.raw_text.
+    text = unicodedata.normalize('NFKC', text or '').replace('\ufe0f', '').replace('\u20e3', '')
+    text = text.translate(str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹٫', '01234567890123456789.'))
+    return text.replace('：', ':').replace('،', ',').replace('\r', '\n')
+
+
+def _primary_message(text: str) -> str:
+    # Telegram reply preview is metadata, not an instruction. Do not include
+    # markdown-quoted copies or common 'replying to' wrappers in parsing.
+    lines = text.splitlines()
+    filtered = []
+    inside_quote = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(('>', '│', '┃')):
+            continue
+        if re.match(r"^(?:replying to|quoted message|original message|الرد على|الرسالة المقتبسة)\s*[:：]", stripped, re.I):
+            inside_quote = True
+            continue
+        if inside_quote and re.match(r'^(?:-[- ]{2,}|\[end quote\]|end quote)$', stripped, re.I):
+            inside_quote = False
+            continue
+        if not inside_quote:
+            filtered.append(line)
+    return '\n'.join(filtered)
+
+
+def _float(value: str) -> float:
+    return float(value.replace(',', '.'))
+
+
+def _numbers(text: str) -> list[float]:
+    return [_float(m.group(0)) for m in NUMBER.finditer(text) if not text[m.end():].lstrip().startswith("%")]
+
+
+def _first_price(text: str) -> float | None:
+    values = _numbers(text)
+    return next((n for n in values if n > 0), None)
+
+
+def _timeframe(text: str) -> str | None:
+    m = TIMEFRAME.search(text)
+    if not m:
+        return None
+    unit = m.group(2).lower()
+    suffix = 'h' if unit in {'h', 'hr', 'hrs', 'hour', 'hours', 'ساعات', 'ساعة'} else ('d' if unit in {'d', 'day', 'days', 'أيام', 'يوم'} else 'm')
+    return f'{m.group(1)}{suffix}'
+
+
+def _entry(text: str, lines: list[str]) -> EntrySpec | None:
+    for i, line in enumerate(lines):
+        match = ENTRY_LABEL.search(line)
+        if not match:
+            continue
+        remainder = line[match.end():]
+        # Don't use numbers from e.g. symbol names or T1 from other lines.
+        fragment = remainder.strip(' :\t=–-🎯⚡')
+        if not NUMBER.search(fragment) and i+1 < len(lines):
+            fragment = lines[i+1].strip()
+        rng = re.search(rf"{F}\s*{RANGE_SEP}\s*{F}", fragment, re.I)
+        if rng:
+            a, b = _float(rng.group(1)), _float(rng.group(2))
+            if a > 0 and b > 0:
+                return EntrySpec(type='range', min=min(a, b), max=max(a,b))
+        val = _first_price(fragment)
+        if val is not None:
+            return EntrySpec(type='price', price=val)
+        if re.search(r'\b(market|now|current)\b|السوق|الآن|فوري', fragment, re.I):
+            return EntrySpec(type='market')
+    return None
+
+
+def _targets(lines: list[str]) -> list[float]:
+    values = []
+    active = False
+    for i, line in enumerate(lines):
+        if SL_LABEL.search(line):
+            active = False
+            continue
+        if ENTRY_LABEL.search(line) and not TP_LABEL.search(line):
+            active = False
+            continue
+        labelled = TP_LABEL.search(line)
+        if labelled:
+            active = True
+            # T1 0.34, TP1: 0.34, 'Targets: 0.34 / 0.35', etc
+            remainder = line[labelled.end():]
+            nums = _numbers(remainder)
+            for v in nums:
+                if v > 0 and v not in values:
+                    values.append(v)
+            continue
+        if active:
+            match = LIST_LINE.search(line)
+            if match:
+                v = _float(match.group(1))
+                if v > 0 and v not in values:
+                    values.append(v)
+                continue
+            plain = line.strip(' \t\u2022-🎯✔✅↪→')
+            if re.fullmatch(rf'{F}\s*', plain):
+                v = _float(plain)
+                if v > 0 and v not in values:
+                    values.append(v)
+                continue
+            if line.strip() and not re.match(r'^(?:\d+[)\].:：]|[-•*])', line.strip()):
+                active = False
+        # Mixed inline 'TP1 0.12 TP2 0.15'
+        for m in TARGET_INDEX.finditer(line):
+            v = _float(m.group(1))
+            if v > 0 and v not in values:
+                values.append(v)
+    return values[:20]
+
+
+def _stop(lines: list[str]) -> tuple[StopSpec | None, list[str]]:
+    warnings = []
+    for i, line in enumerate(lines):
+        match = SL_LABEL.search(line)
+        if not match:
+            continue
+        fragment = line[match.end():].strip(' :\t=-')
+        context = ' '.join(lines[i:i+3])[:260]
+        # Timeframe numerals are not stop prices: 'SL 4H close under 0.102'.
+        stripped = TIMEFRAME.sub(' ', fragment)
+        candidate = re.search(rf'(?:below|under|lower\s*than|أقل\s*من|اقل\s*من|تحت)\s*[:：-]?\s*{F}', stripped, re.I)
+        value = _float(candidate.group(1)) if candidate else _first_price(stripped)
+        if value is None:
+            if i+1 < len(lines):
+                value = _first_price(lines[i+1])
+        if value is None:
+            warnings.append('Stop label found without a numerical price')
+            return None, warnings
+        if CLOSE_LABEL.search(context):
+            tf = _timeframe(context)
+            if not tf:
+                warnings.append('Candle close stop has no unambiguous timeframe')
+                return None, warnings
+            return StopSpec(price=value, trigger=StopTrigger.CANDLE_CLOSE, timeframe=tf), warnings
+        return StopSpec(price=value, trigger=StopTrigger.PRICE_TOUCH), warnings
+    return None, ['No stop detected']
 
 
 class TelegramSignalParser:
-    """Deterministic parser for common Arabic/English crypto signal formats.
+    """Conservative, channel-agnostic multi-layout extractor.
 
-    It intentionally prefers 'needs review' over guessing. Channel-specific parsers
-    can later subclass/replace this generic parser without changing Talos core.
+    Signal confidence = fraction of five fields observed, NOT expected win rate.
+    Only complete geometrically consistent signals are marked PARSED.
     """
 
-    _symbol_patterns = [
-        re.compile(r"\b([A-Z0-9]{2,20})\s*[|/]\s*([A-Z0-9]{2,12})\b", re.I),
-        re.compile(r"(?<![A-Za-z0-9])(?:#|\$)?([A-Z][A-Z0-9]{1,18})\s*[-_ ]?\s*(USDT|USDC|USD|BTC|ETH)\b", re.I),
-        re.compile(r"(?:#|\$)([A-Z][A-Z0-9]{1,18})\b", re.I),
-    ]
-    _buy = re.compile(r"\bBUY\b|\bLONG\b|\bSPOT\b|شراء|دخول|صفقة\s*شراء", re.I)
-    _sell = re.compile(r"\bSELL\b|\bSHORT\b|بيع", re.I)
-
-    _entry_range_patterns = [
-        re.compile(rf"(?:BUY|ENTRY|ENTER|دخول|شراء)?\s*[:：-]?\s*{_NUMBER}\s*(?:-|–|—|TO|الى|إلى)\s*{_NUMBER}", re.I),
-        re.compile(rf"(?:ZONE|من)\s*{_NUMBER}\s*(?:-|–|—|TO|الى|إلى)\s*{_NUMBER}", re.I),
-    ]
-    _entry_price_patterns = [
-        re.compile(rf"(?:ENTRY(?:\s+PRICE)?|ENTER|BUY(?:\s+PRICE)?|دخول|شراء|نقطة\s*الدخول)\s*(?:AT|@|ZONE|PRICE|سعر|عند)?\s*[:：=@-]?\s*{_NUMBER}", re.I),
-    ]
-
-    _target_line = re.compile(rf"(?:TP\s*\d*|TARGET(?:\s*#?\d\d?(?=\s*[:：=@-]))?|TAKE\s*PROFIT(?:\s*#?\d\d?(?=\s*[:：=@-]))?|هدف\s*\d*|الهدف\s*\d*|\b\d+\s*:)\s*[:：=@-]?\s*{_NUMBER}", re.I)
-    _targets_inline = re.compile(r"(?:TPS?|TARGETS?|TAKE\s*PROFIT|الأهداف|اهداف|أهداف)\s*[:：=-]?\s*([0-9.,\s/|;–-]+)", re.I)
-
-    _stop_price_patterns = [
-        re.compile(rf"(?:SL|STOP(?:\s*LOSS)?|وقف)\s*[:：=-]?\s*{_NUMBER}", re.I),
-        re.compile(rf"(?:BELOW|UNDER|اقل\s+من|أقل\s+من|تحت)\s*{_NUMBER}", re.I),
-    ]
-    _candle_close = re.compile(r"(?:CLOSE|CANDLE\s*CLOSE|اغلاق|إغلاق)", re.I)
-    _timeframe = re.compile(r"\b(1|2|3|4|6|8|12)\s*(?:H|HR|HOUR|HOURS|ساعة|ساعات)\b", re.I)
-
-    @staticmethod
-    def _float(value: str) -> float:
-        return float(value.replace(",", "."))
-
-    def parse(
-        self,
-        text: str,
-        *,
-        timestamp: datetime | None = None,
-        source_id: str | None = None,
-        source_message_id: str | None = None,
-        default_quote: str = "USDT",
-    ) -> ParseSignalResponse:
-        cleaned = text.strip()
-        upper = cleaned.upper()
+    def parse(self, text: str, *, timestamp: datetime | None = None, source_id: str | None = None,
+              source_message_id: str | None = None, default_quote: str = 'USDT') -> ParseSignalResponse:
+        clean = _primary_message(_normalize(text)).strip()
+        lines = [x.strip() for x in clean.splitlines() if x.strip()]
         warnings: list[str] = []
-        score_parts = 0
-
         symbol = None
-        quote = default_quote.upper()
-        for index, pattern in enumerate(self._symbol_patterns):
-            match = pattern.search(upper)
-            if not match:
-                continue
-            if index == 0:
-                base, quote = match.group(1).upper(), match.group(2).upper()
-            else:
-                base = match.group(1).upper()
-            symbol = f"{base}/{quote}"
-            score_parts += 1
-            break
-
-        if self._buy.search(cleaned):
-            side = Side.BUY
-            score_parts += 1
-        elif self._sell.search(cleaned):
-            side = Side.SELL
-            score_parts += 1
-        else:
-            side = Side.HOLD
-            warnings.append("Could not determine BUY/SELL direction.")
-
-        entry: EntrySpec | None = None
-        for pattern in self._entry_range_patterns:
-            match = pattern.search(cleaned)
-            if match:
-                a, b = self._float(match.group(1)), self._float(match.group(2))
-                entry = EntrySpec(type="range", min=min(a, b), max=max(a, b))
-                score_parts += 1
+        for pat in (PAIR, SUFFIX_PAIR):
+            m = pat.search(clean)
+            if m:
+                symbol = f'{m.group(1).upper()}/{m.group(2).upper()}'
                 break
+        if not symbol:
+            m = COIN_LABEL.search(clean) or HASH.search(clean)
+            if m:
+                symbol = f'{m.group(1).upper()}/{default_quote.upper()}'
+        direction = Side.BUY if SIDE_BUY.search(clean) else (Side.SELL if SIDE_SELL.search(clean) else Side.HOLD)
+        if not symbol:
+            return ParseSignalResponse(signal=None, confidence=0, warnings=['Symbol not found'])
+        entry = _entry(clean, lines)
+        targets = _targets(lines)
+        stop, stop_warnings = _stop(lines)
+        warnings.extend(stop_warnings)
+        if direction == Side.HOLD:
+            warnings.append('Direction not found')
         if entry is None:
-            for pattern in self._entry_price_patterns:
-                match = pattern.search(cleaned)
-                if match:
-                    entry = EntrySpec(type="price", price=self._float(match.group(1)))
-                    score_parts += 1
-                    break
-        if entry is None and re.search(r"(?:BUY|ENTER|ENTRY|شراء|دخول).{0,18}(?:NOW|MARKET|سوق|الآن|فوري)|(?:MARKET|NOW).{0,12}(?:BUY|شراء)", cleaned, re.I | re.S):
-            entry = EntrySpec(type="market")
-            score_parts += 1
-        if entry is None:
-            warnings.append("Could not determine entry price/zone.")
-
-        targets: list[float] = []
-        for match in self._target_line.finditer(cleaned):
-            value = self._float(match.group(1))
-            if value not in targets:
-                targets.append(value)
+            warnings.append('Entry missing')
         if not targets:
-            inline = self._targets_inline.search(cleaned)
-            if inline:
-                for token in re.findall(_NUMBER, inline.group(1)):
-                    value = self._float(token)
-                    if value not in targets:
-                        targets.append(value)
-        if targets:
-            score_parts += 1
-        else:
-            warnings.append("No targets detected.")
-
-        stop: StopSpec | None = None
-        stop_price = None
-        # Restrict search to text around stop/SL when possible so entry numbers do not become stops.
-        stop_fragment = cleaned
-        stop_anchor = re.search(r"(?:SL|STOP|وقف)", cleaned, re.I)
-        if stop_anchor:
-            stop_fragment = cleaned[stop_anchor.start():]
-        for pattern in self._stop_price_patterns:
-            match = pattern.search(stop_fragment)
-            if match:
-                stop_price = self._float(match.group(1))
-                break
-        if stop_price is not None:
-            candle_close = bool(self._candle_close.search(stop_fragment))
-            timeframe = None
-            trigger = StopTrigger.PRICE_TOUCH
-            if candle_close:
-                trigger = StopTrigger.CANDLE_CLOSE
-                tf = self._timeframe.search(stop_fragment)
-                timeframe = f"{tf.group(1)}h" if tf else None
-                if timeframe is None:
-                    warnings.append("Stop says candle close but timeframe is unclear.")
-            if trigger == StopTrigger.CANDLE_CLOSE and timeframe is None:
-                # Preserve the stop price but mark the overall signal for review.
-                stop = None
+            warnings.append('Targets missing')
+        # A missing stop is reviewable but never silently converted to a market stop.
+        if entry and entry.type != 'market':
+            ref = entry.max if entry.type == 'range' else entry.price
+            low = entry.min if entry.type == 'range' else entry.price
+            if direction == Side.BUY:
+                bad = [x for x in targets if x <= float(low)]
+                bad_stop = stop is not None and stop.price >= float(ref)
             else:
-                stop = StopSpec(price=stop_price, trigger=trigger, timeframe=timeframe)
-                score_parts += 1
+                bad = [x for x in targets if x >= float(ref)]
+                bad_stop = stop is not None and stop.price <= float(low)
+            if bad:
+                warnings.append(f'Target geometry inconsistent with {direction.value} entry: {bad}')
+            if bad_stop:
+                warnings.append('Stop geometry inconsistent with entry')
         else:
-            warnings.append("No stop detected.")
-
-        if symbol is None:
-            warnings.append("Could not determine trading symbol.")
-
-        # Five principal fields: symbol, direction, entry, targets, stop.
-        confidence = round(score_parts / 5, 2)
-        hard_missing = symbol is None or side == Side.HOLD or entry is None
-        status = SignalStatus.NEEDS_REVIEW if hard_missing or confidence < 0.8 else SignalStatus.PARSED
-
-        if symbol is None:
-            return ParseSignalResponse(signal=None, confidence=confidence, warnings=warnings)
-
-        signal = NormalizedSignal(
-            source="telegram",
-            source_id=source_id,
-            source_message_id=source_message_id,
-            timestamp=timestamp or datetime.now(timezone.utc),
-            market_type=MarketType.SPOT,
-            symbol=symbol,
-            quote=quote,
-            side=side,
-            entry=entry,
-            stop=stop,
-            targets=targets,
-            confidence=confidence,
-            status=status,
-            raw_text=text,
-            metadata={"parser": "generic_telegram_v1"},
-        )
-        return ParseSignalResponse(signal=signal, confidence=confidence, warnings=warnings)
-
+            bad=[];bad_stop=False
+        score = sum([bool(symbol), direction!=Side.HOLD, entry is not None, bool(targets), stop is not None])
+        status = SignalStatus.PARSED if score == 5 and not bad and not bad_stop else SignalStatus.NEEDS_REVIEW
+        return ParseSignalResponse(signal=NormalizedSignal(
+            strategy_id='telegram-copy', strategy_version='hybrid-v4.7.6', source='telegram',
+            source_id=source_id, source_message_id=source_message_id,
+            timestamp=timestamp or datetime.now(timezone.utc), market_type=MarketType.SPOT,
+            symbol=symbol, quote=symbol.split('/')[-1], side=direction,
+            entry=entry, stop=stop, targets=targets, confidence=round(score/5,2),
+            status=status, raw_text=text,
+            metadata={'parser':'adaptive_rules_v4.7.6','field_completeness':round(score/5,2),'warnings':warnings}
+        ), confidence=round(score/5,2),warnings=warnings)
 
 telegram_signal_parser = TelegramSignalParser()
