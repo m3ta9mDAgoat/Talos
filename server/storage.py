@@ -24,6 +24,10 @@ legacy_observation=Table('lab_legacy_telegram_observations',meta,
     Column('legacy_id',Integer,primary_key=True),Column('content_sha',String(64),nullable=False),
     Column('event_json',Text,nullable=False),Column('imported',DateTime(timezone=True),nullable=False))
 
+component=Table('lab_component_heartbeats',meta,
+    Column('name',String(64),primary_key=True),Column('state_json',Text,nullable=False),
+    Column('updated',DateTime(timezone=True),nullable=False))
+
 def now():return datetime.now(timezone.utc)
 
 def aware(t):
@@ -41,6 +45,23 @@ class Store:
     def __init__(self,url=None):
         self.db=create_engine(url,connect_args={'check_same_thread':False},pool_pre_ping=True) if url else engine()
         meta.create_all(self.db)
+    def update_component(self,name,payload):
+        if name not in ('telegram_bot','windows_worker','hosted_reference_worker'):raise ValueError('Unknown component')
+        data=json.dumps(payload,sort_keys=True,allow_nan=False)
+        t=now()
+        with self.db.begin() as conn:
+            from sqlalchemy import delete
+            # Per-component state, not an event log. A quick durable status signal.
+            conn.execute(delete(component).where(component.c.name==name))
+            conn.execute(component.insert().values(name=name,state_json=data,updated=t))
+        return {'status':'received','component':name,'updated':t.isoformat()}
+    def component_status(self,name):
+        with self.db.connect() as conn:
+            row=conn.execute(select(component).where(component.c.name==name)).mappings().first()
+        if not row:return {'status':'not_connected','last_seen':None}
+        seen=aware(row['updated']);age=max(0,(now()-seen).total_seconds())
+        return {'status':'online' if age<180 else 'stale', 'last_seen':seen.isoformat(),
+                'age_seconds':round(age,1),**json.loads(row['state_json'])}
     def submit(self,kind,request,idem=None):
         blob=json.dumps(request,sort_keys=True,default=str,allow_nan=False)
         sha=hashlib.sha256(blob.encode()).hexdigest();jid=str(uuid.uuid4());t=now()

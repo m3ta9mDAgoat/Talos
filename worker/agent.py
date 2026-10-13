@@ -4,6 +4,7 @@ No secrets or user Python code in task payloads; engine execution allowlisted.
 from __future__ import annotations
 import argparse,os,threading,sys,time,secrets,platform
 from urllib.parse import urlparse
+from pathlib import Path
 import httpx
 from .execute import execute
 
@@ -46,10 +47,24 @@ class Agent:
         if resp.status_code!=200:print('Job completion rejected',jid,resp.status_code,flush=True)
         else:print('Job finished:',jid,'COMPLETE' if not error else 'FAILED',flush=True)
         return True
+    def announce(self):
+        mode=os.getenv('TALOS_LAB_WORKER_MODE','windows_remote')
+        harness=(platform.system()=='Windows' and (Path(os.getenv('TALOS_STAGE3_ROOT','C:/TalosEngines/TalosStage3'))/'windows'/'RUN_STAGE3.ps1').is_file())
+        payload={'worker_id':self.owner,'platform':platform.system(),'mode':mode,
+                 'stage3_harness_detected':bool(harness)}
+        try:
+            self.client.post(self.url+'/api/v2/integration/worker/heartbeat',json=payload,timeout=12).raise_for_status()
+        except (httpx.HTTPError,ValueError) as exc:
+            print('Component heartbeat failed:',type(exc).__name__,flush=True)
+
     def serve(self):
         print('Talos research agent:',self.owner,'server:',self.url,'LIVE ORDERS DISABLED',flush=True)
         idle=0
+        last_announce=0.0
         while True:
+            if time.monotonic()-last_announce>=60:
+                self.announce()
+                last_announce=time.monotonic()
             try:
                 if self.once():idle=0
                 else:

@@ -1,298 +1,86 @@
 {
-  "release": "Talos Unified v2.3 — Live Functional Web Patch",
-  "date": "2026-10-13",
-  "status": "Locally-tested; requires GitHub push and Render redeploy",
-  "file_count": 70,
-  "passed_pytest": 64,
-  "skipped_pytest": 4,
-  "real_http_hosted_reference_worker_smoke": "PASS (sample SMA 2022 research; queued, claimed, computed, persisted, results fetched)",
-  "browser_chromium_tabs_and_auth_smoke": "PASS (6 tabs, authorized data library + selection; no page errors)",
-  "original_approved_phase2_sha256": "65739614032b64d05818c84c82700f6765da6652b734cf2c9b080a2941d015a8",
-  "critical_caveats": [
-    "v2.3 not yet deployed to Render",
-    "Bot Telegram external until connected and verified",
-    "LEAN/Nautilus Stage3 Windows fixture only",
-    "Live orders disabled",
-    "Synthetic sample not genuine market prices",
-    "Dashboard Command Center illustrative widgets remain as marked",
-    "Free Render PostgreSQL expires 2026-11-12"
-  ],
-  "files": {
-    ".env.example": {
-      "sha256": "c2d3d1d62c2fa59ff898c401eb4334795dd0f9e1e578e846492a395907c504d5",
-      "bytes": 288
-    },
-    ".gitignore": {
-      "sha256": "3035289783d2666273f8fe54add37f66249bb2e37d05b5d8bbf0070cb3b7cfca",
-      "bytes": 257
-    },
-    "Dockerfile": {
-      "sha256": "662f35fe55797a39772ebe30d32b7ff9a1726f4cf773190798b19a4f466ebcaa",
-      "bytes": 520
-    },
-    "README_AR.md": {
-      "sha256": "d3ac158cf2fc058cb66ee2cb80175154e997353f0c0c6f4c912be428a97e319e",
-      "bytes": 7958
-    },
-    "artifacts/LEAN_NAUTILUS_Stage3_parity_evidence.json": {
-      "sha256": "ebf6bfb5f281388014847406a966ed6ed4fcdf5916df02b27aad172adeafc3a3",
-      "bytes": 64753
-    },
-    "bot_config.example.json": {
-      "sha256": "a8b86c9eca16d340105541814dd2d1d99ddb5f552a11c7940e144691455b3212",
-      "bytes": 278
-    },
-    "core/__init__.py": {
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "bytes": 0
-    },
-    "core/backtest.py": {
-      "sha256": "b9af8e5f58bca796aa3aea68a64e93674599da2990a0e0fb073a1534a04be854",
-      "bytes": 9001
-    },
-    "core/brokers.py": {
-      "sha256": "a71a201fe0a01547769f89e767e308b0375b8c4135b98ccc4f9a0106e81884f5",
-      "bytes": 2317
-    },
-    "core/contracts.py": {
-      "sha256": "582666e8f5b764bd332ee5fe1b50ea1f3ec867aa19bad487281024dcaaaa9313",
-      "bytes": 5807
-    },
-    "core/market_data.py": {
-      "sha256": "cf78886842d73097511481443b7201729b6b6e17f2c17af54483ed1704ce2604",
-      "bytes": 8183
-    },
-    "core/native_replay_plan.py": {
-      "sha256": "b5ee7ec1c88d78c688e4b277306918165b0a482dbee81cdc5d4ec3fbb7a47735",
-      "bytes": 4281
-    },
-    "core/phanes_export.py": {
-      "sha256": "fc7e7de7eb6aed63463db730606e7e58e99ade54d1132f6a3c1f3f4669d16e24",
-      "bytes": 4916
-    },
-    "core/replay_verify.py": {
-      "sha256": "048abc979ec3af9da4075b4239bdeb4f2265844f0fe7ba3429d071b43fd69676",
-      "bytes": 6895
-    },
-    "core/robustness.py": {
-      "sha256": "82bb27f7887267079e39521b8146afe7ca78e1bbd4ceddee53fcb419b5d70abe",
-      "bytes": 5728
-    },
-    "core/security.py": {
-      "sha256": "9a0e65c03bad8245b3de5593d94a3714dafcb96606d97b257329713e5412395a",
-      "bytes": 907
-    },
-    "core/sentiment_models.py": {
-      "sha256": "1d2f2a7d26685a0adc8fdcedebc6885a08d508bb790e734d9e5a68fc58015dd5",
-      "bytes": 1773
-    },
-    "core/strategy.py": {
-      "sha256": "9be9d9a31f46f315e8b0a046ef684273aaba434014fbccef335212b904082bde",
-      "bytes": 3399
-    },
-    "core/telegram.py": {
-      "sha256": "ddea471f5857b9d31af1feaa2a82bf59be4bb7be991989bb89ee4047cdb1b04a",
-      "bytes": 4197
-    },
-    "core/trend_sentiment.py": {
-      "sha256": "54873acad1c5823ae4bb4e656e424107ef0c2e9a18739ec003bd3c0cae4f3ef3",
-      "bytes": 6843
-    },
-    "docs/STATUS_AND_MIGRATION_AR.md": {
-      "sha256": "e5d3c48491eabc1f2d77de67b7ca62dc2519de50f2112b5bc6a0762f8236e528",
-      "bytes": 656
-    },
-    "requirements.txt": {
-      "sha256": "bdf9cd36b4579801221e2a78b70ea6f55d0b3b7273d1a2b620becf3f79984c78",
-      "bytes": 330
-    },
-    "samples/news_observations_example.json": {
-      "sha256": "74f0cd298a5f8fa44bc4edab3144a4d8d8738cc36aff512b6c3188b4b9aa3e56",
-      "bytes": 239
-    },
-    "samples/posts_example.json": {
-      "sha256": "0e14e55153caeb29593fef972bc3f0b60d921454b71e1bbfc9a30f1e3f65474f",
-      "bytes": 428
-    },
-    "scripts/BENCHMARK_LOCAL.ps1": {
-      "sha256": "62083faaef2d4de20790968662f2764d217d90b1290cfacc9189aae328f24732",
-      "bytes": 314
-    },
-    "scripts/PUBLISH_REPLACE_GITHUB.ps1": {
-      "sha256": "51470512f0f73f87c11bfe6d42615391f36e4855700e0ef6f42bb42c06fca5bf",
-      "bytes": 3403
-    },
-    "scripts/START_ALL.ps1": {
-      "sha256": "6aea2e851cb78e2255d0aad79f101b4885209a392c0b50ed15e47afb18cbf5b2",
-      "bytes": 1102
-    },
-    "scripts/START_BOT_CONNECTED.ps1": {
-      "sha256": "a716d41ebae65150da7588d87e0594b5be70ff0a06169b8dccb749da3192c6cc",
-      "bytes": 1436
-    },
-    "scripts/START_LOCAL.ps1": {
-      "sha256": "4bf5c00d5c8c6d283943dc9dd7b2dd23a962fda4709c4dd7ca80905d3f67ab59",
-      "bytes": 1186
-    },
-    "scripts/START_REMOTE_BOT.ps1": {
-      "sha256": "11f73849da15d17575d8accc4bbc95783b2970b902c7fa1fd96a5af8fa3cb2e9",
-      "bytes": 583
-    },
-    "scripts/START_REMOTE_WORKER.ps1": {
-      "sha256": "8b5a12a7d52d237517c838e8d9fb18ebd81449b537cd27f23f2f06bd89fd90e5",
-      "bytes": 844
-    },
-    "scripts/START_SERVER.ps1": {
-      "sha256": "4b4227d23a37f27aeec25037b43ffdb8676221657189295c087e938ce6dc5459",
-      "bytes": 620
-    },
-    "scripts/START_WORKER.ps1": {
-      "sha256": "a462800bc85d1591cadfcf5a55845773bc55475257a831cfe7eb931145d66c74",
-      "bytes": 519
-    },
-    "scripts/benchmark_local.py": {
-      "sha256": "ddf71a853c9a5c49a825e23186fa63839f8944783515442ec4ab33699b531181",
-      "bytes": 1435
-    },
-    "scripts/generate_tokens.py": {
-      "sha256": "343a5d6f4ee1795de6c75ad96784d1c7f407292daf52740fff1beb8341ef6de8",
-      "bytes": 213
-    },
-    "scripts/legacy_bridge_sync.py": {
-      "sha256": "ed8237d9fdab288c19b9d8fdd1eab931c4ddcd843f19a7aad68aef156e44e5e6",
-      "bytes": 3588
-    },
-    "scripts/local_setup.py": {
-      "sha256": "de0c2080fd137a402de200a3d147c434d68faab9cdf83130d761200adc5bf9d4",
-      "bytes": 979
-    },
-    "scripts/verify_local.py": {
-      "sha256": "b99c7cb743b59c4e7589662f3b52c53124404557ca5aad9fea3190549580a73a",
-      "bytes": 1832
-    },
-    "scripts/windows_server.ps1": {
-      "sha256": "4463ce301c31ead0191fa96474df520bba67908866fea174301d69ac6a10b0be",
-      "bytes": 498
-    },
-    "scripts/windows_worker.ps1": {
-      "sha256": "b8b0fa542eb610d8d1bc1139e23b1d4534536fdfd7c580e75be5ff5bec853ba2",
-      "bytes": 399
-    },
-    "server/__init__.py": {
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "bytes": 0
-    },
-    "server/api.py": {
-      "sha256": "36b0b5a5fab7d5b00d3f1f0ba1089d0aac4bd2743a6e81cf25ce6d78dbcddb91",
-      "bytes": 16119
-    },
-    "server/deployment.py": {
-      "sha256": "281132585a8114af7cae894ece71291480547e1b0255e852490272bae89768ae",
-      "bytes": 1012
-    },
-    "server/storage.py": {
-      "sha256": "28e0f8581dd8ad03776b318e85f73a2a200f784645898f92be2fd5854c5bed3c",
-      "bytes": 18520
-    },
-    "talos_bot/__init__.py": {
-      "sha256": "ae2bb7236167d1d4c547dd82471a17fd15760b90721d078bd9ef3f1f4c5fcafa",
-      "bytes": 103
-    },
-    "talos_bot/api.py": {
-      "sha256": "99a79de3bbc9c0478c9fb507e6105125f997fe4b28aea02eb352576de470eb0f",
-      "bytes": 4594
-    },
-    "talos_bot/db.py": {
-      "sha256": "2bd0af3cd32c43c28df1f562cebcbe917f39302767e46efedd22bc8ceacb78b4",
-      "bytes": 4969
-    },
-    "talos_bot/runner.py": {
-      "sha256": "4cd06e5f7b2624ac12d99183012482418243d42ef7c294a7a14a6f5a87b74f34",
-      "bytes": 4223
-    },
-    "talos_bot/service.py": {
-      "sha256": "6657dee76d6c739c6517515541dc35739c11220489a4a9bb9c5d6dde57f127da",
-      "bytes": 14773
-    },
-    "tests/test_bot_component.py": {
-      "sha256": "0c8e81901f6152f3c32eb785e05cc5c86b4816a80ec69f7507f81e724155e152",
-      "bytes": 7723
-    },
-    "tests/test_bot_talos_v2_integration.py": {
-      "sha256": "55822a2f2fe156fbb104c58259ea508311c834b59b53503d94c50d8746e2c659",
-      "bytes": 3626
-    },
-    "tests/test_cross_source_replay.py": {
-      "sha256": "9fac1cd657ef7599358164ca5daaddedf5086149afc096ff2fad761033d1ccef",
-      "bytes": 4556
-    },
-    "tests/test_full_pipeline.py": {
-      "sha256": "556854acedb15cbac51977be102207f2c430fb9f309ca966db43fb990a2e2bc7",
-      "bytes": 18657
-    },
-    "tests/test_hosted_v23.py": {
-      "sha256": "645fbe611f4a1c7b3b65aad2ebc524afd297379045fa3c68e0a9e4d8fa367236",
-      "bytes": 3487
-    },
-    "tests/test_legacy_bridge.py": {
-      "sha256": "dc56819ce421b1bf6d7d2e6320f1dd9fddd7b84e1616fe4c5f67f3e325818751",
-      "bytes": 5716
-    },
-    "tests/test_legacy_export_source.py": {
-      "sha256": "722eb7d346f785da347130a437cdb781d92a31d57e3a4646a53249f529dad066",
-      "bytes": 5668
-    },
-    "tests/test_performance_robustness.py": {
-      "sha256": "45e85b77d7b283b8295bb865db7f89931cda4142e7e97007a2570ac53215495b",
-      "bytes": 3690
-    },
-    "tests/test_phanes_export.py": {
-      "sha256": "79cdbf7b2fdbaacbb77d6f2ceba03bebd7447bda0783aedadfee9c5294aee567",
-      "bytes": 2971
-    },
-    "tests/test_phase2_v15.py": {
-      "sha256": "54a8527a8af43c6b338309203ffac7c55a4d7b392792c3df6e85f7eaa6044cf4",
-      "bytes": 5883
-    },
-    "tests/test_unified_deployment.py": {
-      "sha256": "371cc1e1d2aea65d9f2c9a054ce7d6b544e04e1458805f4e949a71eaf8d2c455",
-      "bytes": 3100
-    },
-    "trusted_plugins/allowlist.json": {
-      "sha256": "f2a58dda8eda9335bef5fa489d4026bd08ca69f74d3f02481779cc79d40807b1",
-      "bytes": 81
-    },
-    "trusted_plugins/trend.py": {
-      "sha256": "fef4a9f415ac8f8e389a3c124511da23791c5a1d5bb79cf1de104808aa342b94",
-      "bytes": 526
-    },
-    "web/APPROVED_ORIGINAL.html": {
-      "sha256": "65739614032b64d05818c84c82700f6765da6652b734cf2c9b080a2941d015a8",
-      "bytes": 52566
-    },
-    "web/Talos_Phase2_Approved_Interactive_Homepage_Integrated_v1_5.html": {
-      "sha256": "6aff7c5edd8f4983518da50f84aefbbeb481b8bcdebc5c440f49a4b188d572b3",
-      "bytes": 79609
-    },
-    "web/index.html": {
-      "sha256": "0c8a0fb6d5ec47639f4111f151635a49c68b0cde5e7de6b304f595fd19ff96f6",
-      "bytes": 92642
-    },
-    "web/talos-splash.png": {
-      "sha256": "5acc1e51557d4a4c41c4d663eb153959bcff2dfd3e783f3846feb97c288895b9",
-      "bytes": 1629270
-    },
-    "worker/__init__.py": {
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "bytes": 0
-    },
-    "worker/agent.py": {
-      "sha256": "92ece294e13d7d682422060ff4c79c5ab07c42f90ef3831a77c6163ca4ade7b2",
-      "bytes": 3892
-    },
-    "worker/execute.py": {
-      "sha256": "dbe465c44e3885513c58cb784ee317968829ebb60008d1a485fbfcf53be790d4",
-      "bytes": 6085
-    }
+  "version": "2.5.0",
+  "tests": "71 passed, 4 skipped",
+  "browser": "Pass: desktop+mobile; real API interactive operations; no uncaught JS errors",
+  "windows_powershell_tested_on_users_pc": false,
+  "production_deployed": false,
+  "git_repository": "https://github.com/m3ta9mDAgoat/Talos",
+  "file_count": 75,
+  "contains_runtime_secrets": false,
+  "sha256_by_file": {
+    ".env.example": "c2d3d1d62c2fa59ff898c401eb4334795dd0f9e1e578e846492a395907c504d5",
+    ".gitignore": "3035289783d2666273f8fe54add37f66249bb2e37d05b5d8bbf0070cb3b7cfca",
+    "Dockerfile": "662f35fe55797a39772ebe30d32b7ff9a1726f4cf773190798b19a4f466ebcaa",
+    "README_AR.md": "8a437061a7d74c2d192cc3332ef1397fea49c99d351a9fe57f773fcab6f68e77",
+    "artifacts/LEAN_NAUTILUS_Stage3_parity_evidence.json": "ebf6bfb5f281388014847406a966ed6ed4fcdf5916df02b27aad172adeafc3a3",
+    "bot_config.example.json": "a8b86c9eca16d340105541814dd2d1d99ddb5f552a11c7940e144691455b3212",
+    "core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "core/backtest.py": "b9af8e5f58bca796aa3aea68a64e93674599da2990a0e0fb073a1534a04be854",
+    "core/brokers.py": "a71a201fe0a01547769f89e767e308b0375b8c4135b98ccc4f9a0106e81884f5",
+    "core/contracts.py": "582666e8f5b764bd332ee5fe1b50ea1f3ec867aa19bad487281024dcaaaa9313",
+    "core/market_data.py": "cf78886842d73097511481443b7201729b6b6e17f2c17af54483ed1704ce2604",
+    "core/native_replay_plan.py": "b5ee7ec1c88d78c688e4b277306918165b0a482dbee81cdc5d4ec3fbb7a47735",
+    "core/phanes_export.py": "fc7e7de7eb6aed63463db730606e7e58e99ade54d1132f6a3c1f3f4669d16e24",
+    "core/replay_verify.py": "048abc979ec3af9da4075b4239bdeb4f2265844f0fe7ba3429d071b43fd69676",
+    "core/robustness.py": "82bb27f7887267079e39521b8146afe7ca78e1bbd4ceddee53fcb419b5d70abe",
+    "core/security.py": "9a0e65c03bad8245b3de5593d94a3714dafcb96606d97b257329713e5412395a",
+    "core/sentiment_models.py": "1d2f2a7d26685a0adc8fdcedebc6885a08d508bb790e734d9e5a68fc58015dd5",
+    "core/strategy.py": "9be9d9a31f46f315e8b0a046ef684273aaba434014fbccef335212b904082bde",
+    "core/telegram.py": "ddea471f5857b9d31af1feaa2a82bf59be4bb7be991989bb89ee4047cdb1b04a",
+    "core/trend_sentiment.py": "54873acad1c5823ae4bb4e656e424107ef0c2e9a18739ec003bd3c0cae4f3ef3",
+    "docs/STATUS_AND_MIGRATION_AR.md": "fc7fd19e2ace22a3c410b7ad05e9d6c49b92012f105887afd07c10be7097c55f",
+    "requirements.txt": "bdf9cd36b4579801221e2a78b70ea6f55d0b3b7273d1a2b620becf3f79984c78",
+    "samples/news_observations_example.json": "74f0cd298a5f8fa44bc4edab3144a4d8d8738cc36aff512b6c3188b4b9aa3e56",
+    "samples/posts_example.json": "0e14e55153caeb29593fef972bc3f0b60d921454b71e1bbfc9a30f1e3f65474f",
+    "scripts/BENCHMARK_LOCAL.ps1": "62083faaef2d4de20790968662f2764d217d90b1290cfacc9189aae328f24732",
+    "scripts/CONNECT_ALL_REMOTE.ps1": "f6c0ba999a97294868eb2b949f34b5c7d8f52d72a6227aca89dad7d8504b3730",
+    "scripts/PUBLISH_AND_CONNECT.ps1": "8bca627870931152d031e15217bb18c4da694a6b74888b20e3d3f759ff7bbb04",
+    "scripts/PUBLISH_REPLACE_GITHUB.ps1": "f4e1fa79b43cbcd028f524ed53bb0ec6d28761b345914bede75ed9c52dec75bc",
+    "scripts/START_ALL.ps1": "6aea2e851cb78e2255d0aad79f101b4885209a392c0b50ed15e47afb18cbf5b2",
+    "scripts/START_BOT_CONNECTED.ps1": "a716d41ebae65150da7588d87e0594b5be70ff0a06169b8dccb749da3192c6cc",
+    "scripts/START_LOCAL.ps1": "4bf5c00d5c8c6d283943dc9dd7b2dd23a962fda4709c4dd7ca80905d3f67ab59",
+    "scripts/START_REMOTE_BOT.ps1": "11d2fddd66d5d243c06ba9a2a862c477f524fcc13de02c3924e1b3f0fd811677",
+    "scripts/START_REMOTE_WORKER.ps1": "85d6e0507126eeec1282522920b32eefa415df291b4a2d6e14c54c0499cb2def",
+    "scripts/START_SERVER.ps1": "4b4227d23a37f27aeec25037b43ffdb8676221657189295c087e938ce6dc5459",
+    "scripts/START_WORKER.ps1": "a462800bc85d1591cadfcf5a55845773bc55475257a831cfe7eb931145d66c74",
+    "scripts/benchmark_local.py": "ddf71a853c9a5c49a825e23186fa63839f8944783515442ec4ab33699b531181",
+    "scripts/generate_tokens.py": "343a5d6f4ee1795de6c75ad96784d1c7f407292daf52740fff1beb8341ef6de8",
+    "scripts/legacy_bridge_sync.py": "ed8237d9fdab288c19b9d8fdd1eab931c4ddcd843f19a7aad68aef156e44e5e6",
+    "scripts/local_setup.py": "de0c2080fd137a402de200a3d147c434d68faab9cdf83130d761200adc5bf9d4",
+    "scripts/verify_local.py": "b99c7cb743b59c4e7589662f3b52c53124404557ca5aad9fea3190549580a73a",
+    "scripts/windows_server.ps1": "4463ce301c31ead0191fa96474df520bba67908866fea174301d69ac6a10b0be",
+    "scripts/windows_worker.ps1": "b8b0fa542eb610d8d1bc1139e23b1d4534536fdfd7c580e75be5ff5bec853ba2",
+    "server/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "server/api.py": "07bc9d856597e4c3b2adec78788d0568ac524d44e282b71d7ffe61e6bece7ccd",
+    "server/deployment.py": "281132585a8114af7cae894ece71291480547e1b0255e852490272bae89768ae",
+    "server/storage.py": "2e8daf12fde4ce2b56c1fd366877f449d6e6784be9a9a507b09c73dd726f9c75",
+    "talos_bot/__init__.py": "ae2bb7236167d1d4c547dd82471a17fd15760b90721d078bd9ef3f1f4c5fcafa",
+    "talos_bot/api.py": "99a79de3bbc9c0478c9fb507e6105125f997fe4b28aea02eb352576de470eb0f",
+    "talos_bot/db.py": "2bd0af3cd32c43c28df1f562cebcbe917f39302767e46efedd22bc8ceacb78b4",
+    "talos_bot/runner.py": "40b9732ec8868d7871f589d14e3d46d97f304243a5d7bc7e3eac93bf07c3e000",
+    "talos_bot/service.py": "6657dee76d6c739c6517515541dc35739c11220489a4a9bb9c5d6dde57f127da",
+    "tests/test_bot_component.py": "0c8e81901f6152f3c32eb785e05cc5c86b4816a80ec69f7507f81e724155e152",
+    "tests/test_bot_talos_v2_integration.py": "55822a2f2fe156fbb104c58259ea508311c834b59b53503d94c50d8746e2c659",
+    "tests/test_cross_source_replay.py": "9fac1cd657ef7599358164ca5daaddedf5086149afc096ff2fad761033d1ccef",
+    "tests/test_full_pipeline.py": "556854acedb15cbac51977be102207f2c430fb9f309ca966db43fb990a2e2bc7",
+    "tests/test_hosted_v23.py": "645fbe611f4a1c7b3b65aad2ebc524afd297379045fa3c68e0a9e4d8fa367236",
+    "tests/test_legacy_bridge.py": "dc56819ce421b1bf6d7d2e6320f1dd9fddd7b84e1616fe4c5f67f3e325818751",
+    "tests/test_legacy_export_source.py": "722eb7d346f785da347130a437cdb781d92a31d57e3a4646a53249f529dad066",
+    "tests/test_native_v25_ui.py": "cf32abe2bbff74d19a36ad0f2e0b8e4a9a7cc198b1e0ec3afff4b2e52dc8cf64",
+    "tests/test_performance_robustness.py": "45e85b77d7b283b8295bb865db7f89931cda4142e7e97007a2570ac53215495b",
+    "tests/test_phanes_export.py": "79cdbf7b2fdbaacbb77d6f2ceba03bebd7447bda0783aedadfee9c5294aee567",
+    "tests/test_phase2_v15.py": "54a8527a8af43c6b338309203ffac7c55a4d7b392792c3df6e85f7eaa6044cf4",
+    "tests/test_unified_deployment.py": "371cc1e1d2aea65d9f2c9a054ce7d6b544e04e1458805f4e949a71eaf8d2c455",
+    "tests/test_v24_connected.py": "3a4ecee140a5e3907ae236a060033fe4a050c3443773fb99c42dcbb5ead2ae1d",
+    "tests/test_v25_components.py": "f8c4afdd13033c746c9d1a0c5efe4f6da255e57243734d60b803122242e166e3",
+    "trusted_plugins/allowlist.json": "f2a58dda8eda9335bef5fa489d4026bd08ca69f74d3f02481779cc79d40807b1",
+    "trusted_plugins/trend.py": "fef4a9f415ac8f8e389a3c124511da23791c5a1d5bb79cf1de104808aa342b94",
+    "web/APPROVED_ORIGINAL.html": "65739614032b64d05818c84c82700f6765da6652b734cf2c9b080a2941d015a8",
+    "web/Talos_Phase2_Approved_Interactive_Homepage_Integrated_v1_5.html": "6aff7c5edd8f4983518da50f84aefbbeb481b8bcdebc5c440f49a4b188d572b3",
+    "web/index.html": "b8c40355f9399241eded48f50ce752423c41b5411d6c09e276310167478b48b6",
+    "web/talos-splash.png": "5acc1e51557d4a4c41c4d663eb153959bcff2dfd3e783f3846feb97c288895b9",
+    "worker/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "worker/agent.py": "4f8c6517fd73c97dc744fd95e08a0ee43173b40646b25533a90241eacc5e8543",
+    "worker/execute.py": "dbe465c44e3885513c58cb784ee317968829ebb60008d1a485fbfcf53be790d4"
   }
 }

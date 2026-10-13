@@ -34,6 +34,17 @@ class LegacyObservationUpload(BaseModel):
     events: list[dict] = Field(max_length=150)
 
 
+class WorkerHeartbeat(BaseModel):
+    worker_id:str=Field(min_length=8,max_length=64,pattern=r'^[A-Za-z0-9_-]+$')
+    platform:str=Field(min_length=2,max_length=32)
+    mode:str=Field(min_length=2,max_length=32)
+    stage3_harness_detected:bool=False
+
+class BotHeartbeat(BaseModel):
+    bot_name:str=Field(min_length=1,max_length=64)
+    captured_events:int=Field(ge=0,le=100000000)
+    archive_id:str|None=Field(default=None,max_length=64)
+
 class ArchiveUpload(BaseModel):
     source:str=Field('telegram_legacy_export',min_length=1,max_length=100)
     events:list[dict]=Field(max_length=3000)
@@ -70,7 +81,7 @@ def create_app(store:Store|None=None):
             thread.start()
             logging.getLogger(__name__).info('Hosted reference worker started: native engines remain Windows-only')
         yield
-    app=FastAPI(title='Talos Research Control Plane',version='2.2.0',lifespan=lifespan)
+    app=FastAPI(title='Talos Research Control Plane',version='2.5.0',lifespan=lifespan)
     app.state.store=store or Store()
     # Same-origin UI. CORS deliberately NOT opened to arbitrary origins.
     allowed=[p.strip() for p in os.getenv('TALOS_LAB_CORS_ORIGINS','').split(',') if p.strip()]
@@ -81,23 +92,39 @@ def create_app(store:Store|None=None):
     def db(r:Request):return r.app.state.store
 
     @app.get('/health')
-    def health():return {'status':'ok','component':'talos_research_control_plane','version':'2.2.0',
+    def health():return {'status':'ok','component':'talos_research_control_plane','version':'2.5.0',
                          'live_orders_enabled':False,'legacy_data_migration_required':True}
 
     @app.get('/api/v2/integration/status',dependencies=[Depends(admin)])
     def integration_status(store=Depends(db)):
         recent=store.list()
+        bot_state=store.component_status('telegram_bot')
         return {'schema':'talos.unified.integration.v1','site_ui':'approved_phase2',
                 'research_api':'available',
                 'hosted_reference_worker_enabled':os.getenv('TALOS_MODE')=='hosted' and os.getenv('TALOS_HOSTED_REFERENCE_WORKER')=='1',
                 'hosted_native_execution':False, 'queued_jobs':sum(j['status']=='queued' for j in recent),
                 'running_jobs':sum(j['status']=='running' for j in recent),
-                'bot':'external_local_process; health not independently verified',
+                'bot':bot_state,
+                'windows_worker':store.component_status('windows_worker'),
+                'hosted_reference_worker':store.component_status('hosted_reference_worker'),
+                'archives_count':len(store.list_archives()),
                 'telegram_ingestion':'bot authorized channel posts and forward import only',
                 'legacy_telegram':'requires read-only migration; no automatic deletion',
                 'native_execution':'Stage3 SMA AAPL/MSFT fixture only',
                 'data':'reference/synthetic and uploaded; provider coverage not certified',
                 'live_orders_enabled':False}
+
+    @app.post('/api/v2/integration/bot/heartbeat',dependencies=[Depends(admin)])
+    def bot_heartbeat(payload:BotHeartbeat,store=Depends(db)):
+        # Heartbeat only; never accept or store BotFather token, Telegram chat content or credentials.
+        return store.update_component('telegram_bot',payload.model_dump())
+
+    @app.post('/api/v2/integration/worker/heartbeat',dependencies=[Depends(worker)])
+    def worker_component_heartbeat(payload:WorkerHeartbeat,store=Depends(db)):
+        name=('hosted_reference_worker' if payload.mode=='hosted_reference' else 'windows_worker')
+        if name=='windows_worker' and payload.platform!='Windows':
+            raise HTTPException(422,'Non-Windows native agent cannot report Windows presence')
+        return store.update_component(name,payload.model_dump())
 
     @app.get('/api/v2/research/evidence/stage3',dependencies=[Depends(admin)])
     def verified_stage3_evidence():

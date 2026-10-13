@@ -43,7 +43,13 @@ def run():
     print('Owner IDs configured:',len(svc.owner_ids),'| Authorized source chats:',len(svc.source_ids))
     if not svc.owner_ids: print('SAFE SETUP: only /id is available. Configure owner_user_ids before using private commands.')
     print('Research API:',cfg['talos_url'],'| LIVE ORDERS DISABLED')
-    last_sync=time.monotonic();last_jobs=time.monotonic()
+    def beat():
+        try:
+            talos.post('/api/v2/integration/bot/heartbeat',{'bot_name':str(myself.get('username') or 'talos_bot')[:64],
+                'captured_events':db.count(),'archive_id':db.meta('archive_id','') or None})
+        except (APIError,OSError,ValueError):pass
+    beat()
+    last_sync=time.monotonic();last_jobs=time.monotonic();last_beat=time.monotonic()
     while True:
         try:
             for upd in tg.updates(db.offset(),cfg['poll_seconds']):
@@ -57,6 +63,8 @@ def run():
                     break
                 db.save_update(uid)
             tick=time.monotonic()
+            if tick-last_beat>=60:
+                beat();last_beat=tick
             if tick-last_jobs>=20:
                 try:svc.notify_tracked()
                 except Exception as ex:print('Job watch error:',type(ex).__name__)
