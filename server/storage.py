@@ -79,7 +79,7 @@ class Store:
         with self.db.connect() as conn:
             rows=conn.execute(select(job).order_by(job.c.created.desc()).limit(limit)).mappings().all()
         return [self._safe(row) for row in rows]
-    def claim(self,owner,seconds=180):
+    def claim(self,owner,seconds=180,allowed_kinds=None):
         t=now()
         with self.db.begin() as conn:
             # Exhausted leases must not silently stay running forever.
@@ -89,9 +89,12 @@ class Store:
         # Works on SQLite and PostgreSQL without relying on SKIP LOCKED.
         for _ in range(12):
             with self.db.begin() as conn:
-                candidate=conn.execute(select(job.c.id,job.c.status,job.c.attempts,job.c.lease_until)
+                q_select=(select(job.c.id,job.c.status,job.c.attempts,job.c.lease_until)
                     .where((job.c.status=='queued') | ((job.c.status=='running') & (job.c.lease_until<t)))
-                    .where(job.c.attempts<3).order_by(job.c.created).limit(1)).first()
+                    .where(job.c.attempts<3))
+                if allowed_kinds is not None:
+                    q_select=q_select.where(job.c.kind.in_(tuple(allowed_kinds)))
+                candidate=conn.execute(q_select.order_by(job.c.created).limit(1)).first()
                 if not candidate:return None
                 jid,state,attempts,until=candidate
                 q=update(job).where(job.c.id==jid).where(job.c.status==state).where(job.c.attempts==attempts)
@@ -139,6 +142,21 @@ class Store:
             if not conn.execute(select(dataset.c.id).where(dataset.c.id==sha)).first():
                 conn.execute(dataset.insert().values(id=sha,content_sha=sha,symbol=symbol,bars_json=body,created=t))
         return {'dataset_id':sha,'count':len(bars),'sha256':sha}
+    def list_datasets(self,limit=50):
+        with self.db.connect() as conn:
+            rows=conn.execute(select(dataset.c.id,dataset.c.symbol,dataset.c.created,dataset.c.bars_json)
+                .order_by(dataset.c.created.desc()).limit(limit)).mappings().all()
+        return [{'dataset_id':row['id'],'symbol':row['symbol'],
+                 'bars':len(json.loads(row['bars_json'])),
+                 'created':row['created'].isoformat()} for row in rows]
+
+    def list_archives(self,limit=40):
+        with self.db.connect() as conn:
+            rows=conn.execute(select(archive.c.id,archive.c.source,archive.c.created)
+                .order_by(archive.c.created.desc()).limit(limit)).mappings().all()
+        return [{'id':row['id'],'source':row['source'],
+                 'created':row['created'].isoformat()} for row in rows]
+
     def get_dataset(self,id):
         with self.db.connect() as conn:row=conn.execute(select(dataset).where(dataset.c.id==id)).mappings().first()
         return {'id':row['id'],'symbol':row['symbol'],'bars':json.loads(row['bars_json'])} if row else None

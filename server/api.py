@@ -2,7 +2,7 @@
 Runs independently alongside legacy Talos; never imports its watchers or credentials.
 """
 from __future__ import annotations
-import os,re,base64,binascii
+import os,re,base64,binascii,threading,logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI,Depends,HTTPException,Request,Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,6 +57,18 @@ class PaperOrder(BaseModel):
 def create_app(store:Store|None=None):
     @asynccontextmanager
     async def lifespan(app):
+        # Small reference-only compute worker for Render's single-container setup.
+        # Native LEAN/NautilusTrader jobs remain reserved for the Windows worker.
+        enabled=(os.getenv('TALOS_MODE')=='hosted' and
+                 os.getenv('TALOS_HOSTED_REFERENCE_WORKER')=='1')
+        if enabled:
+            from worker.agent import Agent
+            os.environ['TALOS_LAB_WORKER_MODE']='hosted_reference'
+            port=os.getenv('PORT','8018')
+            agent=Agent(url=f'http://127.0.0.1:{port}',poll=5)
+            thread=threading.Thread(target=agent.serve,name='talos-hosted-reference-worker',daemon=True)
+            thread.start()
+            logging.getLogger(__name__).info('Hosted reference worker started: native engines remain Windows-only')
         yield
     app=FastAPI(title='Talos Research Control Plane',version='2.2.0',lifespan=lifespan)
     app.state.store=store or Store()
@@ -76,7 +88,9 @@ def create_app(store:Store|None=None):
     def integration_status(store=Depends(db)):
         recent=store.list()
         return {'schema':'talos.unified.integration.v1','site_ui':'approved_phase2',
-                'research_api':'available', 'queued_jobs':sum(j['status']=='queued' for j in recent),
+                'research_api':'available',
+                'hosted_reference_worker_enabled':os.getenv('TALOS_MODE')=='hosted' and os.getenv('TALOS_HOSTED_REFERENCE_WORKER')=='1',
+                'hosted_native_execution':False, 'queued_jobs':sum(j['status']=='queued' for j in recent),
                 'running_jobs':sum(j['status']=='running' for j in recent),
                 'bot':'external_local_process; health not independently verified',
                 'telegram_ingestion':'bot authorized channel posts and forward import only',
@@ -145,7 +159,8 @@ def create_app(store:Store|None=None):
     def claim(r:Request,store=Depends(db)):
         owner=r.headers.get('x-worker-id','')
         if not re.fullmatch(r'[A-Za-z0-9_-]{8,64}',owner):raise HTTPException(400,'Invalid worker id')
-        return {'job':store.claim(owner)}
+        kinds=('research','telegram_replay') if r.headers.get('x-worker-capabilities')=='hosted_reference' else None
+        return {'job':store.claim(owner,allowed_kinds=kinds)}
 
     @app.post('/api/v2/worker/jobs/{id}/heartbeat',dependencies=[Depends(worker)])
     def heartbeat(id:str,body:Heartbeat,store=Depends(db)):
@@ -165,6 +180,14 @@ def create_app(store:Store|None=None):
         except (ValueError,TypeError) as e:raise HTTPException(422,str(e)) from e
         try:return store.store_dataset(bars,body.symbol)
         except ValueError as e:raise HTTPException(413,str(e)) from e
+
+    @app.get('/api/v2/research/datasets',dependencies=[Depends(admin)])
+    def datasets(store=Depends(db)):
+        return store.list_datasets()
+
+    @app.get('/api/v2/research/archives',dependencies=[Depends(admin)])
+    def archives(store=Depends(db)):
+        return store.list_archives()
 
     @app.get('/api/v2/worker/datasets/{id}',dependencies=[Depends(worker)])
     def worker_dataset(id:str,store=Depends(db)):

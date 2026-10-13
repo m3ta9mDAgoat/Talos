@@ -1,19 +1,21 @@
 {
-  "release": "Talos Unified v2.2 GitHub-Ready",
+  "release": "Talos Unified v2.3 — Live Functional Web Patch",
   "date": "2026-10-13",
-  "status": "locally-tested-release-candidate",
-  "files_excluding_manifest": 68,
-  "passed_pytest": 61,
+  "status": "Locally-tested; requires GitHub push and Render redeploy",
+  "file_count": 70,
+  "passed_pytest": 64,
   "skipped_pytest": 4,
-  "html_original_sha256": "65739614032b64d05818c84c82700f6765da6652b734cf2c9b080a2941d015a8",
-  "source_snapshot": "Talos Research Plane v2.0 + Telegram Bot v2.1 plus unified v2.2 integration patches",
-  "not_certified": [
-    "public Render deployment",
-    "Neon production connection",
-    "real Telegram API after package merge",
-    "general native LEAN/Nautilus backtest",
-    "automatic missed opportunities",
-    "live trading"
+  "real_http_hosted_reference_worker_smoke": "PASS (sample SMA 2022 research; queued, claimed, computed, persisted, results fetched)",
+  "browser_chromium_tabs_and_auth_smoke": "PASS (6 tabs, authorized data library + selection; no page errors)",
+  "original_approved_phase2_sha256": "65739614032b64d05818c84c82700f6765da6652b734cf2c9b080a2941d015a8",
+  "critical_caveats": [
+    "v2.3 not yet deployed to Render",
+    "Bot Telegram external until connected and verified",
+    "LEAN/Nautilus Stage3 Windows fixture only",
+    "Live orders disabled",
+    "Synthetic sample not genuine market prices",
+    "Dashboard Command Center illustrative widgets remain as marked",
+    "Free Render PostgreSQL expires 2026-11-12"
   ],
   "files": {
     ".env.example": {
@@ -25,12 +27,12 @@
       "bytes": 257
     },
     "Dockerfile": {
-      "sha256": "5cfb2cc7d4ebb8a3bb71861ec43b3957023554a743f098fce888f00398e04488",
-      "bytes": 424
+      "sha256": "662f35fe55797a39772ebe30d32b7ff9a1726f4cf773190798b19a4f466ebcaa",
+      "bytes": 520
     },
     "README_AR.md": {
-      "sha256": "317ddfe44262b6ffe886e766f9bf75e8b74b0e2767597464f40372bfe338b567",
-      "bytes": 5075
+      "sha256": "d3ac158cf2fc058cb66ee2cb80175154e997353f0c0c6f4c912be428a97e319e",
+      "bytes": 7958
     },
     "artifacts/LEAN_NAUTILUS_Stage3_parity_evidence.json": {
       "sha256": "ebf6bfb5f281388014847406a966ed6ed4fcdf5916df02b27aad172adeafc3a3",
@@ -97,8 +99,8 @@
       "bytes": 6843
     },
     "docs/STATUS_AND_MIGRATION_AR.md": {
-      "sha256": "734ee1ba36bdd7ed22e230c769c4de2ed5beb83ece4f370cedd5428878739aeb",
-      "bytes": 3319
+      "sha256": "e5d3c48491eabc1f2d77de67b7ca62dc2519de50f2112b5bc6a0762f8236e528",
+      "bytes": 656
     },
     "requirements.txt": {
       "sha256": "bdf9cd36b4579801221e2a78b70ea6f55d0b3b7273d1a2b620becf3f79984c78",
@@ -117,8 +119,8 @@
       "bytes": 314
     },
     "scripts/PUBLISH_REPLACE_GITHUB.ps1": {
-      "sha256": "b9332e53c5481976627ecca1ab4c44dc89dc39d7bf0128fd39942cd690da36f7",
-      "bytes": 3401
+      "sha256": "51470512f0f73f87c11bfe6d42615391f36e4855700e0ef6f42bb42c06fca5bf",
+      "bytes": 3403
     },
     "scripts/START_ALL.ps1": {
       "sha256": "6aea2e851cb78e2255d0aad79f101b4885209a392c0b50ed15e47afb18cbf5b2",
@@ -181,16 +183,16 @@
       "bytes": 0
     },
     "server/api.py": {
-      "sha256": "e1b285db72cd5fcb1d012f5048c96b4ec112456796d71f490da6aad81ca7984b",
-      "bytes": 14715
+      "sha256": "36b0b5a5fab7d5b00d3f1f0ba1089d0aac4bd2743a6e81cf25ce6d78dbcddb91",
+      "bytes": 16119
     },
     "server/deployment.py": {
       "sha256": "281132585a8114af7cae894ece71291480547e1b0255e852490272bae89768ae",
       "bytes": 1012
     },
     "server/storage.py": {
-      "sha256": "9b13d30083f844a60f8d7e2d26aeb8e2aa150390b93a8ad1382da51bb9db2375",
-      "bytes": 17498
+      "sha256": "28e0f8581dd8ad03776b318e85f73a2a200f784645898f92be2fd5854c5bed3c",
+      "bytes": 18520
     },
     "talos_bot/__init__.py": {
       "sha256": "ae2bb7236167d1d4c547dd82471a17fd15760b90721d078bd9ef3f1f4c5fcafa",
@@ -227,6 +229,10 @@
     "tests/test_full_pipeline.py": {
       "sha256": "556854acedb15cbac51977be102207f2c430fb9f309ca966db43fb990a2e2bc7",
       "bytes": 18657
+    },
+    "tests/test_hosted_v23.py": {
+      "sha256": "645fbe611f4a1c7b3b65aad2ebc524afd297379045fa3c68e0a9e4d8fa367236",
+      "bytes": 3487
     },
     "tests/test_legacy_bridge.py": {
       "sha256": "dc56819ce421b1bf6d7d2e6320f1dd9fddd7b84e1616fe4c5f67f3e325818751",
@@ -269,8 +275,8 @@
       "bytes": 79609
     },
     "web/index.html": {
-      "sha256": "00baf079104decf959f244a084c11fd6a8a8317c78b72f13ab7301f3b57da6aa",
-      "bytes": 79009
+      "sha256": "0c8a0fb6d5ec47639f4111f151635a49c68b0cde5e7de6b304f595fd19ff96f6",
+      "bytes": 92642
     },
     "web/talos-splash.png": {
       "sha256": "5acc1e51557d4a4c41c4d663eb153959bcff2dfd3e783f3846feb97c288895b9",
@@ -281,13 +287,12 @@
       "bytes": 0
     },
     "worker/agent.py": {
-      "sha256": "c2430f72082bd9fefc9071fd43376600c50412524d8414274065d0eab7d2885c",
-      "bytes": 3777
+      "sha256": "92ece294e13d7d682422060ff4c79c5ab07c42f90ef3831a77c6163ca4ade7b2",
+      "bytes": 3892
     },
     "worker/execute.py": {
       "sha256": "dbe465c44e3885513c58cb784ee317968829ebb60008d1a485fbfcf53be790d4",
       "bytes": 6085
     }
-  },
-  "publication_note": "GitHub main replacement requires authenticated git push; Render deployment and DB integration pending."
+  }
 }

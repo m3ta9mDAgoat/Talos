@@ -1,20 +1,11 @@
-# Talos v2.2 — التحقق والحدود قبل ترحيل الإنتاج
+# v2.3 deployment status
 
-- هذه الحزمة تجمع من المصدر الأصلي `Talos v2.0 Research Plane` و`Talos Telegram Bot v2.1` عبر نفس REST contract (لا نسخ API مزدوجة).
-- `/health` : حالة خدمة الأبحاث وليست حالة البوت؛ استخدم `/api/v2/integration/status` للمزايا وحقول الصدق.
-- تكامل المحلي: بوت جديد مأذون + مصدر Telegram مصرح به → Archive → API → Job Queue → Local Worker → Result Notification. توافر البوت وعمل Telegram من الإنترنت يحتاج تجربة فعلية مع توكن المستخدم؛ اختباراتنا تعمل دون حسابات خارجية.
-- أسرار Cloud (Render) يجب أن تطابق Worker/Bot المحلية إذا انتقلنا من local إلى remote؛ رمز local العشوائي **لا يساوي** رمز Hosted تلقائيًا.
-- منع ازدواج getUpdates: خدمة واحدة فقط تستخدم BotFather token في أي لحظة. لا تُنشئ نسختين في Render وWindows لنفس التوكن.
-- إصدار Render القديم يشغّل v4.7.8 من Dockerfile، لذلك مجرد رفع ملفات هذا الإصدار في مجلد جانبي لا يغير النسخة الظاهرة. يجب تغيير Dockerfile/مسار الواجهة، مع خطة تراجع/نسخة احتياطية.
-- التقرير الرسمي لمرحلة Stage3 يؤكد فقط تطابق 24/24 fills على AAPL/MSFT في fixture شهري، وليس native لكل استراتيجية أو تزامن HFT.
-- Risk: الـResearch paper ledger مستقل؛ لا يتصل بوسيط. ليس مدققًا بالكامل لجميع السيناريوهات الإنتاجية.
-- تشغيل الأبحاث الكبيرة محليًا بدلاً من Render؛ Neon لحفظ الملخصات والطوابير.
+Code tested locally; Render deployment not yet performed for v2.3.
 
-## اختبارات وتسليم محلي (13 أكتوبر 2026)
-- 61 اختبار pytest ناجح و4 متخطاة؛ HTTP smoke يعمل عبر ASGI TestClient؛ JavaScript syntax يمر عبر Node.js `--check`.
-- Chrome automation إلى localhost تم حجبه بسياسة بيئة الاختبار؛ لا تدعِ اجتياز النقر في متصفح حقيقي على Windows.
-- لم نصل عبر اتصال حقيقي إلى Render أو Neon أو Telegram أو وسيط تداول. لم نؤكد ترحيل قاعدة v4.7.8 أو تحويل وظائفها.
-- UI تصميم Phase 2 المعتمد؛ KPIs الخاصة بـCommand Center ما زالت أرقامًا تجريبية حتى نربطها بإحصائيات حقيقية.
-- مصدر Dataset CSV يرفع ويخزن في Research DB ويُرسل إلى Worker؛ مسارات `/api/v1` القديمة أزيلت من اتصالات واجهة الباك تست في v2.2.
-- استبدال خدمة Render القديمة دون نسخ احتياطي وتجربة قبول مخاطرة بفقدان خدمات قديمة، وليس ترقية آمنة تلقائيًا.
-- لا تشغّل نفس Telegram token في عمليات Polling متزامنة. **أوقف البوت الحالي فقط لحظة اختبار النسخة الموحدة ثم شغله إن احتجت تراجعًا.**
+- Hosted reference worker in web-service process, authenticated claims and PostgreSQL durable queue.
+- Native LEAN/NautilusTrader Stage3 Windows fixture remains Windows-only.
+- Telegram Bot v2.1 remains an external daemon; remote connection requires configuring its local Admin token and bot_config.
+- Frontend API-backed Data Library, Jobs, Paper Portfolio and Service Status; other mockup items remain illustrative.
+- No broker integration, no live trading.
+- External feed connectors optional / unverified.
+- Render free Postgres scheduled expiry 2026-11-12.

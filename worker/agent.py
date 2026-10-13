@@ -16,7 +16,7 @@ class Agent:
         self.token=token or os.getenv('TALOS_LAB_WORKER_TOKEN')
         if not self.token or len(self.token)<24:raise ValueError('Missing long worker bearer secret')
         self.owner=owner or 'worker_'+secrets.token_hex(8)
-        self.client=httpx.Client(timeout=45,transport=transport,headers={'authorization':'Bearer '+self.token,'x-worker-id':self.owner})
+        self.client=httpx.Client(timeout=45,transport=transport,headers={'authorization':'Bearer '+self.token,'x-worker-id':self.owner,**({'x-worker-capabilities':'hosted_reference'} if os.getenv('TALOS_LAB_WORKER_MODE')=='hosted_reference' else {})})
         self.poll=float(os.getenv('TALOS_LAB_POLL_SECONDS',str(poll)))
     def get_dataset(self,id):
         r=self.client.get(self.url+'/api/v2/worker/datasets/'+id);r.raise_for_status();return r.json()

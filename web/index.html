@@ -168,7 +168,7 @@ aside{background:#0b1122;border-right-color:#202943}
  <div class="ext-card"><b>Technical & Quantitative</b><p class="ext-desc">SMA, EMA, RSI, buy-and-hold and SHA256-approved local Python strategies through the reference Research Worker.</p><button class="btn btn-secondary" onclick="prepareTalosStrategy('ema_cross')">Configure EMA strategy</button></div>
  <div class="ext-card"><b>Trend Following × News / Social Sentiment</b><p class="ext-desc">EMA trend baseline compared with versioned point-in-time sentiment confirmation. Results require imported daily OHLCV and precomputed model scores; reference research only.</p><button class="btn btn-secondary" onclick="navigateTo('Sentiment Inputs')">Open Trend + Sentiment Lab</button></div>
  <div class="ext-card"><b>Native engine parity</b><p class="ext-desc">LEAN and NautilusTrader confirmed for Stage 3 synthetic 10-month SMA fixture. Not interchangeable general runners for all plugins.</p><button class="btn btn-secondary" onclick="navigateTo('Research Lab')">Inspect Research Lab</button></div>
- </div></section><section class="panel"><div class="panelhead"><div><h3>Research job submission</h3><p>Requires local Research Plane v2.0 + authenticated Worker</p></div><span class="pill amber">Paper research only</span></div><div class="ext-pad">
+ </div></section><section class="panel"><div class="panelhead"><div><h3>Research job submission</h3><p>PostgreSQL-backed API + hosted reference Worker</p></div><span class="pill amber">Paper research only</span></div><div class="ext-pad">
  <label for="ext-plugin">Strategy</label><select id="ext-plugin" class="ext-input"><option value="ema_cross">EMA crossover</option><option value="sma_cross">SMA crossover</option><option value="rsi_reversion">RSI reversion</option><option value="buy_hold">Buy & hold</option><option value="telegram_signal">Telegram / external signals</option></select>
  <label for="ext-symbol">Symbol</label><input class="ext-input" id="ext-symbol" value="AAPL" maxlength="31"/>
  <label for="ext-source">Data source</label><select id="ext-source" class="ext-input"><option value="dataset">Verified uploaded dataset</option><option value="sample">Synthetic sample (integration only)</option><option value="yahoo">Yahoo (availability not guaranteed)</option></select>
@@ -178,7 +178,7 @@ aside{background:#0b1122;border-right-color:#202943}
  <label for="ext-robustness"><input id="ext-robustness" type="checkbox"/> Run bounded parameter stability + Monte Carlo for every set + IS/OOS + walk-forward</label>
  <label for="ext-robust-sims">Monte Carlo simulations per parameter set (5–200)</label><input class="ext-input" type="number" id="ext-robust-sims" value="25" min="5" max="200"/>
  <div class="ext-actions"><button class="btn btn-primary" onclick="submitTalosResearch()">Queue research job</button><button class="btn btn-secondary" onclick="refreshTalosJobs()">Refresh jobs</button></div>
- <p class="ext-small">Timing: next-bar-open; 10 bps fees, 2 bps slippage. Optional robustness is CPU-bounded and uses historical synthetic bootstrap, not native trading. No live brokerage. Job runs only if a Worker is connected.</p><div class="ext-status" id="ext-job-status" role="status">Not connected. Configure the Research Plane API and Admin token below.</div></div></section></div>
+ <p class="ext-small">Timing: next-bar-open; 10 bps fees, 2 bps slippage. Optional robustness is CPU-bounded and uses historical synthetic bootstrap, not native trading. No live brokerage. Hosted reference Worker runs small tasks; native execution requires the authenticated Windows Worker.</p><div class="ext-status" id="ext-job-status" role="status">Not connected. Configure the Research Plane API and Admin token below.</div></div></section></div>
 </section>
 <section id="replay-view" class="canvas extension-view hide" aria-label="Replay and historical verification">
  <div class="eyebrow">REPLAY / POINT-IN-TIME VERIFICATION</div><div class="intro"><div><h1>Verify the past. <span class="accent-text">Without hindsight.</span></h1><p>Historical posts by channels or individuals. Source-independent validation; Telegram, X, RSS and website archives are inputs, not separate trading engines.</p></div></div>
@@ -217,6 +217,26 @@ aside{background:#0b1122;border-right-color:#202943}
  </div></section>
 </section>
 
+
+<section id="dataset-view" class="canvas extension-view hide" aria-label="Talos stored historical datasets">
+ <div class="eyebrow">DATA / PERSISTENT RESEARCH</div><div class="intro"><div><h1>Data <span class="accent-text">Library.</span></h1><p>Upload daily OHLCV CSV, persist it in PostgreSQL, and use the resulting dataset ID in Research, Replay and Sentiment.</p></div></div>
+ <section class="panel"><div class="panelhead"><div><h3>Import historical OHLCV</h3><p>UTC ISO timestamps, time, open, high, low, close, volume; 10–2,000 bars</p></div><span class="pill blue">Real API</span></div><div class="ext-pad"><label for="data-file">Historical CSV</label><input class="ext-input" id="data-file" type="file" accept=".csv,text/csv"/><label for="data-symbol">Symbol</label><input class="ext-input" id="data-symbol" value="AAPL" maxlength="31"/><div class="ext-actions"><button class="btn btn-primary" onclick="uploadLibraryDataset()">Upload to PostgreSQL</button><button class="btn btn-secondary" onclick="refreshLibrary()">Refresh library</button></div><div id="data-output" class="ext-status" role="status">Connect the Backend with your Admin token first.</div></div></section>
+ <section class="panel" style="margin-top:20px"><div class="panelhead"><div><h3>Stored datasets</h3><p>Use one dataset in Strategies, Replay, or Sentiment</p></div></div><div class="ext-pad" id="dataset-list">Not connected.</div></section>
+</section>
+<section id="jobs-view" class="canvas extension-view hide" aria-label="Research jobs and evidence">
+ <div class="eyebrow">OPERATIONS / DURABLE QUEUE</div><div class="intro"><div><h1>Jobs & <span class="accent-text">Operations.</span></h1><p>Follow queued, running, completed and failed jobs from PostgreSQL. Results are not simulated UI samples.</p></div></div>
+ <section class="panel"><div class="panelhead"><div><h3>Research task queue</h3><p>Reference tasks execute on hosted worker; native Stage 3 remains Windows-only</p></div><button class="btn btn-secondary" onclick="refreshOperations()">Refresh jobs</button></div><div class="ext-pad" id="operations-list">Connect the Backend first.</div></section>
+ <section class="panel" style="margin-top:20px"><div class="panelhead"><div><h3>Selected job evidence</h3><p>Completed evidence can be downloaded as JSON</p></div></div><div class="ext-pad"><pre class="ext-status" id="operations-result" style="white-space:pre-wrap;max-height:480px;overflow:auto">No job selected</pre></div></section>
+</section>
+<section id="portfolio-view" class="canvas extension-view hide" aria-label="Talos paper portfolio">
+ <div class="eyebrow">RISK / SIMULATED BOOK ONLY</div><div class="intro"><div><h1>Paper <span class="accent-text">Portfolio.</span></h1><p>Persistent simulated portfolio on PostgreSQL. All prices are entered by you; no broker, order routing, live capital, or price-feed validation.</p></div></div>
+ <section class="panel"><div class="panelhead"><div><h3>Paper account ledger</h3><p>Cash, positions and recorded fills</p></div><button class="btn btn-secondary" onclick="refreshPaperAccount()">Refresh account</button></div><div class="ext-pad"><pre class="ext-status" id="paper-account" style="white-space:pre-wrap">Connect the Backend first.</pre></div></section>
+ <section class="panel" style="margin-top:20px"><div class="panelhead"><div><h3>Submit a simulated fill</h3><p>Risk rules apply; no actual exchange connection</p></div><span class="pill amber">PAPER ONLY</span></div><div class="ext-pad"><label for="paper-symbol">Symbol</label><input class="ext-input" id="paper-symbol" value="AAPL"/><div class="lab-two"><div><label for="paper-side">Side</label><select id="paper-side" class="ext-input"><option value="BUY">Buy</option><option value="SELL">Sell</option></select></div><div><label for="paper-quantity">Shares / units</label><input id="paper-quantity" type="number" class="ext-input" value="1" min="1" max="1000000"/></div></div><label for="paper-price">Manually assumed fill price (USD)</label><input id="paper-price" type="number" class="ext-input" value="100" min="0.01" step="0.01"/><div class="ext-actions"><button class="btn btn-primary" onclick="placePaperFill()">Record PAPER fill</button></div><div class="ext-status" id="paper-output">No live order can be placed here.</div></div></section>
+</section>
+<section id="deployments-view" class="canvas extension-view hide" aria-label="Talos deployment and integration status">
+ <div class="eyebrow">OPERATIONS / SERVICE STATUS</div><div class="intro"><div><h1>System <span class="accent-text">Status.</span></h1><p>Live API health, database queue activity and the configured execution mode. Telegram requires a separately running authorized bot.</p></div></div>
+ <section class="panel"><div class="panelhead"><div><h3>Current deployment</h3><p>Read from the running API; not a hardcoded dashboard</p></div><div class="ext-actions"><button class="btn btn-secondary" onclick="refreshDeploymentStatus()">Check now</button><button class="btn btn-primary" onclick="runHostedDiagnostic()">Run real reference self-test</button></div></div><div class="ext-pad"><pre class="ext-status" id="deployment-output" style="white-space:pre-wrap">Connect the Backend first.</pre><p class="ext-small">Native LEAN/NautilusTrader engines, live brokerage, external feed subscriptions and Telegram polling are not provided by this hosted reference worker. LIVE ORDERS DISABLED.</p></div></section>
+</section>
 </main>
 </div>
 <div class="modal" id="modal"><div class="dialog"><div class="eyebrow" id="modal-tag">DEMO INTERACTION</div><h2 id="modal-title">New strategy</h2><p id="modal-description">Create a strategy in this mockup. This does not submit a trade or connect to a backend.</p><div id="modal-form"><label for="strategy-name">Strategy name</label><input id="strategy-name" placeholder="e.g., Momentum v1" maxlength="64"/><label for="strategy-kind">Research family</label><select id="strategy-kind"><option>General / custom</option><option>Momentum / trend</option><option>Mean reversion</option><option>Portfolio allocation</option><option>Event-driven</option><option>External signals</option></select></div><div class="modal-actions"><button class="btn btn-secondary" onclick="closeModal()">Close</button><button class="btn btn-primary" id="modal-submit" onclick="createStrategy()">Add to workspace</button></div></div></div>
@@ -244,7 +264,7 @@ async function createStrategy(){
  document.getElementById('strategy-name').value='';closeModal();toast('Local draft only; submit runnable research via Strategies.');
 }
 
-function navigateTo(name){document.getElementById('location').textContent=name;document.querySelectorAll('.nav-item').forEach(x=>x.classList.toggle('active',x.dataset.name===name));const views={'Command Center':'home-view','Strategy Studio':'strategies-view','Strategies':'strategies-view','Replay & Verification':'replay-view','Research Lab':'backtest-view','Sentiment Inputs':'sentiment-view'};const target=views[name]||'home-view';for(const id of ['home-view','backtest-view','strategies-view','replay-view','sentiment-view'])document.getElementById(id).classList.toggle('hide',id!==target);if(!views[name])toast(name+' is planned for a separate integration stage.');};document.querySelectorAll('.nav-item').forEach(x=>x.addEventListener('click',()=>navigateTo(x.dataset.name)));document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openModal('search')}});
+function navigateTo(name){document.getElementById('location').textContent=name;document.querySelectorAll('.nav-item').forEach(x=>x.classList.toggle('active',x.dataset.name===name));const views={'Command Center':'home-view','Data Library':'dataset-view','Strategy Studio':'strategies-view','Strategies':'strategies-view','Replay & Verification':'replay-view','Research Lab':'backtest-view','Portfolios':'portfolio-view','Deployments':'deployments-view','Jobs & Operations':'jobs-view','Sentiment Inputs':'sentiment-view'};const target=views[name]||'home-view';for(const id of ['home-view','dataset-view','backtest-view','strategies-view','replay-view','sentiment-view','portfolio-view','jobs-view','deployments-view'])document.getElementById(id).classList.toggle('hide',id!==target);if(!views[name])toast(name+' is not available.');if(window.talosSessionToken){if(name==='Data Library')refreshLibrary();if(name==='Jobs & Operations')refreshOperations();if(name==='Portfolios')refreshPaperAccount();if(name==='Deployments')refreshDeploymentStatus();}};document.querySelectorAll('.nav-item').forEach(x=>x.addEventListener('click',()=>navigateTo(x.dataset.name)));document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openModal('search')}});
 
 function toggleDetails(){
   const expanded=document.body.classList.toggle('show-more');
@@ -372,7 +392,7 @@ async function connectBackend(){
     }
     const status=document.querySelector('.preview-status');
     if(status)status.innerHTML='<span class="preview-dot connected"></span>Backend connected';
-    if(typeof x.strategy_count==='number')document.getElementById('count-strategies').textContent=String(x.strategy_count);
+    document.getElementById('count-strategies').textContent='4';document.querySelector('.side-foot span').textContent='AUTHENTICATED RESEARCH';
     closeConnection();toast('Connected to Talos control plane');
   }catch(error){document.getElementById('connection-help').textContent='Network error. Open the page through Talos Backend (same origin).'}
 }
@@ -396,7 +416,7 @@ async function submitTalosResearch(){const el=document.getElementById('ext-job-s
  if(robust && !['ema_cross','sma_cross','rsi_reversion'].includes(plugin))throw Error('Robustness requires EMA/SMA/RSI reference strategy.');
  if(robust && (!Number.isInteger(sims)||sims<5||sims>200))throw Error('Robustness simulations must be 5–200 per parameter set.');
  const req={kind:'research',request:{engine:'reference',data:{source,dataset_id:source==='dataset'?dataset:null,symbol:document.getElementById('ext-symbol').value.trim().toUpperCase(),interval:'1d',start:document.getElementById('ext-start').value,end:document.getElementById('ext-end').value},strategy:{plugin,short:10,long:40,parameters:plugin==='telegram_signal'?{archive_id:archive}:{}},risk:{initial_cash:10000,max_allocation:0.9,fee_bps:10,slippage_bps:2},walk_forward:plugin!=='telegram_signal',monte_carlo:plugin==='telegram_signal'?0:200,robustness:robust,robustness_simulations:robust?sims:25}};
- const x=await talosV2('/api/v2/research/jobs','POST',req);el.textContent='Queued: '+x.id+'\nRun the authenticated local Worker. This page does not execute trades.';
+ const x=await talosV2('/api/v2/research/jobs','POST',req);el.textContent='Queued: '+x.id+'\nReference tasks run on the hosted Worker; native jobs require Windows. No live orders.';
  }catch(e){el.textContent='Not queued: '+e.message}}
 async function refreshTalosJobs(){const el=document.getElementById('ext-job-status');try{
  let jobs=await talosV2('/api/v2/research/jobs');let summary={jobs:jobs.slice(0,8).map(x=>({id:x.id,status:x.status,kind:x.kind}))};
@@ -467,6 +487,119 @@ async function importPhanesLeaderboard(){
   const data=await talosV2('/api/v2/replay/phanes/import','POST',{filename:f.name,xlsx_base64:btoa(bin)});
   out.textContent='IMPORTED (unverified external source)\nCalls: '+data.call_count+'\nArchive ID: '+data.archive_id+'\nSHA-256: '+data.file_sha256+'\nSheets: '+data.sheet_names.join(', ')+'\n\nThese are Phanes-provided historical leaderboard entries. They are not authenticated original Telegram messages, real brokerage fills, or verified ROI. Compare against source archives and dated market data before assigning Caller Reliability Scores.';
  }catch(e){out.textContent='Import failed: '+e.message;}
+}
+</script>
+
+<script>
+// Real API-backed workspace pages. Do not persist privileged tokens in browser storage.
+function requireTalosAccess(){
+ if(!window.talosSessionToken){openConnection();throw Error('Connect with the Admin token first.');}
+}
+function output(el,message){document.getElementById(el).textContent=String(message);}
+function miniButton(title,click){const b=document.createElement('button');b.type='button';b.className='btn btn-secondary';b.textContent=title;b.onclick=click;return b;}
+async function uploadLibraryDataset(){
+ try{
+  requireTalosAccess();const file=document.getElementById('data-file').files[0];if(!file)throw Error('Choose a CSV file first.');
+  if(file.size>750000)throw Error('CSV too large for this interface. Limit 750 KB.');
+  const candles=parseOHLCVCSV(await file.text());if(candles.length<10)throw Error('At least ten candles are required.');
+  const symbol=document.getElementById('data-symbol').value.trim().toUpperCase();
+  const bars=candles.map(c=>({date:c.time.slice(0,10),open:c.open,high:c.high,low:c.low,close:c.close,volume:c.volume}));
+  const data=await talosV2('/api/v2/research/datasets','POST',{symbol,bars});
+  selectDataset(data.dataset_id,symbol);output('data-output','Imported '+data.count+' historical bars; SHA-256 '+data.dataset_id);await refreshLibrary();
+ }catch(e){output('data-output',e.message||e)}
+}
+function selectDataset(id,symbol){
+ for(const k of ['ext-dataset','replay-dataset','sentiment-dataset'])document.getElementById(k).value=id;
+ document.getElementById('ext-source').value='dataset';
+ for(const k of ['ext-symbol','replay-symbol','sentiment-symbol'])if(symbol)document.getElementById(k).value=symbol;
+ toast('Dataset selected for Strategies, Replay and Sentiment');
+}
+async function refreshLibrary(){
+ const el=document.getElementById('dataset-list');el.replaceChildren();
+ try{
+  requireTalosAccess();const items=await talosV2('/api/v2/research/datasets');
+  if(!items.length){el.textContent='No datasets uploaded yet. Select historical CSV above.';return;}
+  for(const d of items){const row=document.createElement('div');row.className='ext-card';
+   const title=document.createElement('b');title.textContent=d.symbol+' • '+d.bars+' daily bars';
+   const info=document.createElement('p');info.className='ext-small';info.textContent=d.dataset_id+' • '+d.created;
+   row.append(title,info,miniButton('Use this dataset',()=>selectDataset(d.dataset_id,d.symbol)));el.append(row);
+  }
+ }catch(e){el.textContent=e.message||String(e)}
+}
+async function refreshOperations(){
+ const el=document.getElementById('operations-list');el.replaceChildren();
+ try{
+  requireTalosAccess();const items=await talosV2('/api/v2/research/jobs');
+  if(!items.length){el.textContent='No jobs yet. Launch one in Strategies or Research Lab.';return;}
+  for(const j of items){const row=document.createElement('div');row.className='ext-card';
+   const name=document.createElement('b');name.textContent=j.kind+' • '+j.status;
+   const info=document.createElement('p');info.className='ext-small';info.textContent=j.id+' • '+(j.created||'')+(j.error?' • '+j.error:'');
+   row.append(name,info,miniButton('View evidence',()=>viewJobEvidence(j.id)));
+   if(j.status==='failed')row.append(miniButton('Retry',()=>manageJob(j.id,'retry')));
+   if(['queued','running'].includes(j.status))row.append(miniButton('Cancel',()=>manageJob(j.id,'cancel')));
+   el.append(row);
+  }
+ }catch(e){el.textContent=e.message||String(e)}
+}
+async function manageJob(id,op){
+ try{requireTalosAccess();await talosV2('/api/v2/research/jobs/'+encodeURIComponent(id)+'/'+op,'POST',{});await refreshOperations();}
+ catch(e){output('operations-result',e.message||e)}
+}
+async function viewJobEvidence(id){
+ try{
+  requireTalosAccess();const d=await talosV2('/api/v2/research/jobs/'+encodeURIComponent(id));
+  output('operations-result',JSON.stringify({job_id:d.id,status:d.status,error:d.error,metrics:d.result?.backtest?.metric,
+    timings_ms:d.result?.performance,robustness:d.result?.robustness,
+    message:d.status==='complete'?'Download full verified JSON for provenance':'Awaiting result'},null,2));
+  const panel=document.getElementById('operations-result').parentElement;
+  const prev=document.getElementById('operations-download');if(prev)prev.remove();
+  if(d.status==='complete'&&d.result){const b=miniButton('Download full evidence JSON',()=>downloadBacktest(id));b.id='operations-download';panel.append(b);}
+ }catch(e){output('operations-result',e.message||e)}
+}
+async function refreshPaperAccount(){
+ try{requireTalosAccess();const d=await talosV2('/api/v2/research/paper');output('paper-account',JSON.stringify({type:d.type,live_orders_enabled:d.live_orders_enabled,price_source:'USER SUPPLIED',account:d.account},null,2));}
+ catch(e){output('paper-account',e.message||e)}
+}
+async function placePaperFill(){
+ try{
+  requireTalosAccess();const symbol=document.getElementById('paper-symbol').value.trim().toUpperCase();
+  const side=document.getElementById('paper-side').value,qty=Number(document.getElementById('paper-quantity').value),price=Number(document.getElementById('paper-price').value);
+  if(!symbol||!Number.isInteger(qty)||qty<=0||!Number.isFinite(price)||price<=0)throw Error('Provide valid symbol, integer quantity and positive manual price.');
+  const id='paper-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,11);
+  const r=await talosV2('/api/v2/research/paper/order','POST',{client_order_id:id,symbol,side,qty,price});
+  output('paper-output','PAPER fill recorded. Client order: '+id+' / version '+r.version);await refreshPaperAccount();
+ }catch(e){output('paper-output',e.message||e)}
+}
+async function runHostedDiagnostic(){
+ try{
+  requireTalosAccess();output('deployment-output','Submitting sample-backed SMA test to hosted worker...');
+  const payload={kind:'research',request:{engine:'reference',data:{source:'sample',symbol:'AAPL',start:'2022-01-01',end:'2022-12-31'},
+   strategy:{plugin:'sma_cross',short:5,long:20},walk_forward:false,monte_carlo:3}};
+  const job=await talosV2('/api/v2/research/jobs','POST',payload);
+  output('deployment-output','Submitted job '+job.id+'; awaiting Worker. Data = SYNTHETIC TEST ONLY.');
+  for(let i=0;i<25;i++){
+   await new Promise(resolve=>setTimeout(resolve,1200));
+   const x=await talosV2('/api/v2/research/jobs/'+encodeURIComponent(job.id));
+   if(x.status==='complete'){
+    output('deployment-output',JSON.stringify({status:'PASS',job_id:job.id,worker:'Host reference engine',
+     result_status:x.status,synthetic_market_data:true,metrics:x.result?.backtest?.metric,
+     timings_ms:x.result?.performance,live_orders_enabled:false},null,2));
+    return;
+   }
+   if(x.status==='failed')throw Error('Worker failed: '+(x.error||'see Jobs & Operations'));
+   output('deployment-output','Reference self-test '+x.status+'... '+(i+1)+' / 25 polls (refresh Jobs if needed)');
+  }
+  output('deployment-output','Job still queued/running; open Jobs & Operations to follow it. No result was invented.');
+ }catch(e){output('deployment-output','Self-test not completed: '+(e.message||e))}
+}
+async function refreshDeploymentStatus(){
+ try{
+  requireTalosAccess();const [r,s]=await Promise.all([fetch('/health',{cache:'no-store'}).then(x=>x.json()),talosV2('/api/v2/integration/status')]);
+  output('deployment-output',JSON.stringify({api:r.status,version:r.version,live_orders_enabled:false,
+   hosted_reference_worker_configured:s.hosted_reference_worker_enabled,queued_jobs:s.queued_jobs,running_jobs:s.running_jobs,
+   native_execution:s.native_execution,bot:s.bot,telegram_ingestion:s.telegram_ingestion,
+   legacy_telegram:s.legacy_telegram},null,2));
+ }catch(e){output('deployment-output',e.message||e)}
 }
 </script>
 </body></html>
