@@ -1,4 +1,4 @@
-# Talos v2.5: one entrypoint for existing user-approved BotFather bot + Windows worker.
+# Talos v2.6: one entrypoint for existing user-approved BotFather bot + Windows worker.
 # Secrets live only in this PowerShell process and its immediate child processes.
 param([string]$ApiUrl = 'https://talos-unified-v2.onrender.com')
 $ErrorActionPreference='Stop'
@@ -15,8 +15,8 @@ if(!$bc.bot_token -or $bc.bot_token -like 'PASTE_*'){throw 'The BotFather token 
 if(@($bc.owner_user_ids).Count -eq 0){throw 'Add YOUR numeric Telegram /id to owner_user_ids in bot_config.json locally before starting.'}
 Write-Host 'Validating Talos hosted Research API...' -ForegroundColor Cyan
 $health=Invoke-RestMethod -Method Get -Uri "$ApiUrl/health" -TimeoutSec 45
-if($health.version -ne '2.5.0'){
-    throw "Hosted API is $($health.version), expected 2.5.0. Publish Talos v2.5 and wait until its Render deploy is LIVE."
+if($health.version -ne '2.6.0'){
+    throw "Hosted API is $($health.version), expected 2.6.0. Publish Talos v2.6 and wait until its Render deploy is LIVE."
 }
 $py=Join-Path $root '.venv\Scripts\python.exe'
 if(!(Test-Path $py)){

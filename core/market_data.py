@@ -65,13 +65,13 @@ class MarketData:
         if path.is_file() and time.time()-path.stat().st_mtime<ttl:
             try:
                 obj=json.loads(path.read_text(encoding='utf-8'))
-                if hashlib.sha256(json.dumps(obj['bars'],sort_keys=True).encode()).hexdigest()==obj['sha256']:
+                if hashlib.sha256(json.dumps(obj['bars'],sort_keys=True,separators=(',',':')).encode()).hexdigest()==obj['sha256']:
                     return obj
             except (ValueError,KeyError):pass
-        bars=normalize(fetch());payload=json.dumps(bars,sort_keys=True)
+        bars=normalize(fetch());payload=json.dumps(bars,sort_keys=True,separators=(',',':'))
         obj={'source_key':key,'fetched_at':datetime.now(timezone.utc).isoformat(),
              'sha256':hashlib.sha256(payload.encode()).hexdigest(),'bars':bars}
-        temporary=path.with_suffix('.tmp');temporary.write_text(json.dumps(obj),encoding='utf-8')
+        temporary=path.with_suffix('.'+os.urandom(5).hex()+'.tmp');temporary.write_text(json.dumps(obj),encoding='utf-8')
         temporary.replace(path)
         return obj
     def acquire(self,spec:DataSpec,dataset_fetch=None):
@@ -85,23 +85,17 @@ class MarketData:
             bars=normalize(doc['bars'])
             bars=[b for b in bars if str(spec.start)<=b['date']<=str(spec.end)]
             if not bars:raise ValueError('Dataset date window empty')
-            return {'source':'USER_CSV_UNVERIFIED_MARKET_PROVENANCE','bars':bars,'dataset_id':spec.dataset_id,'verified':False}
+            provenance=doc.get('provenance') or {'source':'USER_CSV_UNVERIFIED_MARKET_PROVENANCE','verified':False}
+            return {**provenance,'bars':bars,'dataset_id':spec.dataset_id,'verified':False}
         if spec.source=='yahoo':
-            def fetch():
-                try:import yfinance as yf
-                except ImportError as e:raise RuntimeError('Install worker optional dependency yfinance') from e
-                from datetime import timedelta
-                frame=yf.Ticker(spec.symbol).history(start=str(spec.start),end=str(spec.end+timedelta(days=1)),interval=spec.interval,auto_adjust=False,actions=True)
-                if frame.empty:raise ValueError('No Yahoo data; ticker/date availability check needed')
-                rows=[]
-                for stamp,r in frame.iterrows():
-                    rows.append({'date':str(stamp.date()),'open':r['Open'],'high':r['High'],'low':r['Low'],
-                                 'close':r['Close'],'volume':r['Volume'],
-                                 'dividend':r.get('Dividends',0),'split':r.get('Stock Splits',0)})
-                return rows
-            obj=self._cache('yahoo/'+spec.symbol+'/'+str(spec.start)+'/'+str(spec.end)+'/'+spec.interval,43200,fetch)
-            return {'source':'YAHOO_YFINANCE_VENDOR_SPLIT_ADJUSTED','bars':obj['bars'],
-                    'sha256':obj['sha256'],'fetched_at':obj['fetched_at'],'verified':False}
+            # HTTPS Yahoo Chart endpoint; no optional yfinance dependency on Render.
+            # Never substitute sample_bars when a market provider is unavailable.
+            from .auto_market import yahoo_chart_daily
+            obj=self._cache('yahoo/chart/v2/'+spec.symbol+'/'+str(spec.start)+'/'+str(spec.end)+'/'+spec.interval,
+                            43200,lambda:yahoo_chart_daily(spec.symbol,spec.start,spec.end))
+            return {'source':'YAHOO_CHART_HISTORICAL_DAILY_RESEARCH', 'price_basis':'YAHOO_SPLIT_ADJUSTED_QUOTE_OHLC',
+                    'dividends_in_reference_pnl':False,'verified':False,
+                    'bars':obj['bars'],'sha256':obj['sha256'],'fetched_at':obj['fetched_at']}
         if spec.source=='ccxt':
             if spec.interval not in ('1d','1h'):raise ValueError('Unsupported crypto timeframe')
             def fetch():

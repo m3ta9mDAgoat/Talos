@@ -3,15 +3,17 @@ Runs independently alongside legacy Talos; never imports its watchers or credent
 """
 from __future__ import annotations
 import os,re,base64,binascii,threading,logging
+from datetime import date
 from contextlib import asynccontextmanager
 from fastapi import FastAPI,Depends,HTTPException,Request,Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse,HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel,Field
-from core.contracts import JobSubmit
+from core.contracts import JobSubmit,DataSpec
 from core.security import authorize
-from core.market_data import normalize
+from core.market_data import normalize,MarketData
+from core.auto_market import MarketProviderError
 from core.telegram import normalize_archive
 from core.replay_verify import VerificationRequest, verify
 from core.native_replay_plan import NativePlanRequest, build_plan
@@ -24,6 +26,12 @@ from pathlib import Path
 class PhanesWorkbookUpload(BaseModel):
     filename: str = Field(min_length=5,max_length=180)
     xlsx_base64: str = Field(min_length=1,max_length=2_100_000)
+
+class MarketFetchRequest(BaseModel):
+    symbol:str=Field(default='AAPL',min_length=1,max_length=31)
+    start:date=date(2020,1,1)
+    end:date=date(2025,12,31)
+    provider:str=Field(default='yahoo',pattern=r'^yahoo$')
 
 class DatasetUpload(BaseModel):
     symbol:str=Field('CUSTOM',min_length=1,max_length=36)
@@ -81,7 +89,7 @@ def create_app(store:Store|None=None):
             thread.start()
             logging.getLogger(__name__).info('Hosted reference worker started: native engines remain Windows-only')
         yield
-    app=FastAPI(title='Talos Research Control Plane',version='2.5.0',lifespan=lifespan)
+    app=FastAPI(title='Talos Research Control Plane',version='2.6.0',lifespan=lifespan)
     app.state.store=store or Store()
     # Same-origin UI. CORS deliberately NOT opened to arbitrary origins.
     allowed=[p.strip() for p in os.getenv('TALOS_LAB_CORS_ORIGINS','').split(',') if p.strip()]
@@ -92,7 +100,7 @@ def create_app(store:Store|None=None):
     def db(r:Request):return r.app.state.store
 
     @app.get('/health')
-    def health():return {'status':'ok','component':'talos_research_control_plane','version':'2.5.0',
+    def health():return {'status':'ok','component':'talos_research_control_plane','version':'2.6.0',
                          'live_orders_enabled':False,'legacy_data_migration_required':True}
 
     @app.get('/api/v2/integration/status',dependencies=[Depends(admin)])
@@ -111,7 +119,7 @@ def create_app(store:Store|None=None):
                 'telegram_ingestion':'bot authorized channel posts and forward import only',
                 'legacy_telegram':'requires read-only migration; no automatic deletion',
                 'native_execution':'Stage3 SMA AAPL/MSFT fixture only',
-                'data':'reference/synthetic and uploaded; provider coverage not certified',
+                'data':'Yahoo daily historic auto-fetch available, cached and persisted; vendor access unguaranteed',
                 'live_orders_enabled':False}
 
     @app.post('/api/v2/integration/bot/heartbeat',dependencies=[Depends(admin)])
@@ -144,7 +152,7 @@ def create_app(store:Store|None=None):
     def catalog():
         return {'plugins':[{'id':n,'input':'JSON','execution':'reference_only'} for n in ('sma_cross','ema_cross','rsi_reversion','buy_hold','trusted_python')],
                 'python_plugins':'locally-reviewed SHA256 pinned only; no arbitrary upload',
-                'data_sources':['sample (synthetic)','dataset (uploaded)','yahoo (optional worker dependency)','ccxt (optional worker dependency)'],
+                'data_sources':['yahoo (historical chart; provider availability dependent)','dataset (auto-downloaded or uploaded)','sample (synthetic only)','ccxt (optional worker dependency)'],
                 'engines':['reference','lean_parity (AAPL/MSFT fixture)','nautilus_parity (AAPL/MSFT fixture)'],
                 'paper':'client-quote simulation with risk guard','live':'disabled'}
 
@@ -200,6 +208,36 @@ def create_app(store:Store|None=None):
         except ValueError as e:raise HTTPException(413,str(e)) from e
         if not ok:raise HTTPException(409,'Lease expired, cancelled or owned by another worker')
         return {'status':'accepted'}
+
+    @app.get('/api/v2/research/market-data/capabilities',dependencies=[Depends(admin)])
+    def market_capabilities():
+        return {'schema':'talos.market.providers.v1',
+                'providers':[{'id':'yahoo','label':'Yahoo Finance historical daily charts',
+                              'status':'configured_not_guaranteed','api_key_required':False,
+                              'asset_examples':['AAPL','MSFT','SPY','BTC-USD'],
+                              'price_basis':'split-adjusted quote OHLC; dividends not modeled in PnL'}],
+                'cache_seconds':43200,'persistent_datasets':True,
+                'live_quotes':False,'licensed_exchange_feed':False,'synthetic_fallback':False}
+
+    @app.post('/api/v2/research/market-data/fetch',dependencies=[Depends(admin)],status_code=201)
+    def fetch_historical_market(body:MarketFetchRequest,store=Depends(db)):
+        # Fixed upstream host, validated symbol/date, bounded response and 15s timeout.
+        # Never proxy arbitrary URLs and never replace failed vendor calls with sample data.
+        try:
+            spec=DataSpec(source='yahoo',symbol=body.symbol.upper(),start=body.start,end=body.end,interval='1d')
+            fetched=MarketData().acquire(spec)
+            bars=fetched.pop('bars')
+            if len(bars)>10000:raise ValueError('More than 10000 bars cannot be persisted')
+            provenance={**fetched,'symbol':spec.symbol,'requested_start':str(spec.start),
+                        'requested_end':str(spec.end),'first_date':bars[0]['date'],
+                        'last_date':bars[-1]['date'], 'bar_count':len(bars),
+                        'warning':'Research prices are vendor historical bars, not executable fills; dividends are not credited as cash.'}
+            saved=store.store_dataset(bars,spec.symbol,provenance=provenance)
+            return {**saved,'provenance':provenance,'first_date':bars[0]['date'],
+                    'last_date':bars[-1]['date'],'synthetic_market_data':False,
+                    'note':'Automatically imported into PostgreSQL and reusable in Strategies, Replay, and Research Lab.'}
+        except MarketProviderError as e:raise HTTPException(502,str(e)) from e
+        except ValueError as e:raise HTTPException(422,str(e)) from e
 
     @app.post('/api/v2/research/datasets',dependencies=[Depends(admin)],status_code=201)
     def upload_data(body:DatasetUpload,store=Depends(db)):

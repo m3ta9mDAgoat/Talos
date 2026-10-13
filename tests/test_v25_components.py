@@ -50,6 +50,6 @@ class ConnectedComponentsV25(unittest.TestCase):
    with patch.dict(os.environ,{'TALOS_MODE':'local'}):
     with TestClient(create_app(Store('sqlite:///'+str(Path(temp)/'state.sqlite3')))) as client:
      status=client.get('/health').json()
-     self.assertEqual(status['version'],'2.5.0')
+     self.assertEqual(status['version'],'2.6.0')
      self.assertFalse(status['live_orders_enabled'])
 if __name__=='__main__':unittest.main()

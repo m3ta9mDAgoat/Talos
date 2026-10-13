@@ -15,6 +15,11 @@ job=Table('lab_jobs',meta,
     Column('created',DateTime(timezone=True),nullable=False),Column('updated',DateTime(timezone=True),nullable=False))
 dataset=Table('lab_datasets',meta,Column('id',String(64),primary_key=True),Column('content_sha',String(64),nullable=False),
               Column('symbol',String(36)),Column('bars_json',Text,nullable=False),Column('created',DateTime(timezone=True),nullable=False))
+# Added in v2.6 as a new table, so existing lab_datasets schema is untouched.
+market_provenance=Table('lab_market_dataset_provenance',meta,
+    Column('dataset_id',String(64),primary_key=True),
+    Column('metadata_json',Text,nullable=False),
+    Column('fetched',DateTime(timezone=True),nullable=False))
 archive=Table('lab_archives',meta,Column('id',String(64),primary_key=True),Column('source',String(100),nullable=False),
               Column('content_sha',String(64),nullable=False),Column('body_json',Text,nullable=False),Column('created',DateTime(timezone=True),nullable=False))
 
@@ -155,21 +160,32 @@ class Store:
                 .values(status='queued',attempts=0,lease_owner=None,lease_until=None,
                         result_json=None,result_sha=None,error=None,updated=now()))
             return bool(updated.rowcount)
-    def store_dataset(self,bars,symbol):
+    def store_dataset(self,bars,symbol,provenance=None):
         body=json.dumps(bars,sort_keys=True,allow_nan=False,separators=(',',':'))
         if len(body)>3_500_000:raise ValueError('Dataset > 3.5MB limit')
         sha=hashlib.sha256(body.encode()).hexdigest();t=now()
         with self.db.begin() as conn:
             if not conn.execute(select(dataset.c.id).where(dataset.c.id==sha)).first():
                 conn.execute(dataset.insert().values(id=sha,content_sha=sha,symbol=symbol,bars_json=body,created=t))
+            if provenance is not None:
+                meta_body=json.dumps(provenance,sort_keys=True,allow_nan=False)
+                if len(meta_body)>8000:raise ValueError('Dataset provenance exceeds limit')
+                if not conn.execute(select(market_provenance.c.dataset_id).where(market_provenance.c.dataset_id==sha)).first():
+                    conn.execute(market_provenance.insert().values(dataset_id=sha,metadata_json=meta_body,fetched=t))
         return {'dataset_id':sha,'count':len(bars),'sha256':sha}
     def list_datasets(self,limit=50):
         with self.db.connect() as conn:
             rows=conn.execute(select(dataset.c.id,dataset.c.symbol,dataset.c.created,dataset.c.bars_json)
                 .order_by(dataset.c.created.desc()).limit(limit)).mappings().all()
+        with self.db.connect() as conn:
+            metadata={r['dataset_id']:json.loads(r['metadata_json']) for r in
+                      conn.execute(select(market_provenance)
+                                   .where(market_provenance.c.dataset_id.in_([x['id'] for x in rows])))
+                          .mappings().all()} if rows else {}
         return [{'dataset_id':row['id'],'symbol':row['symbol'],
                  'bars':len(json.loads(row['bars_json'])),
-                 'created':row['created'].isoformat()} for row in rows]
+                 'created':row['created'].isoformat(),
+                 'provenance':metadata.get(row['id'],{'source':'USER_CSV_UNVERIFIED_MARKET_PROVENANCE','verified':False})} for row in rows]
 
     def list_archives(self,limit=40):
         with self.db.connect() as conn:
@@ -180,7 +196,13 @@ class Store:
 
     def get_dataset(self,id):
         with self.db.connect() as conn:row=conn.execute(select(dataset).where(dataset.c.id==id)).mappings().first()
-        return {'id':row['id'],'symbol':row['symbol'],'bars':json.loads(row['bars_json'])} if row else None
+        if row is None:return None
+        with self.db.connect() as conn:
+            meta_row=conn.execute(select(market_provenance.c.metadata_json)
+                .where(market_provenance.c.dataset_id==id)).first()
+        provenance=json.loads(meta_row[0]) if meta_row else {'source':'USER_CSV_UNVERIFIED_MARKET_PROVENANCE','verified':False}
+        return {'id':row['id'],'symbol':row['symbol'],'bars':json.loads(row['bars_json']),
+                'provenance':provenance}
     def put_archive(self,source,content):
         blob=json.dumps(content,sort_keys=True,ensure_ascii=False,allow_nan=False)
         if len(blob)>1_500_000:raise ValueError('Archive >1.5MB chunk limit')

@@ -1,11 +1,11 @@
-# Talos Unified v2.5: replace old repository sources (Git history remains available).
-# Run only from a CLEAN extracted Talos Unified v2.5 delivery, never from a working dir holding secrets.
+# Talos Unified v2.6: replace old repository sources (Git history remains available).
+# Run only from a CLEAN extracted Talos Unified v2.6 delivery, never from a working dir holding secrets.
 param([string]$Repository = 'https://github.com/m3ta9mDAgoat/Talos.git')
 $ErrorActionPreference = 'Stop'
 $source = Split-Path -Parent $PSScriptRoot
 $required = @('Dockerfile','requirements.txt','server\api.py','server\deployment.py','core\backtest.py','web\index.html','web\APPROVED_ORIGINAL.html','worker\agent.py','talos_bot\runner.py')
 foreach ($p in $required) {
-    if (!(Test-Path -LiteralPath (Join-Path $source $p) -PathType Leaf)) { throw "Unified v2.5 source incomplete. Missing $p" }
+    if (!(Test-Path -LiteralPath (Join-Path $source $p) -PathType Leaf)) { throw "Unified v2.6 source incomplete. Missing $p" }
 }
 $git = Get-Command git -ErrorAction SilentlyContinue
 if (!$git) { throw 'Git for Windows is required. Install Git and authenticate with GitHub before running this script.' }
@@ -15,9 +15,9 @@ foreach ($item in $forbidden) {
         throw "Refusing to publish a folder containing secret/runtime data: $item. Extract a clean copy of the provided ZIP instead."
     }
 }
-$confirm = Read-Host 'Replace all tracked files of m3ta9mDAgoat/Talos main with Talos Unified v2.5? Type REPLACE'
+$confirm = Read-Host 'Replace all tracked files of m3ta9mDAgoat/Talos main with Talos Unified v2.6? Type REPLACE'
 if ($confirm -cne 'REPLACE') { Write-Host 'Cancelled. No changes made.'; exit 0 }
-$root = Join-Path ([IO.Path]::GetTempPath()) ('talos-v25-deploy-' + [guid]::NewGuid().ToString('N'))
+$root = Join-Path ([IO.Path]::GetTempPath()) ('talos-v26-deploy-' + [guid]::NewGuid().ToString('N'))
 $clone = Join-Path $root 'repo'
 New-Item -ItemType Directory -Path $root -Force | Out-Null
 try {
@@ -35,12 +35,12 @@ try {
         if ($count -ge 100) { throw "Source package has $count files. Must be fewer than 100." }
         $pending = & git status --porcelain
         if (!$pending) { Write-Host 'GitHub is already at the same source snapshot.'; exit 0 }
-        & git -c user.name='Talos Deployment' -c user.email='talos-deploy@users.noreply.github.com' commit -m 'Deploy Talos Unified v2.5 (replace legacy main)'
+        & git -c user.name='Talos Deployment' -c user.email='talos-deploy@users.noreply.github.com' commit -m 'Deploy Talos Unified v2.6 (replace legacy main)'
         if ($LASTEXITCODE -ne 0) { throw 'Git commit failed.' }
         & git push origin HEAD:main
         if ($LASTEXITCODE -ne 0) { throw 'GitHub push failed. Old remote main was not replaced.' }
-        Write-Host 'SUCCESS: Talos Unified v2.5 pushed to main. Render automatic deploy will start.' -ForegroundColor Green
-        Write-Host 'Existing talos-unified-v2 Render service auto-deploys v2.5; confirm hosted keys/DB stay configured.' -ForegroundColor Yellow
+        Write-Host 'SUCCESS: Talos Unified v2.6 pushed to main. Render automatic deploy will start.' -ForegroundColor Green
+        Write-Host 'Existing talos-unified-v2 Render service auto-deploys v2.6; confirm hosted keys/DB stay configured.' -ForegroundColor Yellow
     } finally { Pop-Location }
 } finally {
     if (Test-Path $root) { Remove-Item -LiteralPath $root -Force -Recurse -ErrorAction SilentlyContinue }

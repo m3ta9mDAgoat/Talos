@@ -1,43 +1,44 @@
-# Talos Unified v2.5 — Full Connection Bridge
+# Talos Unified v2.6 — Automatic Historical Market Data
 
-هذه الحزمة لا ترفع التوكنات إلى GitHub أو تخزنها في Render. يقدم Talos Research API + PostgreSQL + Hosted reference worker على Render، ويصل إليه بوت Telegram وWindows Worker عبر HTTPS من جهاز Windows. نسخة Render الحالية ستكون v2.3 إلى أن تنشر هذا المصدر.
+**أصلح هذا الإصدار المشكلة التي كانت تجبر المستخدم على تحميل OHLCV/CSV من خارج Talos.** في الموقع يكفي اختيار رمز التداول وتاريخ البداية والنهاية. يستدعي النظام مزود بيانات تاريخية، يراجع صحة الشموع ويخزنها في PostgreSQL مع المصدر وبصمة SHA-256، ثم ينشئ Backtest على البيانات المخزنة ويعرض نتائج العامل المرجعي. CSV خيار احتياطي، وليس المتطلب الافتراضي.
 
-## خطوة واحدة للنشر وربط خدمات جهازك
+## النشر — إلى نفس موقع Talos الحالي
 
-بعد فك الضغط إلى `C:\TalosEngines\TalosDeployV25` بحيث يظهر مجلد `scripts` مباشرة:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "C:\TalosEngines\TalosDeployV25\scripts\PUBLISH_AND_CONNECT.ps1"
-```
-
-1. اكتب `REPLACE` لرفع النسخة الجديدة إلى المستودع الحالي `m3ta9mDAgoat/Talos` وتفعيل النشر التلقائي على `talos-unified-v2`.
-2. ينتظر المشغّل ظهور الإصدار `2.5.0` من `https://talos-unified-v2.onrender.com/health`.
-3. أدخل `TALOS_LAB_ADMIN_TOKEN` ثم `TALOS_LAB_WORKER_TOKEN` من Render، **محليًا في نافذة PowerShell فقط**.
-4. أغلق نافذة البوت القديم (حتى لا يصبح هناك poller ثانٍ لنفس BotFather token)، ثم اكتب `STOPPED`.
-5. تظهر نافذتان جديدتان تلقائيًا: Telegram bot + Windows worker. سينتظر المشغّل حالة `online` الصحيحة من الخادم ولا يدّعي النجاح إذا لم يصل heartbeat.
-
-**شرط:** يوجد إعداد بوتك الذي فعلته مسبقًا في `C:\TalosEngines\TalosBotV2\bot_config.json` وفيه `bot_token` و`owner_user_ids` الصحيحة، وLEAN/Nautilus Stage3 منصوبان إن أردت اختبار التكافؤ الأصلي. إذا لم يعمل المشغّل، راجع شاشة الخطأ ولا ترسل التوكن.
-
-لو رفعت المصدر مسبقًا، لتشغيل الاتصالات بدون رفع جديد:
+1. فك الحزمة في `C:\TalosEngines\TalosDeployV26`، بحيث يكون `scripts` في جذر ذلك المجلد.
+2. نفّذ أمرًا واحدًا في PowerShell:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "C:\TalosEngines\TalosDeployV25\scripts\CONNECT_ALL_REMOTE.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "C:\TalosEngines\TalosDeployV26\scripts\PUBLISH_REPLACE_GITHUB.ps1"
 ```
 
-## ما يعمل عند نجاح هذا التفعيل
-- موقع Phase 2 v2.5، Admin auth، إدارة البيانات التاريخية CSV، مهام Backtest المرجعية، Walk-forward وMonte Carlo وRobustness، نتائج محفوظة بـPostgreSQL على Render.
-- زر Deployments → Run Stage3 parity يرسل طلب parity إلى Windows Worker فقط إذا أبلغ عن تثبيت مرحلة Stage3 واتصاله الفعلي.
-- عامل الأبحاث المرجعي داخل Render. عامل Windows منفصل ويتصل عبر HTTPS؛ حالة الاتصال ظاهرة بشكل حقيقي في Deployments / Telegram Bot.
-- بوت Telegram الذي تملكه: أوامر البحث، إشعارات نتيجة الوظائف، استيراد منشورات القنوات المصرح بها والرسائل المعاد توجيهها، وأرشيف Replay. يستمر فقط طالما نافذة عملية Windows تعمل والإنترنت متصل.
-- Paper account تجريبي فقط. إرسال أوامر وسيط حقيقية ممنوع HTTP 403.
+3. اكتب `REPLACE` عند الطلب، وانتظر ظهور v2.6.0 في Render تحت خدمة `talos-unified-v2`. سوف ينشر Render تلقائيًا من الفرع `main`.
+4. افتح `https://talos-unified-v2.onrender.com` ثم اضغط **Connect Backend** مستخدمًا مفتاح Admin الحالي من Render؛ **لا حاجة لإنشاء Render جديد أو تغيير توكنات Telegram أو Windows Worker**.
+5. افتح **Research Lab**، واترك الرمز `AAPL` والفترة `2020-01-01` إلى `2025-12-31`، ثم اضغط **Fetch market data & run backtest**. أو نفّذ نفس الشيء من **Strategies** مع خيار `Auto-fetch Yahoo historical OHLCV`، أو **Data Library → Fetch & save historical data**.
 
-## ليس ادعاءً بالتكامل
-- **LEAN/NautilusTrader**: مسار Stage3 المحدد فقط (AAPL/MSFT monthly-close synthetic parity)؛ ليس تنفيذًا عامًا لأي استراتيجية ولا خدمة تعمل داخل Render.
-- **Telegram**: bot token في جهازك، وليس خدمة Render مستقلة 24/7. لا يمكن للتطبيق ضمان وصول التنبيهات إذا أغلق جهازك أو الإنترنت. لا توجد إشعارات تلقائية لرصد كل الفرص الرابحة والخاسرة قبل توفر بيانات مصدر سوق مؤرخة وموثوقة.
-- **Market data**: البيانات الاصطناعية للاختبارات، أو CSV يرفعه المستخدم. لا تزعم الحزمة تفعيل feed مدفوع أو وصولًا لحظيًا تلقائيًا.
-- **Phanes**: يدعم Excel الرسمي يدويًا وليس مراسلة البوت المحمي آليًا.
-- **Database**: Render free PostgreSQL تنتهي 2026-11-12؛ يجب النسخ الاحتياطي والترقية لحل دائم قبل الموعد. لم نرحل بيانات Neon القديمة.
-- **Live trading**: غير مفعّل، ولا مفاتيح تداول أو اعتماد لوسيط داخل الحزمة.
+أداة النشر تستبدل مصدر GitHub فقط، وتتحقق من عدم وجود أسرار محلية داخل المجلد. تاريخ Git السابق قابل للاسترجاع. نشر Render الفعلي يعتمد على نجاح البناء وتوفر مزود السوق الخارجي.
 
-## الأمان
-لا ترفع `.env`, `.local_auth.json`, `bot_config.json`, `.bot_runtime.sqlite3`, أو مفاتيح البوت إلى GitHub. مفاتيح Admin وWorker تُطلب بشكل مخفي ولا تُكتب في الملفات أو وسيطات العملية. حالة ربط البوت والعامل تتحدث من تسجيل وصول موثق، وليست أرقامًا متخيلة.
+## ما تمت إضافته
+
+- مزود **Yahoo Finance daily historical Chart** مدمج بلغة Python القياسية؛ لا يلزم تثبيت `yfinance` ولا نسخ CSV ولا إدخال مفاتيح API لهذه الخدمة. تحقق من توافر البيانات وشروط استخدام المزود في بيئة تشغيلك.
+- endpoint مصادق عليه: `POST /api/v2/research/market-data/fetch` بصيغة `{"symbol":"AAPL","start":"2020-01-01","end":"2025-12-31","provider":"yahoo"}`.
+- endpoint مصادق عليه: `GET /api/v2/research/market-data/capabilities`، يوضح أن الإعداد جاهز دون الادعاء بأن الخدمة مضمونة أو تغذية لحظية.
+- تحقق من التواريخ، الرمز، بيانات Open/High/Low/Close/Volume، الحجم الأقصى للاستجابة، مهلة 15 ثانية، cache محلي 12 ساعة وsha256. يحتفظ PostgreSQL بمجموعة البيانات وأصلها ونطاقها الزمني في جدول إضافي `lab_market_dataset_provenance` دون تعديل الجداول القديمة.
+- مسارات Research Lab وStrategies وData Library تعتمد التنزيل الآلي. كما يجلب Replay بيانات السوق تلقائيًا من تواريخ `first_observed_at` عند غياب Dataset ID، مع الحفاظ على قاعدة الزمن التاريخي وعدم إعطاء صلاحية لوقت النشر المزعوم. ويمكن إعادة استخدام البيانات في Sentiment. تظهر حالة مهمة Backtest تلقائيًا، ويمكن متابعة جميع المهام من Jobs & Operations.
+- **عند فشل مزوّد البيانات لا يجري استبدالها ببيانات اصطناعية**: تظهر رسالة خطأ واضحة HTTP 502 مع توجيه لإعادة المحاولة.
+
+## القيود التي يجب عدم إخفائها
+
+- لم يتم إثبات الوصول الفعلي إلى Yahoo من داخل Render في بيئة إنشاء هذه الحزمة؛ اختبارات التكامل استخدمت استجابات مزوّد مضبوطة. يجب اختبار جلب `AAPL` **بعد نشر v2.6** وتفقد `Market source` و`synthetic_market_data=false`.
+- Yahoo مزود طرف ثالث غير مضمون الوصول، وقد يحجب IP لخادم Render أو يحد الطلبات أو يصحح بيانات سابقة. لا نبيعها على أنها بيانات مرخّصة مباشرة من البورصة أو أسعار لحظية. تدون البيانات بوصفها research/third-party/unverified. لا تستخدم الموقع لإعادة توزيع بيانات مزوّد بلا تصريح.
+- الأسعار اليومية التاريخية لدى Yahoo معدلة لتجزئة الأسهم؛ **عائد توزيعات الأرباح النقدية لا يحسبه المحرك المرجعي**. نتائج العوائد والتقييمات غير كافية لاتخاذ قرار تداول فعلي.
+- **LEAN/NautilusTrader** يظلان في نطاق اختبار التطابق Stage3 المحدد سابقًا؛ تشغيل استراتيجية عامة في المحركين ليس مفعّلًا، ولا نعد هذا التكامل إثباتًا له.
+- **Telegram** وWindows Worker يستمران عبر العمليات المحلية القائمة المتصلة بـRender؛ لا حاجة لتعديل مفاتيحهما عند نشر هذا الإصدار.
+- **التداول الحقيقي معطّل**. المحفظة Paper Simulation فقط.
+- PostgreSQL المجاني لدى Render يفترض انتهاء صلاحيته **12 نوفمبر 2026** وفق إنشاء القاعدة الحالية. النسخ الاحتياطي والانتقال لتخزين دائم ضروريان قبل ذلك.
+
+## نتائج الاختبار قبل النشر
+
+- `74 passed, 4 skipped` — اختبارات Python، تشمل جلب مزود وهمي مُتحكم به، التحقق من أخطاء التزويد وعدم سقوط البيانات إلى عينة، تخزين المصدر، إنشاء المهمة وتنفيذها بالـWorker ثم استرجاع النتائج.
+- اختبارات Browser عبر Chromium على Desktop وMobile لثلاثة مسارات أساسية: Data Library / Research Lab / Strategies، بالإضافة لاختبار Replay يجلب أسعار السوق تلقائيًا من تواريخ الأحداث؛ دون أخطاء JavaScript. استخدمت اختبارات الـAPI استجابات مزوّد محاكاة فقط.
+- تصميم الخوذة الأصلي في `web/APPROVED_ORIGINAL.html` **لم يتغير**، والواجهة الحية هي `web/index.html`.
+- لا توجد توكنات Admin/Worker/Telegram ولا قواعد محلية في ملفات النشر.

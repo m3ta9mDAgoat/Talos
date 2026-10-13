@@ -167,19 +167,20 @@ button:disabled{opacity:.55;cursor:not-allowed}
 
  <section id="backtest-view" class="canvas hide" aria-label="Reference Backtesting Lab">
   <div class="eyebrow">RESEARCH LAB / VERIFIED REFERENCE</div>
-  <div class="intro"><div><h1>Run a <span class="accent-text">reproducible backtest.</span></h1><p>Load your own historical OHLCV CSV, run the bounded reference engine, review trade outcomes and export the complete evidence. A production multi-asset engine is not integrated yet.</p></div><div class="intro-action"><button class="btn btn-secondary" onclick="navigateTo('Command Center')">← Command Center</button></div></div>
+  <div class="intro"><div><h1>Run a <span class="accent-text">reproducible backtest.</span></h1><p>Choose a symbol and dates. Talos fetches daily historical market data, saves it in PostgreSQL, runs the reference backtest and returns evidence. CSV is optional. Not a live-trading engine.</p></div><div class="intro-action"><button class="btn btn-secondary" onclick="navigateTo('Command Center')">← Command Center</button></div></div>
   <div class="lab-grid">
    <section class="panel"><div class="panelhead"><div><h3>Reference backtest setup</h3><p>Next-bar-open execution · Single instrument · Long only</p></div><span class="pill amber">Validation engine</span></div>
-    <div class="lab-body"><p class="lab-warning">The reference engine does not simulate limit orders, futures, partial fills, intrabar stops or live brokerage. It uses your supplied historical candles only. Results are saved and exportable with data SHA-256.</p>
-      <div class="lab-field"><label for="lab-csv">Historical candle CSV · max 2,000 rows</label><input id="lab-csv" type="file" accept=".csv,text/csv"/><div class="lab-caption">Required columns: time, open, high, low, close. Optional: volume. Timestamps must contain UTC offset (e.g. 2026-01-01T00:00:00Z). Use your own trusted historical data.</div></div>
-      <div class="lab-two"><div class="lab-field"><label for="lab-symbol">Instrument</label><input id="lab-symbol" value="BTC/USDT" maxlength="60"/></div><div class="lab-field"><label for="lab-kind">Rule</label><select id="lab-kind"><option value="sma_cross">SMA crossover</option><option value="ema_cross">EMA crossover</option></select></div></div>
+    <div class="lab-body"><p class="lab-warning">The reference engine does not simulate limit orders, futures, partial fills, intrabar stops or live brokerage. Talos auto-fetches vendor daily candles; vendor availability is not guaranteed. Dividends are not credited as cash in reference PnL. Results include the data source, dates and SHA-256.</p>
+      <div class="lab-two"><div class="lab-field"><label for="lab-start">Start date</label><input id="lab-start" type="date" value="2020-01-01"/></div><div class="lab-field"><label for="lab-end">End date</label><input id="lab-end" type="date" value="2025-12-31"/></div></div>
+      <div class="lab-two"><div class="lab-field"><label for="lab-symbol">Instrument · Yahoo daily</label><input id="lab-symbol" value="AAPL" maxlength="31"/></div><div class="lab-field"><label for="lab-kind">Rule</label><select id="lab-kind"><option value="sma_cross">SMA crossover</option><option value="ema_cross">EMA crossover</option></select></div></div>
       <div class="lab-two"><div class="lab-field"><label for="lab-fast">Fast period</label><input id="lab-fast" type="number" value="5" min="2" max="500" /></div><div class="lab-field"><label for="lab-slow">Slow period</label><input id="lab-slow" type="number" value="20" min="3" max="1000" /></div></div>
       <div class="lab-two"><div class="lab-field"><label for="lab-cash">Initial cash</label><input id="lab-cash" type="number" value="10000" min="1" /></div><div class="lab-field"><label for="lab-fees">Fees (basis points per side)</label><input id="lab-fees" type="number" value="10" min="0" max="1000" /></div></div>
       <div class="lab-field"><label for="lab-slippage">Slippage (basis points per side)</label><input id="lab-slippage" type="number" value="5" min="0" max="1000" /></div>
-      <button id="lab-run" type="button" class="btn btn-primary" onclick="runReferenceBacktest()">Run backtest</button><div id="lab-error" class="lab-error hide" role="alert"></div>
+      <div class="lab-field"><label for="lab-csv">Optional manual CSV (if provider unavailable)</label><input id="lab-csv" type="file" accept=".csv,text/csv"/><div class="lab-caption">Default: Yahoo historical OHLCV fetched by Talos, no CSV required. When a file is selected, its UTC time/open/high/low/close/volume columns are imported instead.</div></div>
+      <button id="lab-run" type="button" class="btn btn-primary" onclick="runReferenceBacktest()">Fetch market data &amp; run backtest</button><div id="lab-error" class="lab-error hide" role="alert"></div>
     </div>
    </section>
-   <section class="panel"><div class="panelhead"><div><h3>Backtest evidence</h3><p>Metrics and exports from the authenticated API</p></div><span class="pill">Results</span></div><div class="lab-result" id="lab-result">Connect the backend, select a real historical CSV file, and run a reference backtest. Metrics will appear here once stored.</div></section>
+   <section class="panel"><div class="panelhead"><div><h3>Backtest evidence</h3><p>Metrics and exports from the authenticated API</p></div><span class="pill">Results</span></div><div class="lab-result" id="lab-result">Connect Backend, enter a symbol and date range, then press Fetch market data &amp; run backtest. Talos downloads and stores the dataset automatically.</div></section>
   </div>
  </section>
 
@@ -193,8 +194,8 @@ button:disabled{opacity:.55;cursor:not-allowed}
  </div></section><section class="panel"><div class="panelhead"><div><h3>Research job submission</h3><p>PostgreSQL-backed API + hosted reference Worker</p></div><span class="pill amber">Paper research only</span></div><div class="ext-pad">
  <label for="ext-plugin">Strategy</label><select id="ext-plugin" class="ext-input"><option value="ema_cross">EMA crossover</option><option value="sma_cross">SMA crossover</option><option value="rsi_reversion">RSI reversion</option><option value="buy_hold">Buy & hold</option><option value="telegram_signal">Telegram / external signals</option></select>
  <label for="ext-symbol">Symbol</label><input class="ext-input" id="ext-symbol" value="AAPL" maxlength="31"/>
- <label for="ext-source">Data source</label><select id="ext-source" class="ext-input"><option value="dataset">Verified uploaded dataset</option><option value="sample">Synthetic sample (integration only)</option><option value="yahoo" disabled>Yahoo (not enabled on hosted worker)</option></select>
- <label for="ext-dataset">Dataset ID (SHA-256 for uploaded dataset)</label><input class="ext-input" id="ext-dataset" placeholder="64 hex characters"/>
+ <label for="ext-source">Data source</label><select id="ext-source" class="ext-input"><option value="market_auto">Auto-fetch Yahoo historical OHLCV (no file needed)</option><option value="dataset">Reuse saved historical dataset</option><option value="sample">Synthetic sample (integration test only)</option></select>
+ <label for="ext-dataset">Dataset ID (SHA-256; only for reuse of saved data)</label><input class="ext-input" id="ext-dataset" placeholder="64 hex characters"/>
  <label for="ext-archive">Telegram archive ID (Telegram strategy only)</label><input class="ext-input" id="ext-archive" placeholder="Immutable import ID"/>
  <div class="lab-two"><div><label for="ext-start">Start</label><input class="ext-input" id="ext-start" type="date" value="2020-01-01"/></div><div><label for="ext-end">End</label><input class="ext-input" id="ext-end" type="date" value="2023-12-31"/></div></div>
  <label for="ext-robustness"><input id="ext-robustness" type="checkbox"/> Run bounded parameter stability + Monte Carlo for every set + IS/OOS + walk-forward</label>
@@ -208,12 +209,12 @@ button:disabled{opacity:.55;cursor:not-allowed}
  <label for="replay-source">Archive source</label><select id="replay-source" class="ext-input"><option value="telegram">Telegram</option><option value="x">X / Social</option><option value="rss">RSS news</option><option value="website">Website</option><option value="other">Other imported archive</option></select>
  <label for="replay-label">Channel or person</label><input id="replay-label" class="ext-input" placeholder="Publisher / channel" maxlength="180"/>
  <label for="replay-symbol">Symbol</label><input id="replay-symbol" class="ext-input" value="AAPL" maxlength="31"/>
- <label for="replay-dataset">Dataset ID (SHA-256)</label><input id="replay-dataset" class="ext-input" placeholder="Uploaded OHLCV dataset"/>
+ <label for="replay-dataset">Historical dataset ID (optional — fetched automatically if empty)</label><input id="replay-dataset" class="ext-input" placeholder="Leave blank to fetch matching market history"/>
  <label for="replay-file">Timestamped post history JSON · list of events</label><input id="replay-file" class="ext-input" type="file" accept=".json,application/json"/>
  <div class="lab-two"><div><label for="replay-horizon">Horizon (sessions)</label><input id="replay-horizon" class="ext-input" type="number" min="1" max="120" value="5"/></div><div><label for="replay-cost">Fees (bps/side)</label><input id="replay-cost" class="ext-input" type="number" min="0" max="500" value="10"/></div></div>
  <label for="replay-native-engine">Native engine research handoff</label><select id="replay-native-engine" class="ext-input"><option value="lean">LEAN — prepare auditable signal ledger</option><option value="nautilus">NautilusTrader — prepare auditable signal ledger</option></select>
  <div class="ext-actions"><button class="btn btn-primary" onclick="runTalosReplay()">Verify historical recommendations</button><button class="btn btn-secondary" onclick="downloadTalosReplay()">Export evidence JSON</button><button class="btn btn-secondary" onclick="prepareTalosNativeReplay()">Prepare native-engine inputs (no execution)</button></div><p class="ext-small">Input fields: post_id, author, first_observed_at with timezone, event_type (new/edit/delete), text. Claimed publication timestamps do not override first observation. Score uses the next available session, not the original post price. Authenticity is not independently proven.</p>
- </div></section><section class="panel"><div class="panelhead"><div><h3>Verification evidence</h3><p>Wins, losses, exclusions, edits and provenance limits</p></div><span class="pill amber">Not a brokerage backtest</span></div><div class="ext-pad"><div class="ext-status" id="native-plan-output" role="status">Native engine handoff not prepared. General recommendation adapters are NOT yet validated on LEAN/Nautilus.</div><div style="height:12px"></div><div class="ext-status" id="replay-output" role="status">Upload timestamped posts and provide a market dataset. Results appear here after API verification.</div><p class="ext-small">No manual archive replay notifications are sent. Future sentiment/NLP scoring is a separate versioned data-input layer with point-in-time model provenance.</p></div></section></div>
+ </div></section><section class="panel"><div class="panelhead"><div><h3>Verification evidence</h3><p>Wins, losses, exclusions, edits and provenance limits</p></div><span class="pill amber">Not a brokerage backtest</span></div><div class="ext-pad"><div class="ext-status" id="native-plan-output" role="status">Native engine handoff not prepared. General recommendation adapters are NOT yet validated on LEAN/Nautilus.</div><div style="height:12px"></div><div class="ext-status" id="replay-output" role="status">Provide timestamped posts. If no market dataset is selected, Talos fetches matching historical prices automatically before verification.</div><p class="ext-small">No manual archive replay notifications are sent. Future sentiment/NLP scoring is a separate versioned data-input layer with point-in-time model provenance.</p></div></section></div>
 
  <section class="panel" style="margin-top:18px" aria-label="Telegram JSON archive import">
  <div class="panelhead"><div><h3>Telegram archive import</h3><p>Store timestamped Telegram revisions for Strategy jobs. Import does not validate authorship.</p></div><button type="button" class="btn btn-secondary" onclick="refreshArchiveCatalog()">Refresh archives</button></div>
@@ -247,8 +248,15 @@ button:disabled{opacity:.55;cursor:not-allowed}
 
 
 <section id="dataset-view" class="canvas extension-view hide" aria-label="Talos stored historical datasets">
- <div class="eyebrow">DATA / PERSISTENT RESEARCH</div><div class="intro"><div><h1>Data <span class="accent-text">Library.</span></h1><p>Upload daily OHLCV CSV, persist it in PostgreSQL, and use the resulting dataset ID in Research, Replay and Sentiment.</p></div></div>
- <section class="panel"><div class="panelhead"><div><h3>Import historical OHLCV</h3><p>UTC ISO timestamps, time, open, high, low, close, volume; 10–2,000 bars</p></div><span class="pill blue">Real API</span></div><div class="ext-pad"><label for="data-file">Historical CSV</label><input class="ext-input" id="data-file" type="file" accept=".csv,text/csv"/><label for="data-symbol">Symbol</label><input class="ext-input" id="data-symbol" value="AAPL" maxlength="31"/><div class="ext-actions"><button class="btn btn-primary" onclick="uploadLibraryDataset()">Upload to PostgreSQL</button><button class="btn btn-secondary" onclick="refreshLibrary()">Refresh library</button></div><div id="data-output" class="ext-status" role="status">Connect the Backend with your Admin token first.</div></div></section>
+ <div class="eyebrow">DATA / PERSISTENT RESEARCH</div><div class="intro"><div><h1>Data <span class="accent-text">Library.</span></h1><p>Talos retrieves historical OHLCV automatically from a market-data provider, stores it in PostgreSQL and reuses it in Backtest, Strategies, Replay and Sentiment. No CSV needed.</p></div></div>
+ <section class="panel"><div class="panelhead"><div><h3>Automatic market-data import</h3><p>Yahoo historical daily candles · PostgreSQL persistence · provenance and SHA-256</p></div><span class="pill blue">No CSV required</span></div><div class="ext-pad">
+ <label for="data-symbol">Ticker symbol (e.g. AAPL, MSFT, SPY, BTC-USD)</label><input class="ext-input" id="data-symbol" value="AAPL" maxlength="31"/>
+ <div class="lab-two"><div><label for="data-start">Start</label><input class="ext-input" id="data-start" type="date" value="2020-01-01"/></div><div><label for="data-end">End</label><input class="ext-input" id="data-end" type="date" value="2025-12-31"/></div></div>
+ <div class="ext-actions"><button class="btn btn-primary" id="market-fetch-btn" onclick="fetchLibraryMarketData()">Fetch &amp; save historical data</button><button class="btn btn-secondary" onclick="refreshLibrary()">Refresh library</button></div>
+ <p class="ext-small">Yahoo charts are an unverified third-party historical source, not real-time or exchange-certified. This feed may be blocked/rate-limited. Talos never uses synthetic prices as a fallback. Dividends are not modeled as cash PnL.</p>
+ <details><summary class="ext-small">Manual CSV fallback (optional)</summary><label for="data-file">Historical CSV file</label><input class="ext-input" id="data-file" type="file" accept=".csv,text/csv"/><button class="btn btn-secondary" onclick="uploadLibraryDataset()">Import my CSV</button></details>
+ <div id="data-output" class="ext-status" role="status">Connect Backend to fetch historical prices automatically.</div>
+ </div></section>
  <section class="panel" style="margin-top:20px"><div class="panelhead"><div><h3>Stored datasets</h3><p>Use one dataset in Strategies, Replay, or Sentiment</p></div></div><div class="ext-pad" id="dataset-list">Not connected.</div></section>
 </section>
 <section id="jobs-view" class="canvas extension-view hide" aria-label="Research jobs and evidence">
@@ -332,7 +340,7 @@ function toggleDetails(){
 
 
 
-// Experimental reference bridge: simple CSV data, no network data-provider assumptions.
+// Research Lab: auto-fetch via authenticated API or optional manual CSV fallback.
 let lastReferenceRun=null;
 function parseOHLCVCSV(text){
   const rows=[];
@@ -359,28 +367,49 @@ function labError(message){let e=document.getElementById('lab-error');e.textCont
 async function runReferenceBacktest(){
  const err=document.getElementById('lab-error');err.classList.add('hide');
  if(!window.talosSessionToken){labError('Connect Talos Research API with Admin token first.');return;}
- const file=document.getElementById('lab-csv').files[0];if(!file){labError('Select historical OHLCV CSV first.');return;}
+ const file=document.getElementById('lab-csv').files[0];
  const fast=Number(document.getElementById('lab-fast').value),slow=Number(document.getElementById('lab-slow').value);
  if(!Number.isInteger(fast)||!Number.isInteger(slow)||fast<2||fast>=slow){labError('Fast and slow periods must be valid integers with fast < slow.');return;}
  const btn=document.getElementById('lab-run');btn.disabled=true;btn.textContent='Queueing backtest…';
  try{
-   const candles=parseOHLCVCSV(await file.text());
    const symbol=document.getElementById('lab-symbol').value.trim().toUpperCase();if(!symbol)throw Error('Instrument cannot be empty');
-   const bars=candles.map(c=>({date:c.time.slice(0,10),open:c.open,high:c.high,low:c.low,close:c.close,volume:c.volume}));
-   const ds=await talosV2('/api/v2/research/datasets','POST',{symbol,bars});
+   let ds, firstDate, lastDate;
+   if(file){
+     const candles=parseOHLCVCSV(await file.text());
+     const bars=candles.map(c=>({date:c.time.slice(0,10),open:c.open,high:c.high,low:c.low,close:c.close,volume:c.volume}));
+     ds=await talosV2('/api/v2/research/datasets','POST',{symbol,bars});
+     firstDate=bars[0].date;lastDate=bars[bars.length-1].date;
+   } else {
+     btn.textContent='Downloading historical market prices…';
+     ds=await acquireTalosMarketData(symbol,document.getElementById('lab-start').value,document.getElementById('lab-end').value);
+     firstDate=ds.first_date;lastDate=ds.last_date;
+   }
    const plugin=document.getElementById('lab-kind').value;
    const req={kind:'research',request:{engine:'reference',
-       data:{source:'dataset',dataset_id:ds.dataset_id,symbol,interval:'1d',start:bars[0].date,end:bars[bars.length-1].date},
+       data:{source:'dataset',dataset_id:ds.dataset_id,symbol,interval:'1d',start:firstDate,end:lastDate},
        strategy:{plugin,short:fast,long:slow},
        risk:{initial_cash:Number(document.getElementById('lab-cash').value),fee_bps:Number(document.getElementById('lab-fees').value),
        slippage_bps:Number(document.getElementById('lab-slippage').value)},walk_forward:false,monte_carlo:0}};
    const job=await talosV2('/api/v2/research/jobs','POST',req);lastReferenceRun=job.id;
    const el=document.getElementById('lab-result');el.replaceChildren();
-   const desc=document.createElement('p');desc.className='lab-caption';desc.textContent='Queued job '+job.id+' · Dataset '+ds.dataset_id+' · Worker must be running. No live orders.';el.append(desc);
+   const desc=document.createElement('p');desc.className='lab-caption';desc.textContent='Queued job '+job.id+' · '+(ds.provenance?.source||'User CSV')+' · '+ds.dataset_id+' · No live orders.';el.append(desc);
    const refresh=document.createElement('button');refresh.className='btn btn-primary';refresh.textContent='Refresh results';
    refresh.onclick=()=>refreshReferenceBacktest();el.append(refresh);
-   toast('Dataset imported and backtest queued.');
- }catch(e){labError(e.message||String(e));}finally{btn.disabled=false;btn.textContent='Run backtest';}
+   toast('Historical prices stored and backtest queued.');followReferenceJob(job.id);
+ }catch(e){labError(e.message||String(e));}finally{btn.disabled=false;btn.textContent='Fetch market data & run backtest';}
+}
+async function followReferenceJob(id){
+ for(let step=0;step<36;step++){
+  await new Promise(resolve=>setTimeout(resolve,5000));
+  if(id!==lastReferenceRun||!window.talosSessionToken)return;
+  try{
+   const job=await talosV2('/api/v2/research/jobs/'+encodeURIComponent(id));
+   if(['complete','failed','cancelled'].includes(job.status)){
+    await refreshReferenceBacktest();return;
+   }
+  }catch(e){if(step===35)labError('Job status temporarily unavailable: '+e.message);}
+ }
+ labError('Job is still pending. You can refresh the results manually.');
 }
 async function refreshReferenceBacktest(){
  if(!lastReferenceRun){labError('Submit a backtest first.');return;}
@@ -449,14 +478,43 @@ async function talosV2(path,method='GET',body=null){
 function prepareTalosStrategy(s){document.getElementById('ext-plugin').value=s;document.getElementById('ext-job-status').textContent=s==='telegram_signal'?'Telegram Strategy selected: add an immutable archive ID and an OHLCV dataset.':'Selected '+s+'. Review source, dates and cost settings.';}
 async function submitTalosResearch(){const el=document.getElementById('ext-job-status');el.textContent='Validating and submitting...';try{
  const plugin=document.getElementById('ext-plugin').value,source=document.getElementById('ext-source').value,dataset=document.getElementById('ext-dataset').value.trim(),archive=document.getElementById('ext-archive').value.trim();
- if(source==='dataset'&&!/^[a-f0-9]{64}$/.test(dataset))throw Error('Dataset ID must be a 64-character SHA-256. Import OHLCV in Research Plane first.');
+ if(source==='dataset'&&!/^[a-f0-9]{64}$/.test(dataset))throw Error('Dataset ID must be a 64-character SHA-256. Use Auto-fetch above instead.');
  if(plugin==='telegram_signal'&&!archive)throw Error('Telegram strategy requires an immutable archive ID.');
  const robust=document.getElementById('ext-robustness').checked;const sims=Number(document.getElementById('ext-robust-sims').value);
  if(robust && !['ema_cross','sma_cross','rsi_reversion'].includes(plugin))throw Error('Robustness requires EMA/SMA/RSI reference strategy.');
  if(robust && (!Number.isInteger(sims)||sims<5||sims>200))throw Error('Robustness simulations must be 5–200 per parameter set.');
- const req={kind:'research',request:{engine:'reference',data:{source,dataset_id:source==='dataset'?dataset:null,symbol:document.getElementById('ext-symbol').value.trim().toUpperCase(),interval:'1d',start:document.getElementById('ext-start').value,end:document.getElementById('ext-end').value},strategy:{plugin,short:10,long:40,parameters:plugin==='telegram_signal'?{archive_id:archive}:{}},risk:{initial_cash:10000,max_allocation:0.9,fee_bps:10,slippage_bps:2},walk_forward:plugin!=='telegram_signal',monte_carlo:plugin==='telegram_signal'?0:200,robustness:robust,robustness_simulations:robust?sims:25}};
- const x=await talosV2('/api/v2/research/jobs','POST',req);el.textContent='Queued: '+x.id+'\nReference tasks run on the hosted Worker; native jobs require Windows. No live orders.';
+ const symbol=document.getElementById('ext-symbol').value.trim().toUpperCase();
+ let datasetId=source==='dataset'?dataset:null, selectedSource=source;
+ let dateStart=document.getElementById('ext-start').value,dateEnd=document.getElementById('ext-end').value;
+ let upstream='';
+ if(source==='market_auto'){
+   el.textContent='Fetching historical daily OHLCV from market-data provider and saving to PostgreSQL…';
+   const ds=await acquireTalosMarketData(symbol,dateStart,dateEnd);
+   datasetId=ds.dataset_id;selectedSource='dataset';dateStart=ds.first_date;dateEnd=ds.last_date;
+   selectDataset(datasetId,symbol);upstream=ds.provenance?.source||'vendor';
+ }
+ const req={kind:'research',request:{engine:'reference',data:{source:selectedSource,dataset_id:datasetId,symbol,interval:'1d',start:dateStart,end:dateEnd},strategy:{plugin,short:10,long:40,parameters:plugin==='telegram_signal'?{archive_id:archive}:{}},risk:{initial_cash:10000,max_allocation:0.9,fee_bps:10,slippage_bps:2},walk_forward:plugin!=='telegram_signal',monte_carlo:plugin==='telegram_signal'?0:200,robustness:robust,robustness_simulations:robust?sims:25}};
+ const x=await talosV2('/api/v2/research/jobs','POST',req);el.textContent='Queued: '+x.id+'\nMarket source: '+(upstream||selectedSource)+'\nDataset SHA-256: '+(datasetId||'sample')+'\nHosted reference Worker will execute. No live orders.';followAutomaticResearchJob(x.id);
  }catch(e){el.textContent='Not queued: '+e.message}}
+// Bounded status polling, no special manual refresh required for ordinary research runs.
+async function followAutomaticResearchJob(id){
+ const el=document.getElementById('ext-job-status');
+ for(let attempt=0;attempt<36;attempt++){
+  await new Promise(resolve=>setTimeout(resolve,5000));
+  if(!window.talosSessionToken)return;
+  try{
+   const job=await talosV2('/api/v2/research/jobs/'+encodeURIComponent(id));
+   if(job.status==='complete' || job.status==='failed' || job.status==='cancelled'){
+    el.textContent=JSON.stringify({job_id:id,status:job.status,provenance:job.result?.provenance,
+      metrics:job.result?.backtest?.metric,performance:job.result?.performance,
+      warning:job.result?.data_warning,error:job.error,live_orders_enabled:false},null,2);
+    return;
+   }
+   el.textContent='Job '+id+' · '+job.status+' · '+(attempt+1)*5+' seconds elapsed; awaiting Worker.';
+  }catch(e){el.textContent='Job '+id+' · status temporarily unavailable: '+e.message;}
+ }
+ el.textContent='Job '+id+' is still pending. Open Jobs & Operations to refresh; no synthetic result was created.';
+}
 async function refreshTalosJobs(){const el=document.getElementById('ext-job-status');try{
  let jobs=await talosV2('/api/v2/research/jobs');let summary={jobs:jobs.slice(0,8).map(x=>({id:x.id,status:x.status,kind:x.kind}))};
  let completed=jobs.find(x=>x.status==='complete'&&x.kind==='research');
@@ -471,10 +529,28 @@ async function refreshTalosJobs(){const el=document.getElementById('ext-job-stat
    warning:'Research diagnostics only; no proof of alpha or native execution'}:report.robustness?.status};}
  el.textContent=JSON.stringify(summary,null,2)
  }catch(e){el.textContent=e.message}}
+// Derive a bounded market-price window from actual observed event dates.
+// Claimed publication dates are never trusted for event-time scoring.
+async function resolveReplayMarketDataset(events,symbol,horizon){
+ const selected=document.getElementById('replay-dataset').value.trim();
+ if(/^[a-f0-9]{64}$/.test(selected))return selected;
+ if(!Array.isArray(events)||!events.length)throw Error('Replay requires dated events.');
+ const dates=events.map(e=>new Date(e.first_observed_at)).filter(d=>!isNaN(d.getTime()));
+ if(dates.length!==events.length)throw Error('Every replay event must have a valid first_observed_at timestamp.');
+ const minimum=Math.min(...dates.map(d=>d.getTime()));
+ const maximum=Math.max(...dates.map(d=>d.getTime()));
+ const day=24*60*60*1000;
+ const start=new Date(minimum-30*day).toISOString().slice(0,10);
+ const end=new Date(Math.min(Date.now(),maximum+Math.max(30,horizon*5)*day)).toISOString().slice(0,10);
+ if(end<=start)throw Error('Replay event date range is invalid or in the future.');
+ const dataset=await acquireTalosMarketData(symbol,start,end);
+ selectDataset(dataset.dataset_id,symbol);
+ return dataset.dataset_id;
+}
 async function runTalosReplay(){const out=document.getElementById('replay-output');out.textContent='Validating inputs...';try{
  const f=document.getElementById('replay-file').files[0];if(!f)throw Error('Select historical events JSON.');if(f.size>1200000)throw Error('JSON archive exceeds 1.2MB; use paginated imports.');
  const events=JSON.parse(await f.text());if(!Array.isArray(events)||events.length<1||events.length>500)throw Error('Expected 1–500 events in an array.');
- const dataset_id=document.getElementById('replay-dataset').value.trim();if(!/^[a-f0-9]{64}$/.test(dataset_id))throw Error('Valid OHLCV dataset SHA-256 ID required.');
+ const dataset_id=await resolveReplayMarketDataset(events,document.getElementById('replay-symbol').value.trim().toUpperCase(),Number(document.getElementById('replay-horizon').value));
  const req={source_kind:document.getElementById('replay-source').value,source_label:document.getElementById('replay-label').value.trim(),symbol:document.getElementById('replay-symbol').value.trim().toUpperCase(),dataset_id,horizon_sessions:Number(document.getElementById('replay-horizon').value),fee_bps:Number(document.getElementById('replay-cost').value),slippage_bps:2,events};
  talosReplayEvidence=await talosV2('/api/v2/replay/verify','POST',req);
  out.textContent=JSON.stringify({summary:talosReplayEvidence.summary,authenticity_verified:talosReplayEvidence.source_authenticated,warnings:talosReplayEvidence.warnings,recommendations:talosReplayEvidence.recommendations,excluded:talosReplayEvidence.excluded,revisions:talosReplayEvidence.revisions},null,2);
@@ -490,7 +566,7 @@ async function prepareTalosNativeReplay(){
   const f=document.getElementById('replay-file').files[0];if(!f)throw Error('Upload dated historical JSON first.');
   if(f.size>1200000)throw Error('Archive exceeds 1.2MB; use paginated imports.');
   const events=JSON.parse(await f.text());if(!Array.isArray(events)||events.length<1||events.length>500)throw Error('Expected 1 to 500 events.');
-  const dataset_id=document.getElementById('replay-dataset').value.trim();if(!/^[a-f0-9]{64}$/.test(dataset_id))throw Error('Need existing dataset SHA-256.');
+  const dataset_id=await resolveReplayMarketDataset(events,document.getElementById('replay-symbol').value.trim().toUpperCase(),Number(document.getElementById('replay-horizon').value));
   const req={source_kind:document.getElementById('replay-source').value,source_label:document.getElementById('replay-label').value.trim(),symbol:document.getElementById('replay-symbol').value.trim().toUpperCase(),dataset_id,horizon_sessions:Number(document.getElementById('replay-horizon').value),fee_bps:Number(document.getElementById('replay-cost').value),slippage_bps:2,events,engine:document.getElementById('replay-native-engine').value};
   lastTalosNativePlan=await talosV2('/api/v2/replay/native-plan','POST',req);
   out.textContent='STATUS: '+lastTalosNativePlan.execution_status+'\nEngine: '+lastTalosNativePlan.native_engine_requested+'\nSignals: '+lastTalosNativePlan.signal_events.length+'\nSHA-256: '+lastTalosNativePlan.plan_sha256+'\nThis is a prepared native input contract, NOT a verified native engine backtest.';
@@ -536,6 +612,25 @@ function requireTalosAccess(){
 }
 function output(el,message){document.getElementById(el).textContent=String(message);}
 function miniButton(title,click){const b=document.createElement('button');b.type='button';b.className='btn btn-secondary';b.textContent=title;b.onclick=click;return b;}
+async function acquireTalosMarketData(symbol,start,end){
+ requireTalosAccess();
+ const ticker=String(symbol||'').trim().toUpperCase();
+ if(!/^[A-Z0-9^][A-Z0-9.^=_-]{0,29}$/.test(ticker))throw Error('Use a Yahoo symbol like AAPL, SPY or BTC-USD.');
+ if(!start||!end||end<=start)throw Error('Choose valid start and end dates.');
+ return talosV2('/api/v2/research/market-data/fetch','POST',{symbol:ticker,start,end,provider:'yahoo'});
+}
+async function fetchLibraryMarketData(){
+ const btn=document.getElementById('market-fetch-btn');const status=document.getElementById('data-output');
+ try{
+  requireTalosAccess();btn.disabled=true;btn.textContent='Fetching historical prices…';
+  const symbol=document.getElementById('data-symbol').value.trim().toUpperCase();
+  const ds=await acquireTalosMarketData(symbol,document.getElementById('data-start').value,document.getElementById('data-end').value);
+  selectDataset(ds.dataset_id,symbol);
+  status.textContent='Saved '+ds.count+' real-source historical daily bars · '+ds.first_date+' → '+ds.last_date+'\nProvider: '+ds.provenance.source+'\nSHA-256: '+ds.dataset_id+'\nNOT synthetic. Research-only vendor prices; no dividends credited as cash.';
+  await refreshLibrary();toast('Market data fetched and stored in PostgreSQL');
+ }catch(e){status.textContent='Market provider not available: '+(e.message||e)+'\nNo synthetic fallback. Retry later.';}
+ finally{btn.disabled=false;btn.textContent='Fetch & save historical data';}
+}
 async function uploadLibraryDataset(){
  try{
   requireTalosAccess();const file=document.getElementById('data-file').files[0];if(!file)throw Error('Choose a CSV file first.');
@@ -557,10 +652,10 @@ async function refreshLibrary(){
  const el=document.getElementById('dataset-list');el.replaceChildren();
  try{
   requireTalosAccess();const items=await talosV2('/api/v2/research/datasets');
-  if(!items.length){el.textContent='No datasets uploaded yet. Select historical CSV above.';return;}
+  if(!items.length){el.textContent='No historical datasets yet. Enter a ticker and dates above, then Fetch & save.';return;}
   for(const d of items){const row=document.createElement('div');row.className='ext-card';
    const title=document.createElement('b');title.textContent=d.symbol+' • '+d.bars+' daily bars';
-   const info=document.createElement('p');info.className='ext-small';info.textContent=d.dataset_id+' • '+d.created;
+   const info=document.createElement('p');info.className='ext-small';info.textContent=(d.provenance?.source||'USER_CSV')+' • '+d.dataset_id+' • '+d.created;
    row.append(title,info,miniButton('Use this dataset',()=>selectDataset(d.dataset_id,d.symbol)));el.append(row);
   }
  }catch(e){el.textContent=e.message||String(e)}
