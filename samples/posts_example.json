@@ -1,0 +1,5 @@
+[
+  {"post_id":"EXAMPLE_ONLY_a","author":"example","first_observed_at":"2020-01-06T21:00:00+00:00","event_type":"new","text":"BUY AAPL"},
+  {"post_id":"EXAMPLE_ONLY_a","author":"example","first_observed_at":"2020-01-07T21:00:00+00:00","event_type":"edit","text":"BUY AAPL target changed"},
+  {"post_id":"EXAMPLE_ONLY_b","author":"example","first_observed_at":"2020-01-15T21:00:00+00:00","event_type":"new","text":"SELL AAPL"}
+]

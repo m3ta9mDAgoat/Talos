@@ -1,0 +1,11 @@
+[
+  {
+    "source": "rss",
+    "post_id": "EXAMPLE_ONLY_news_01",
+    "first_observed_at": "2020-08-04T22:00:00+00:00",
+    "symbol": "AAPL",
+    "score": 0.65,
+    "model": "example_precomputed_score",
+    "model_version": "demo-1"
+  }
+]

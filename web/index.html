@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TALOS — Research Command Center</title>
+<style>
+:root{--page:#080b11;--side:#0b0e15;--panel:#111620;--panel2:#171d28;--edge:#293140;--muted:#919caf;--white:#f5f6fa;--gold:#d9b875;--mint:#79d4b1;--blue:#9cbaff;--rose:#ef9aa1;--rad:17px;--font:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--white);font-family:var(--font);font-size:13px;-webkit-font-smoothing:antialiased}button,input,select{font:inherit}button{cursor:pointer;border:0}button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}.shell{min-height:100vh;display:grid;grid-template-columns:234px minmax(0,1fr)}aside{background:var(--side);border-right:1px solid #252a34;padding:28px 15px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}.brand{display:flex;gap:12px;align-items:center;padding:3px 10px 33px}.mark{border:1px solid var(--gold);width:35px;height:35px;border-radius:9px;display:grid;place-items:center;font-size:20px;font-family:Georgia,serif;color:var(--gold)}.brand strong{font-size:18px;letter-spacing:3.3px;font-weight:720}.brand small{display:block;font-size:9px;letter-spacing:1.4px;color:var(--muted);margin-top:3px}.slabel{color:#647083;font-size:10px;font-weight:700;letter-spacing:1.65px;text-transform:uppercase;padding:10px 13px;margin-top:1px;margin-bottom:8px}.nav-item{width:100%;display:flex;align-items:center;gap:12px;color:#9ba7bb;background:transparent;border-radius:10px;padding:11px 13px;text-align:left;transition:background .2s,color .2s;font-weight:550}.nav-item:hover{background:#171d29;color:var(--white)}.nav-item.active{background:#242936;color:var(--white);box-shadow:inset 3px 0 0 var(--gold)}.nav-item .sym{width:20px;font-size:17px;text-align:center;opacity:.9}.nav-item small{margin-left:auto;color:#8f9cb0;font-size:11px}.side-bottom{margin-top:auto;padding:14px 9px 0}.side-meter{border:1px solid #303742;background:#121721;border-radius:13px;padding:14px 12px}.side-meter strong{display:block;font-size:12px;margin-bottom:8px}.side-meter span{color:var(--muted);font-size:11px;line-height:1.6}.side-foot{display:flex;justify-content:space-between;color:#768193;font-size:10px;padding:16px 3px 0}.main{min-width:0}.topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;height:73px;padding:0 35px;border-bottom:1px solid #252b36;background:#0c1017}.crumbs{color:#8995a7;white-space:nowrap}.crumbs b{color:#f4f4f7;font-weight:600}.top-actions{display:flex;align-items:center;gap:13px}.search{width:255px;border:1px solid #2c3542;background:#111722;border-radius:9px;padding:10px 12px;color:#8894a9;text-align:left;font-size:12px}.search .key{float:right;border:1px solid #353d4c;color:#7f8b9e;border-radius:5px;padding:0 5px;font-size:10px}.avatar{width:33px;height:33px;border-radius:50%;background:#2d384a;color:#dce2ef;display:grid;place-items:center;font-weight:800;font-size:11px;border:1px solid #42506a}.live-dot{width:7px;height:7px;border-radius:50%;background:var(--mint);display:inline-block;margin-right:5px;box-shadow:0 0 0 4px #79d4b118}.canvas{max-width:1500px;margin:auto;padding:34px 38px 60px}.eyebrow{font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:2px;font-weight:750;margin-bottom:12px}.intro{display:flex;gap:20px;align-items:end;justify-content:space-between;margin-bottom:29px}.intro h1{font-size:clamp(27px,2.6vw,39px);line-height:1.18;letter-spacing:-1.35px;margin:0;font-weight:665}.intro p{font-size:13px;color:#9ea8b8;line-height:1.75;margin:12px 0 0;max-width:700px}.intro-action{display:flex;gap:9px;flex-shrink:0}.btn{padding:12px 16px;border-radius:9px;font-weight:650;font-size:12px;white-space:nowrap}.btn-primary{background:var(--gold);color:#171a20}.btn-primary:hover{background:#eed09a}.btn-secondary{background:#1b2230;border:1px solid #30394a;color:#ebedf2}.btn-secondary:hover{background:#283145}.statusstrip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin-bottom:24px}.kpi{border:1px solid var(--edge);border-radius:13px;padding:16px 17px 14px;background:#10151e;min-width:0}.kpi-label{font-size:11px;color:#939fb1;display:flex;justify-content:space-between;align-items:center}.kpi-label em{font-style:normal;color:#758197;font-size:11px}.kpi-value{font-size:28px;letter-spacing:-1px;font-weight:680;margin-top:8px}.kpi-note{font-size:10px;color:#78869a;margin-top:5px}.kpi-note b{color:var(--mint);font-weight:650}.section-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:13px}.section-head h2{font-size:16px;letter-spacing:-.3px;margin:0;font-weight:660}.section-head span{font-size:11px;color:#8d98aa}.textlink{background:transparent;color:var(--gold);padding:3px;font-weight:650;font-size:11px}.focus{border:1px solid #574936;background:linear-gradient(117deg,#21201e 0%,#171b21 58%,#111620 100%);border-radius:16px;padding:23px 25px;margin-bottom:26px;display:flex;justify-content:space-between;gap:24px;align-items:center;position:relative;overflow:hidden}.focus:after{content:"";position:absolute;width:250px;height:250px;border:1px solid #c8a76d1c;border-radius:50%;right:-40px;top:-102px;box-shadow:0 0 0 38px #c8a76d0a,0 0 0 79px #c8a76d07;pointer-events:none}.focus .eyebrow{margin-bottom:8px}.focus h3{font-size:21px;letter-spacing:-.5px;font-weight:640;margin:0 0 8px}.focus p{color:#aeb5c0;margin:0;font-size:12px;line-height:1.7;max-width:650px}.focus-action{z-index:1;flex-shrink:0}.stagebar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:1px 0 27px}.stage{padding:14px 12px;background:#10151e;border:1px solid #29303e;border-radius:12px;position:relative}.stage::after{content:'→';position:absolute;right:-10px;top:21px;color:#6e7b8f;font-size:16px;z-index:1}.stage:last-child::after{display:none}.stage label{display:block;font-size:10px;color:#939fb1;text-transform:uppercase;letter-spacing:.9px;margin-bottom:7px}.stage strong{font-size:18px}.stage span{font-size:10px;color:#8994a8;margin-left:7px}.contentgrid{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(295px,.92fr);gap:19px}.panel{background:var(--panel);border:1px solid var(--edge);border-radius:16px;overflow:hidden}.panelhead{padding:20px 20px 14px;display:flex;justify-content:space-between;align-items:center;gap:14px}.panelhead h3{font-size:15px;margin:0;font-weight:660}.panelhead p{font-size:11px;color:#7f8a9d;margin:5px 0 0}.research-cards{padding:3px 14px 15px}.research-item{display:grid;grid-template-columns:39px minmax(0,1fr) auto;align-items:center;gap:12px;border-radius:11px;padding:14px 10px;border:1px solid transparent}.research-item:hover{background:#1a202c;border-color:#303849}.r-ico{width:39px;height:39px;background:#252e3e;border-radius:10px;display:grid;place-items:center;font-size:18px;color:#9bc5ff}.r-title{font-weight:630;font-size:13px;margin:0 0 6px}.r-meta{display:flex;gap:10px;flex-wrap:wrap;color:#8491a4;font-size:10px}.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 8px;font-size:10px;font-weight:650;background:#282e3b;color:#adbacd;white-space:nowrap}.pill.green{background:#20352f;color:#9be3c4}.pill.amber{background:#3d3426;color:#ebcf8e}.pill.blue{background:#253247;color:#a6c6ff}.pill.red{background:#3f2b2d;color:#f6acb5}.rightcol,.leftcol{display:flex;flex-direction:column;gap:17px;min-width:0}.row-sep{height:1px;background:#232b38;margin:0 11px}.notice{margin:0 15px 15px;border-radius:11px;padding:13px 14px;background:#17202c;border:1px solid #304051;color:#c7d4e4;font-size:11px;line-height:1.7}.job{padding:10px 19px 16px}.job-top{display:flex;justify-content:space-between;gap:8px;margin-bottom:8px}.job strong{font-size:12px}.job em{font-size:11px;color:#91dfbd;font-style:normal}.bar{height:6px;border-radius:100px;background:#303949;overflow:hidden}.bar>i{display:block;height:100%;border-radius:100px;background:linear-gradient(90deg,#8cb1d8,#85dbb9)}.job-foot{display:flex;justify-content:space-between;color:#8894a6;font-size:10px;margin-top:7px}.budget{padding:6px 19px 19px}.budget-hero{display:flex;align-items:baseline;gap:7px;margin:5px 0 9px}.budget-hero strong{font-size:28px;color:var(--mint);letter-spacing:-.8px}.budget-hero span{font-size:11px;color:#8c98ab}.budget-rows{display:grid;gap:10px;margin-top:15px}.budget-line{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#aab4c1}.budget-line b{font-size:11px;color:#e4e8ef;font-weight:550}.tiny-circle{display:inline-block;width:6px;height:6px;background:var(--mint);border-radius:50%;margin-right:5px}.data-row{padding:11px 18px;display:flex;gap:11px;align-items:center;justify-content:space-between;border-top:1px solid #222a35}.data-row div strong{display:block;font-size:11px;font-weight:600}.data-row div span{font-size:10px;color:#8d99ac;margin-top:5px;display:block}.ledger{padding:0 18px 17px}.ledger-head,.ledger-row{display:grid;grid-template-columns:1.55fr .9fr 1fr;gap:8px;align-items:center;padding:12px 0;font-size:11px}.ledger-head{color:#79879c;font-size:10px;text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid #2b3442}.ledger-row{border-bottom:1px solid #262e3b}.ledger-row:last-child{border:0}.ledger-row b{font-weight:610}.ledger-row .sub{font-size:10px;color:#78869a;display:block;margin-top:3px}.ledger-row .good{color:#83d8b4}.ledger-row .bad{color:#eea4af}.section-spacer{height:4px}.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:17px;margin-top:18px}.note{padding:14px 18px;border-top:1px solid #222b37;display:flex;gap:12px}.note .dot{width:7px;height:7px;background:#8c9bb4;border-radius:50%;flex-shrink:0;margin-top:6px}.note strong{font-size:11px;font-weight:620;display:block;margin-bottom:4px}.note p{margin:0;color:#8996a9;font-size:10px;line-height:1.6}.footnote{font-size:11px;color:#627085;margin-top:22px;text-align:right}.modal{position:fixed;inset:0;background:#040609c9;z-index:99;display:none;place-items:center;padding:20px}.modal.on{display:grid}.dialog{width:min(530px,100%);background:#171d28;border:1px solid #384252;border-radius:18px;padding:25px;box-shadow:0 28px 100px #0009}.dialog h2{font-size:21px;margin:0 0 8px}.dialog p{color:#a0adbe;line-height:1.7}.dialog label{font-size:11px;color:#a6b3c5;display:block;margin:19px 0 7px}.dialog input,.dialog select{background:#0f1520;color:white;border:1px solid #3c4657;width:100%;border-radius:8px;padding:12px}.modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:22px}.hide{display:none!important}#toast{display:none;position:fixed;bottom:22px;right:28px;padding:13px 18px;background:#253a33;border:1px solid #548a75;color:#d4f9e6;border-radius:11px;z-index:101;box-shadow:0 14px 40px #0006}#toast.show{display:block}
+@media(max-width:1180px){.contentgrid{grid-template-columns:minmax(0,1.3fr) minmax(260px,1fr)}.canvas{padding:26px}.topbar{padding:0 23px}.intro{align-items:start;flex-direction:column}.statusstrip{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:870px){.shell{grid-template-columns:66px 1fr}aside{padding:20px 8px}.brand{padding:4px 7px 28px}.brand strong,.brand small,.nav-item span:not(.sym),.nav-item small,.slabel,.side-bottom{display:none}.nav-item{justify-content:center;padding:11px}.nav-item .sym{font-size:19px}.contentgrid,.bottom-grid{grid-template-columns:1fr}.search{display:none}.stagebar{grid-template-columns:repeat(3,1fr)}.stage:nth-child(3):after{display:none}.topbar{height:62px}.intro-action{flex-wrap:wrap}}
+@media(max-width:580px){.canvas{padding:20px 13px 30px}.intro h1{font-size:28px}.statusstrip{grid-template-columns:1fr 1fr;gap:8px}.kpi{padding:12px}.kpi-value{font-size:23px}.focus{flex-direction:column;align-items:start}.stagebar{grid-template-columns:repeat(2,1fr)}.stage:nth-child(2):after,.stage:nth-child(4):after{display:none}.stage:nth-child(3):after{display:block}.top-actions{gap:7px}.crumbs{font-size:11px}.panelhead{padding:16px 14px 11px}.research-item{grid-template-columns:32px minmax(0,1fr);gap:8px}.research-item .pill{grid-column:2;justify-self:start}.r-ico{width:30px;height:30px}.ledger{padding:0 10px 10px}}
+
+/* Talos Next — brand palette & focused-home refinements.
+   This layer deliberately preserves the agreed original HTML layout. */
+:root{--page:#090e1c;--side:#0a1020;--panel:#11182a;--panel2:#182036;--edge:#27324a;--muted:#9aabc2;--white:#f5f7fe;--gold:#ff9145;--mint:#71ceb0;--blue:#a1baff;--rose:#fa7ca6}
+body{background:var(--page);color:var(--white)}
+aside{background:#0b1122;border-right-color:#202943}
+.topbar{background:#0d1426;border-bottom-color:#26314b}
+.canvas{padding-top:30px}
+.brand{gap:10px;padding-bottom:27px}
+.brand-icon{width:34px;height:45px;flex:0 0 34px;display:grid;place-items:center}
+.brand-icon svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 1px 7px #e7446a13)}
+.brand strong{font-size:18px;letter-spacing:3.2px}
+.brand small{font-size:8px;letter-spacing:1.25px;color:#98a4bc}
+.nav-item{color:#a8b5c8}.nav-item.active{background:#30203f;box-shadow:inset 3px 0 0 #ff9145;color:#fff}
+.nav-item:hover{background:#18233a}.slabel{color:#677c9d}
+.search{background:#101b30;border-color:#2c3d58;color:#9eafc6}
+.preview-status{display:flex;align-items:center;gap:7px;font-size:11px;color:#a8b9ce;white-space:nowrap}
+.preview-dot{width:7px;height:7px;border:1px solid #a1afc2;border-radius:50%}
+.eyebrow,.textlink{color:#ff984e}
+.accent-text{background:linear-gradient(90deg,#ff9945,#fd6090,#bf69f4);color:transparent;background-clip:text;-webkit-background-clip:text}
+.intro{margin-bottom:24px}.intro p{margin-top:9px;font-size:12px;max-width:570px}
+.btn-primary{color:#111422;background:linear-gradient(105deg,#ffa04b,#f57188 67%,#d65aca);font-weight:720}
+.btn-primary:hover{background:linear-gradient(105deg,#ffb267,#ff89a4 70%,#e688ed)}
+.btn-secondary{background:#18223a;border:1px solid #314363;color:#f0f3fc}
+.btn-secondary:hover{background:#202d49}
+.statusstrip{gap:10px;margin-bottom:18px}.kpi{background:#11192b;border-color:#273650;padding:13px 15px 12px}.kpi-value{font-size:26px;margin-top:6px}.kpi-note{display:none}
+.focus{margin-bottom:23px;padding:18px 22px;border-color:#55415a;background:linear-gradient(110deg,#271f35 0%,#171a2c 48%,#111a2c 100%);border-left:3px solid #f9884e}
+.focus:after{display:none}.focus h3{font-size:19px;margin-bottom:5px}.focus p{font-size:11px;max-width:580px}
+.stagebar{margin-bottom:20px}.stage{background:#10182a;border-color:#26334c;padding:12px 13px}.stage strong{font-size:16px}.stage label{font-size:9px}
+.panel{background:var(--panel);border-color:var(--edge)}.panelhead{padding:16px 18px 12px}.panelhead p{font-size:10px}.research-item{padding:12px 10px}
+.r-ico{background:#212e49;color:#b5bbfb}.bar{background:#25314b}.bar>i{background:linear-gradient(90deg,#fd8b53,#d467da)}
+.pill.green{background:#15352f;color:#90dec2}.pill.amber{background:#3b2a25;color:#ffba87}.pill.blue{background:#242b4e;color:#bcbefb}
+.side-meter{background:#121b30;border-color:#293951;padding:12px}.side-meter strong{font-size:11px;margin-bottom:9px}.side-meter .resource-row{display:flex;justify-content:space-between;margin:6px 0;font-size:10px;color:#a7b6cb}.side-meter .resource-row b{font-weight:500;color:#d1d9ea}.side-meter small{font-size:9px;color:#697e9e;line-height:1.5;display:block;margin-top:10px}
+.secondary-detail{display:none!important}.show-more .secondary-detail{display:block!important}.show-more .bottom-grid.secondary-detail{display:grid!important}
+.expand-row{display:flex;align-items:center;gap:15px;padding:15px 0 0}.expand-row .btn{padding:9px 14px;font-size:11px}.expand-row span{color:#7389a6;font-size:10px}
+.footnote{margin-top:16px;color:#697f9f}
+.dialog{background:#141e32;border-color:#34435f}
+#toast{background:#263142;border-color:#4a557a;color:#f5f7ff}
+/* SVG-only logo splash: vector scales without pixelating and docks next to TALOS. */
+.intro-overlay{position:fixed;z-index:250;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:13px;pointer-events:all;background:#090e1c;transition:opacity .4s ease}
+.intro-overlay.out{opacity:0;pointer-events:none}
+.intro-vector{width:154px;height:220px;display:grid;place-items:center;transform:scale(.75);opacity:0;transition:transform .85s cubic-bezier(.22,1,.36,1),opacity .4s ease;will-change:transform}
+.intro-vector svg{width:100%;height:100%;filter:drop-shadow(0 10px 33px #fa4e8540)}
+.intro-overlay.grow .intro-vector{opacity:1;transform:scale(1.18)}
+.intro-overlay.dock .intro-vector{opacity:1;transform:translate(var(--dock-x),var(--dock-y)) scale(var(--dock-scale))}
+@media(max-width:870px){.brand-icon{width:34px;height:42px;flex-basis:34px}.expand-row span{display:none}}
+@media(max-width:580px){.canvas{padding-top:21px}.intro{gap:13px}.intro-action{margin-top:5px}.focus{padding:18px}.statusstrip{gap:8px}.stagebar{gap:7px}.preview-status{font-size:10px}.stage{padding:12px 8px}}
+@media(prefers-reduced-motion: reduce){.intro-overlay{display:none!important}*,*::before,*::after{animation:none!important;transition:none!important}}
+
+
+.resource-connect{margin-top:9px;border:1px solid #364967;background:#17233b;color:#faab8d;border-radius:7px;padding:6px 8px;width:100%;font-size:10px;text-align:left}
+.resource-connect:hover{background:#263454}
+.preview-dot.connected{background:#69d1ae;border-color:#69d1ae}
+.connection-help{font-size:11px!important;line-height:1.5!important}
+
+@media(max-width:580px){#toast{max-width:calc(100vw - 90px);right:12px;bottom:12px}}
+/* Talos Research Lab: deliberately separate from the approved homepage. */
+.lab-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,1fr);gap:18px;margin-top:23px}
+.lab-body{padding:17px 20px 20px}.lab-field{margin:0 0 14px}.lab-field label{display:block;color:var(--muted);font-size:11px;font-weight:650;margin-bottom:7px}.lab-field input,.lab-field select{width:100%;padding:11px 12px;border:1px solid var(--edge);border-radius:9px;color:var(--white);background:var(--side)}.lab-field input[type=file]{padding:9px 10px}.lab-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.lab-warning{color:#bfcad9;line-height:1.7;font-size:11px;border:1px solid #324052;border-radius:12px;background:#171e29;padding:13px;margin:0 0 18px}.lab-error{color:#ffd5d8;background:#492c35;border:1px solid #80414f;border-radius:10px;padding:10px 12px;margin-top:12px;white-space:pre-line}.lab-result{padding:15px 20px;min-height:140px;line-height:1.9;color:var(--muted)}.lab-metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.lab-metric{border:1px solid var(--edge);border-radius:12px;padding:12px;background:var(--side)}.lab-metric span{display:block;color:var(--muted);font-size:11px}.lab-metric b{display:block;color:var(--white);font-size:20px;margin-top:5px}.lab-export{display:flex;gap:9px;margin-top:13px;flex-wrap:wrap}.lab-export .btn{font-size:11px;padding:10px 12px}.lab-caption{color:var(--muted);font-size:11px;line-height:1.7;margin-top:16px}
+@media(max-width:1050px){.lab-grid{grid-template-columns:1fr}}@media(max-width:550px){.lab-two{grid-template-columns:1fr}}
+</style>
+<style>
+/* Extension only; original homepage stylesheet, logo geometry, intro and palette retained */
+.extension-view .panel{margin-top:18px}.extension-view .eyebrow{margin-bottom:10px}.extension-view .intro{margin-bottom:20px}
+.ext-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}.ext-pad{padding:18px 20px}.ext-desc{color:var(--muted);font-size:12px;line-height:1.8}.ext-table{border-collapse:collapse;width:100%;font-size:12px}.ext-table td,.ext-table th{padding:11px;text-align:left;border-bottom:1px solid var(--edge)}.ext-table th{color:var(--muted);font-weight:550}.ext-input{display:block;width:100%;padding:11px 12px;border:1px solid var(--edge);border-radius:9px;background:var(--side);color:var(--white);margin:6px 0 12px}.ext-card{padding:14px;border:1px solid var(--edge);border-radius:12px;background:var(--panel2);margin-bottom:10px}.ext-card b{color:var(--white)}.ext-status{white-space:pre-wrap;overflow-wrap:anywhere;background:#10192b;border:1px solid #2c3951;border-radius:10px;padding:14px;color:var(--muted);min-height:66px;font-size:11px;line-height:1.65}.ext-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:10px}.ext-small{font-size:11px;color:var(--muted);line-height:1.7}.ext-badges{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px}
+@media(max-width:960px){.ext-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="intro-overlay" id="intro-overlay" aria-hidden="true"><div class="intro-vector" id="intro-vector"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246 363" role="img" aria-label="Talos pixel-art helmet">
+ <defs><linearGradient id="ember-splash" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffb13b"/><stop offset=".48" stop-color="#ff752c"/><stop offset="1" stop-color="#fa435b"/></linearGradient><linearGradient id="violet-splash" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#ff438f"/><stop offset=".55" stop-color="#d42ae1"/><stop offset="1" stop-color="#842dff"/></linearGradient></defs>
+ <path d="M77,69L75,80L59,80L57,91L43,93L42,102L35,103L29,107L29,118L18,119L18,143L7,144L7,213L16,213L18,215L18,261L16,263L7,263L7,292L17,292L18,302L28,303L29,311L35,311L41,308L42,324L47,325L56,322L58,324L58,335L66,335L88,354L89,237L75,231L67,225L60,225L58,220L42,215L41,206L30,204L28,202L29,170L40,170L46,173L75,178L77,181L89,181L93,184L111,188L113,191L124,192L124,139L100,138L100,103L91,102L90,70Z M140,7L106,7L104,19L91,20L91,34L94,41L97,60L102,70L101,85L102,87L109,87L111,127L123,127L125,33L133,33L132,34L134,28L133,21L141,16Z" fill="url(#ember-splash)" fill-rule="evenodd"/>
+ <path d="M188,198L187,190L172,192L157,198L121,206L69,192L57,191L58,199L117,214L130,214Z M218,171L206,171L188,177L192,178L210,174L213,175L212,203L204,206L203,204L200,204L199,215L182,222L180,225L174,227L172,226L174,227L167,231L168,233L165,235L162,235L162,233L156,236L156,355L170,343L170,239L176,236L186,236L188,225L199,225L202,222L203,215L218,205Z M138,117L136,118L135,126L137,126Z M133,51L133,62L125,71L125,127L131,127Z M155,41L155,46L152,47L153,48L151,50L147,45L149,48L147,49L147,67L142,70L146,70L146,90L144,92L142,91L141,105L145,105L146,70L155,69L156,76L164,76L169,79L170,88L181,88L183,94L195,96L195,108L206,108L208,110L208,123L220,125L220,148L231,149L231,219L220,225L220,267L231,268L231,288L229,292L222,292L219,301L214,304L210,304L211,306L207,311L194,322L194,326L201,326L204,319L210,315L215,315L215,311L220,305L229,303L229,297L238,292L238,263L229,262L229,226L238,221L238,144L229,143L227,120L215,118L215,106L204,106L202,93L189,92L187,90L187,81L172,81L170,79L170,70L160,70L155,68Z" fill="url(#violet-splash)" fill-rule="evenodd"/>
+</svg></div></div>
+<div class="shell">
+<aside>
+ <div class="brand"><div class="brand-icon" aria-label="Talos vector helmet"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246 363" role="img" aria-label="Talos pixel-art helmet">
+ <defs><linearGradient id="ember-brand" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffb13b"/><stop offset=".48" stop-color="#ff752c"/><stop offset="1" stop-color="#fa435b"/></linearGradient><linearGradient id="violet-brand" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#ff438f"/><stop offset=".55" stop-color="#d42ae1"/><stop offset="1" stop-color="#842dff"/></linearGradient></defs>
+ <path d="M77,69L75,80L59,80L57,91L43,93L42,102L35,103L29,107L29,118L18,119L18,143L7,144L7,213L16,213L18,215L18,261L16,263L7,263L7,292L17,292L18,302L28,303L29,311L35,311L41,308L42,324L47,325L56,322L58,324L58,335L66,335L88,354L89,237L75,231L67,225L60,225L58,220L42,215L41,206L30,204L28,202L29,170L40,170L46,173L75,178L77,181L89,181L93,184L111,188L113,191L124,192L124,139L100,138L100,103L91,102L90,70Z M140,7L106,7L104,19L91,20L91,34L94,41L97,60L102,70L101,85L102,87L109,87L111,127L123,127L125,33L133,33L132,34L134,28L133,21L141,16Z" fill="url(#ember-brand)" fill-rule="evenodd"/>
+ <path d="M188,198L187,190L172,192L157,198L121,206L69,192L57,191L58,199L117,214L130,214Z M218,171L206,171L188,177L192,178L210,174L213,175L212,203L204,206L203,204L200,204L199,215L182,222L180,225L174,227L172,226L174,227L167,231L168,233L165,235L162,235L162,233L156,236L156,355L170,343L170,239L176,236L186,236L188,225L199,225L202,222L203,215L218,205Z M138,117L136,118L135,126L137,126Z M133,51L133,62L125,71L125,127L131,127Z M155,41L155,46L152,47L153,48L151,50L147,45L149,48L147,49L147,67L142,70L146,70L146,90L144,92L142,91L141,105L145,105L146,70L155,69L156,76L164,76L169,79L170,88L181,88L183,94L195,96L195,108L206,108L208,110L208,123L220,125L220,148L231,149L231,219L220,225L220,267L231,268L231,288L229,292L222,292L219,301L214,304L210,304L211,306L207,311L194,322L194,326L201,326L204,319L210,315L215,315L215,311L220,305L229,303L229,297L238,292L238,263L229,262L229,226L238,221L238,144L229,143L227,120L215,118L215,106L204,106L202,93L189,92L187,90L187,81L172,81L170,79L170,70L160,70L155,68Z" fill="url(#violet-brand)" fill-rule="evenodd"/>
+</svg></div><div><strong>TALOS</strong><small>RESEARCH OPERATING SYSTEM</small></div></div>
+ <div class="slabel">Workspaces</div>
+ <nav id="navigation">
+  <button class="nav-item active" data-name="Command Center"><span class="sym">◫</span><span>Command Center</span></button>
+  <button class="nav-item" data-name="Data Library"><span class="sym">▥</span><span>Data Library</span></button>
+  <button class="nav-item" data-name="Strategy Studio"><span class="sym">⌘</span><span>Strategies</span><small>04</small></button>
+  <button class="nav-item" data-name="Replay & Verification"><span class="sym">↺</span><span>Replay & Verification</span></button>
+  <button class="nav-item" data-name="Research Lab"><span class="sym">◇</span><span>Research Lab</span><small>08</small></button>
+  <button class="nav-item" data-name="Portfolios"><span class="sym">▣</span><span>Portfolios</span></button>
+  <button class="nav-item" data-name="Deployments"><span class="sym">↗</span><span>Deployments</span></button>
+ </nav>
+ <div class="slabel" style="margin-top:27px">Platform</div>
+ <button class="nav-item" data-name="Jobs & Operations"><span class="sym">≡</span><span>Jobs & Operations</span><small>2</small></button>
+ <button class="nav-item" data-name="Sentiment Inputs"><span class="sym">⌁</span><span>News & Sentiment</span></button>
+ <div class="side-bottom">
+  <div class="side-meter"><strong>System resources</strong><span class="resource-row">CPU / RAM <b>—</b></span><span class="resource-row">Database <b>—</b></span><span class="resource-row">Worker <b>—</b></span><button class="resource-connect" type="button" onclick="openConnection()">Connect backend →</button></div>
+  <div class="side-foot"><span>DEMO WORKSPACE</span><span>research</span></div>
+ </div>
+</aside>
+<main class="main">
+ <header class="topbar"><div class="crumbs">TALOS <span style="padding:0 9px;color:#475061">/</span><b id="location">Command Center</b></div><div class="top-actions"><button class="search" onclick="openModal('search')">⌕ &nbsp; Search strategies, datasets, runs <span class="key">⌘ K</span></button><span class="preview-status"><span class="preview-dot"></span>Preview mode</span><div class="avatar">R</div></div></header>
+ <div class="canvas" id="home-view">
+  <div class="intro"><div><div class="eyebrow">YOUR RESEARCH. UNDER CONTROL.</div><h1>Turn ideas into <span class="accent-text">evidence.</span></h1><p>Strategies, experiments, and capital decisions — in one focused workspace.</p></div><div class="intro-action"><button class="btn btn-secondary" onclick="openModal('experiment')">+ New experiment</button><button class="btn btn-primary" onclick="openModal('strategy')">+ Import strategy &nbsp; ↗</button></div></div>
+  <div class="statusstrip">
+   <div class="kpi"><div class="kpi-label">Strategies in library <em>↗</em></div><div class="kpi-value" id="count-strategies">12</div><div class="kpi-note">Across <b>4 research domains</b></div></div>
+   <div class="kpi"><div class="kpi-label">Experiments recorded <em>⌕</em></div><div class="kpi-value">48</div><div class="kpi-note">Including <b>failed hypotheses</b></div></div>
+   <div class="kpi"><div class="kpi-label">Awaiting your decision <em>◷</em></div><div class="kpi-value">03</div><div class="kpi-note">Evidence reviews, not signals</div></div>
+   <div class="kpi"><div class="kpi-label">Live capital at risk <em>⏻</em></div><div class="kpi-value">$0</div><div class="kpi-note">Live trading <span style="color:#e7b5a9">disabled</span></div></div>
+  </div>
+  <section class="focus"><div><div class="eyebrow">YOUR NEXT DECISION</div><h3>One candidate is ready for evidence review.</h3><p>Review out-of-sample evidence, costs, and risks before promotion.</p></div><button class="btn btn-primary focus-action" onclick="openModal('evidence')">Review evidence &nbsp; →</button></section>
+  <div class="section-head"><h2>Research pipeline</h2><span>Every promotion requires evidence.</span></div>
+  <div class="stagebar"><div class="stage"><label>01 · Ideas</label><strong>04</strong><span>specified</span></div><div class="stage"><label>02 · Reproduce</label><strong>03</strong><span>in progress</span></div><div class="stage"><label>03 · Validate</label><strong>02</strong><span>testing</span></div><div class="stage"><label>04 · Paper</label><strong>01</strong><span>observing</span></div><div class="stage"><label>05 · Live</label><strong>00</strong><span>locked</span></div></div>
+  <div class="contentgrid">
+   <div class="leftcol">
+    <section class="panel"><div class="panelhead"><div><h3>Research desk</h3><p>Your strategies and current decisions.</p></div><button class="textlink" onclick="navigateTo('Strategy Studio')">Open library ↗</button></div><div class="research-cards" id="research-list">
+      <div class="research-item"><div class="r-ico">⌁</div><div><div class="r-title">Multi-asset trend strategy <span style="color:#77869a;font-weight:400">· v1.3</span></div><div class="r-meta"><span>Cross-market</span><span>·</span><span>Backtest complete</span><span>·</span><span>OOS pending review</span></div></div><span class="pill amber">Needs decision</span></div>
+      <div class="row-sep"></div><div class="research-item"><div class="r-ico">◈</div><div><div class="r-title">External signal provider study <span style="color:#77869a;font-weight:400">· v0.8</span></div><div class="r-meta"><span>Telegram source</span><span>·</span><span>Historical reconstruction</span><span>·</span><span>Leakage flagged</span></div></div><span class="pill blue">Reproducing</span></div>
+      <div class="row-sep"></div><div class="research-item"><div class="r-ico">◉</div><div><div class="r-title">Risk-balanced allocation <span style="color:#77869a;font-weight:400">· v0.4</span></div><div class="r-meta"><span>Portfolio model</span><span>·</span><span>Walk-forward check</span><span>·</span><span>Costs included</span></div></div><span class="pill green">Paper review</span></div>
+    </div></section>
+    <section class="panel secondary-detail"><div class="panelhead"><div><h3>Evidence notebook</h3><p>No leaderboard-only conclusions. Keep the reasons behind every outcome.</p></div><button class="textlink" onclick="openModal('notebook')">All findings ↗</button></div><div class="ledger"><div class="ledger-head"><div>Research finding</div><div>Outcome</div><div>Evidence quality</div></div><div class="ledger-row"><div><b>Trend with cost-aware execution</b><span class="sub">Original vs enhanced · demo</span></div><div><span class="pill green">Candidate</span></div><div><b>Needs review</b></div></div><div class="ledger-row"><div><b>Short-horizon order flow</b><span class="sub">Market microstructure · demo</span></div><div><span class="pill red">Rejected</span></div><div>Fees erased edge</div></div><div class="ledger-row"><div><b>News reaction model</b><span class="sub">Event-driven · demo</span></div><div><span class="pill amber">Inconclusive</span></div><div>Timestamp gaps</div></div></div></section>
+   </div>
+   <div class="rightcol">
+    <section class="panel"><div class="panelhead"><div><h3>Operations</h3><p>Research jobs run outside the web server.</p></div><span class="pill blue">2 active</span></div><div class="job"><div class="job-top"><strong>Historical data validation</strong><em>64%</em></div><div class="bar"><i style="width:64%"></i></div><div class="job-foot"><span>Cross-asset dataset · checking gaps</span><span>ETA 08m</span></div></div><div class="row-sep"></div><div class="job"><div class="job-top"><strong>Walk-forward evaluation</strong><em>31%</em></div><div class="bar"><i style="width:31%"></i></div><div class="job-foot"><span>Model version 1.3 · fold 4/12</span><span>ETA 19m</span></div></div></section>
+    <section class="panel secondary-detail"><div class="panelhead"><div><h3>Compute & data budget</h3><p>Built for a retail research budget.</p></div><span class="pill green">Free-only</span></div><div class="budget"><div class="budget-hero"><strong>$0</strong><span>new paid services enabled</span></div><div class="budget-rows"><div class="budget-line"><span>API cost policy</span><b>Free sources only</b></div><div class="budget-line"><span>Execution mode</span><b>Local / capped worker</b></div><div class="budget-line"><span>Workload control</span><b>CPU / RAM / timeout</b></div></div></div></section>
+    <section class="panel secondary-detail"><div class="panelhead"><div><h3>Data readiness</h3><p>Availability before backtesting.</p></div><button class="textlink" onclick="navigateTo('Data Library')">Inspect ↗</button></div><div class="data-row"><div><strong>Crypto OHLCV</strong><span>Historical feed and local cache</span></div><span class="pill green">Available</span></div><div class="data-row"><div><strong>Economic indicators</strong><span>Point-in-time checks required</span></div><span class="pill amber">Partial</span></div><div class="data-row"><div><strong>Options order book</strong><span>No validated free dataset</span></div><span class="pill">Not connected</span></div></section>
+   </div>
+  </div>
+  <div class="expand-row"><button type="button" id="details-toggle" class="btn btn-secondary" aria-expanded="false" onclick="toggleDetails()">Show more research details <span aria-hidden="true">⌄</span></button><span>Evidence history · Data sources · Budget · Decisions</span></div>
+  <div class="bottom-grid secondary-detail">
+    <section class="panel"><div class="panelhead"><div><h3>Recent decisions</h3><p>Every decision has an audit trail.</p></div></div><div class="note"><i class="dot" style="background:#83d0b1"></i><div><strong>Candidate approved for paper review</strong><p>Evidence package archived. No live risk exposure created.</p></div></div><div class="note"><i class="dot" style="background:#edc78b"></i><div><strong>News dataset flagged for timestamp quality</strong><p>Historical experiment paused instead of using misleading data.</p></div></div></section>
+    <section class="panel"><div class="panelhead"><div><h3>Portfolio control</h3><p>Capital and risk live outside the algorithms.</p></div><button class="textlink" onclick="navigateTo('Portfolios')">Open ↗</button></div><div class="budget"><div class="budget-line"><span>Paper portfolios</span><b>1 demo portfolio</b></div><div class="budget-line" style="margin-top:13px"><span>Live brokerage connections</span><b>Disabled</b></div><div class="budget-line" style="margin-top:13px"><span>Global risk gateway</span><b>Required</b></div><div class="budget-line" style="margin-top:13px"><span>Research → Live promotion</span><b>Manual approval</b></div></div></section>
+  </div>
+  <div class="footnote">TALOS / VISUAL PREVIEW — ALL NUMBERS AND RESEARCH ITEMS ARE ILLUSTRATIVE, NOT LIVE DATA.</div>
+ </div>
+
+ <section id="backtest-view" class="canvas hide" aria-label="Reference Backtesting Lab">
+  <div class="eyebrow">RESEARCH LAB / VERIFIED REFERENCE</div>
+  <div class="intro"><div><h1>Run a <span class="accent-text">reproducible backtest.</span></h1><p>Load your own historical OHLCV CSV, run the bounded reference engine, review trade outcomes and export the complete evidence. A production multi-asset engine is not integrated yet.</p></div><div class="intro-action"><button class="btn btn-secondary" onclick="navigateTo('Command Center')">← Command Center</button></div></div>
+  <div class="lab-grid">
+   <section class="panel"><div class="panelhead"><div><h3>Reference backtest setup</h3><p>Next-bar-open execution · Single instrument · Long only</p></div><span class="pill amber">Validation engine</span></div>
+    <div class="lab-body"><p class="lab-warning">The reference engine does not simulate limit orders, futures, partial fills, intrabar stops or live brokerage. It uses your supplied historical candles only. Results are saved and exportable with data SHA-256.</p>
+      <div class="lab-field"><label for="lab-csv">Historical candle CSV · max 2,000 rows</label><input id="lab-csv" type="file" accept=".csv,text/csv"/><div class="lab-caption">Required columns: time, open, high, low, close. Optional: volume. Timestamps must contain UTC offset (e.g. 2026-01-01T00:00:00Z). Use your own trusted historical data.</div></div>
+      <div class="lab-two"><div class="lab-field"><label for="lab-symbol">Instrument</label><input id="lab-symbol" value="BTC/USDT" maxlength="60"/></div><div class="lab-field"><label for="lab-kind">Rule</label><select id="lab-kind"><option value="sma_cross">SMA crossover</option><option value="ema_cross">EMA crossover</option></select></div></div>
+      <div class="lab-two"><div class="lab-field"><label for="lab-fast">Fast period</label><input id="lab-fast" type="number" value="5" min="2" max="500" /></div><div class="lab-field"><label for="lab-slow">Slow period</label><input id="lab-slow" type="number" value="20" min="3" max="1000" /></div></div>
+      <div class="lab-two"><div class="lab-field"><label for="lab-cash">Initial cash</label><input id="lab-cash" type="number" value="10000" min="1" /></div><div class="lab-field"><label for="lab-fees">Fees (basis points per side)</label><input id="lab-fees" type="number" value="10" min="0" max="1000" /></div></div>
+      <div class="lab-field"><label for="lab-slippage">Slippage (basis points per side)</label><input id="lab-slippage" type="number" value="5" min="0" max="1000" /></div>
+      <button id="lab-run" type="button" class="btn btn-primary" onclick="runReferenceBacktest()">Run backtest</button><div id="lab-error" class="lab-error hide" role="alert"></div>
+    </div>
+   </section>
+   <section class="panel"><div class="panelhead"><div><h3>Backtest evidence</h3><p>Metrics and exports from the authenticated API</p></div><span class="pill">Results</span></div><div class="lab-result" id="lab-result">Connect the backend, select a real historical CSV file, and run a reference backtest. Metrics will appear here once stored.</div></section>
+  </div>
+ </section>
+
+<section id="strategies-view" class="canvas extension-view hide" aria-label="Strategies workspace">
+ <div class="eyebrow">STRATEGIES / MODULAR RESEARCH</div><div class="intro"><div><h1>Every signal is <span class="accent-text">a strategy input.</span></h1><p>Telegram is one strategy branch alongside technical and event-driven systems. Replay verification is a separate research workflow. No live orders from this page.</p></div></div>
+ <div class="ext-grid"><section class="panel"><div class="panelhead"><div><h3>Strategy catalog</h3><p>Native fixture execution is restricted to its validated case</p></div><span class="pill blue">Controlled execution</span></div><div class="ext-pad">
+ <div class="ext-card"><b>Telegram / External Signals</b><p class="ext-desc">Timestamped event-driven strategy; archived signal revisions are not retroactively tradable. Requires imported archive ID and market dataset.</p><button class="btn btn-secondary" onclick="prepareTalosStrategy('telegram_signal')">Configure Telegram strategy</button></div>
+ <div class="ext-card"><b>Technical & Quantitative</b><p class="ext-desc">SMA, EMA, RSI, buy-and-hold and SHA256-approved local Python strategies through the reference Research Worker.</p><button class="btn btn-secondary" onclick="prepareTalosStrategy('ema_cross')">Configure EMA strategy</button></div>
+ <div class="ext-card"><b>Trend Following × News / Social Sentiment</b><p class="ext-desc">EMA trend baseline compared with versioned point-in-time sentiment confirmation. Results require imported daily OHLCV and precomputed model scores; reference research only.</p><button class="btn btn-secondary" onclick="navigateTo('Sentiment Inputs')">Open Trend + Sentiment Lab</button></div>
+ <div class="ext-card"><b>Native engine parity</b><p class="ext-desc">LEAN and NautilusTrader confirmed for Stage 3 synthetic 10-month SMA fixture. Not interchangeable general runners for all plugins.</p><button class="btn btn-secondary" onclick="navigateTo('Research Lab')">Inspect Research Lab</button></div>
+ </div></section><section class="panel"><div class="panelhead"><div><h3>Research job submission</h3><p>Requires local Research Plane v2.0 + authenticated Worker</p></div><span class="pill amber">Paper research only</span></div><div class="ext-pad">
+ <label for="ext-plugin">Strategy</label><select id="ext-plugin" class="ext-input"><option value="ema_cross">EMA crossover</option><option value="sma_cross">SMA crossover</option><option value="rsi_reversion">RSI reversion</option><option value="buy_hold">Buy & hold</option><option value="telegram_signal">Telegram / external signals</option></select>
+ <label for="ext-symbol">Symbol</label><input class="ext-input" id="ext-symbol" value="AAPL" maxlength="31"/>
+ <label for="ext-source">Data source</label><select id="ext-source" class="ext-input"><option value="dataset">Verified uploaded dataset</option><option value="sample">Synthetic sample (integration only)</option><option value="yahoo">Yahoo (availability not guaranteed)</option></select>
+ <label for="ext-dataset">Dataset ID (SHA-256 for uploaded dataset)</label><input class="ext-input" id="ext-dataset" placeholder="64 hex characters"/>
+ <label for="ext-archive">Telegram archive ID (Telegram strategy only)</label><input class="ext-input" id="ext-archive" placeholder="Immutable import ID"/>
+ <div class="lab-two"><div><label for="ext-start">Start</label><input class="ext-input" id="ext-start" type="date" value="2020-01-01"/></div><div><label for="ext-end">End</label><input class="ext-input" id="ext-end" type="date" value="2023-12-31"/></div></div>
+ <label for="ext-robustness"><input id="ext-robustness" type="checkbox"/> Run bounded parameter stability + Monte Carlo for every set + IS/OOS + walk-forward</label>
+ <label for="ext-robust-sims">Monte Carlo simulations per parameter set (5–200)</label><input class="ext-input" type="number" id="ext-robust-sims" value="25" min="5" max="200"/>
+ <div class="ext-actions"><button class="btn btn-primary" onclick="submitTalosResearch()">Queue research job</button><button class="btn btn-secondary" onclick="refreshTalosJobs()">Refresh jobs</button></div>
+ <p class="ext-small">Timing: next-bar-open; 10 bps fees, 2 bps slippage. Optional robustness is CPU-bounded and uses historical synthetic bootstrap, not native trading. No live brokerage. Job runs only if a Worker is connected.</p><div class="ext-status" id="ext-job-status" role="status">Not connected. Configure the Research Plane API and Admin token below.</div></div></section></div>
+</section>
+<section id="replay-view" class="canvas extension-view hide" aria-label="Replay and historical verification">
+ <div class="eyebrow">REPLAY / POINT-IN-TIME VERIFICATION</div><div class="intro"><div><h1>Verify the past. <span class="accent-text">Without hindsight.</span></h1><p>Historical posts by channels or individuals. Source-independent validation; Telegram, X, RSS and website archives are inputs, not separate trading engines.</p></div></div>
+ <div class="ext-grid"><section class="panel"><div class="panelhead"><div><h3>Historical recommendation audit</h3><p>Original observation time and later edits are preserved</p></div><span class="pill blue">No look-ahead</span></div><div class="ext-pad">
+ <label for="replay-source">Archive source</label><select id="replay-source" class="ext-input"><option value="telegram">Telegram</option><option value="x">X / Social</option><option value="rss">RSS news</option><option value="website">Website</option><option value="other">Other imported archive</option></select>
+ <label for="replay-label">Channel or person</label><input id="replay-label" class="ext-input" placeholder="Publisher / channel" maxlength="180"/>
+ <label for="replay-symbol">Symbol</label><input id="replay-symbol" class="ext-input" value="AAPL" maxlength="31"/>
+ <label for="replay-dataset">Dataset ID (SHA-256)</label><input id="replay-dataset" class="ext-input" placeholder="Uploaded OHLCV dataset"/>
+ <label for="replay-file">Timestamped post history JSON · list of events</label><input id="replay-file" class="ext-input" type="file" accept=".json,application/json"/>
+ <div class="lab-two"><div><label for="replay-horizon">Horizon (sessions)</label><input id="replay-horizon" class="ext-input" type="number" min="1" max="120" value="5"/></div><div><label for="replay-cost">Fees (bps/side)</label><input id="replay-cost" class="ext-input" type="number" min="0" max="500" value="10"/></div></div>
+ <label for="replay-native-engine">Native engine research handoff</label><select id="replay-native-engine" class="ext-input"><option value="lean">LEAN — prepare auditable signal ledger</option><option value="nautilus">NautilusTrader — prepare auditable signal ledger</option></select>
+ <div class="ext-actions"><button class="btn btn-primary" onclick="runTalosReplay()">Verify historical recommendations</button><button class="btn btn-secondary" onclick="downloadTalosReplay()">Export evidence JSON</button><button class="btn btn-secondary" onclick="prepareTalosNativeReplay()">Prepare native-engine inputs (no execution)</button></div><p class="ext-small">Input fields: post_id, author, first_observed_at with timezone, event_type (new/edit/delete), text. Claimed publication timestamps do not override first observation. Score uses the next available session, not the original post price. Authenticity is not independently proven.</p>
+ </div></section><section class="panel"><div class="panelhead"><div><h3>Verification evidence</h3><p>Wins, losses, exclusions, edits and provenance limits</p></div><span class="pill amber">Not a brokerage backtest</span></div><div class="ext-pad"><div class="ext-status" id="native-plan-output" role="status">Native engine handoff not prepared. General recommendation adapters are NOT yet validated on LEAN/Nautilus.</div><div style="height:12px"></div><div class="ext-status" id="replay-output" role="status">Upload timestamped posts and provide a market dataset. Results appear here after API verification.</div><p class="ext-small">No manual archive replay notifications are sent. Future sentiment/NLP scoring is a separate versioned data-input layer with point-in-time model provenance.</p></div></section></div>
+
+ <section class="panel" style="margin-top:18px" aria-label="Phanes optional data extension">
+  <div class="panelhead"><div><h3>Phanes · Optional Excel Connector</h3><p>Import official leaderboard exports into Replay — no bot-to-bot scraping</p></div><span class="pill blue">Manual export</span></div>
+  <div class="ext-pad">
+   <p class="ext-desc">In a group using the official Phanes bot, request <code>/elb 7d</code> as a human. Phanes sends the Calls / Summary / Top Callers workbook to your private chat. Save it, then select that Excel file below. This connector never queries Phanes or sends automated bot commands.</p>
+   <p class="ext-small">Check <a href="https://phanes.bot/links" target="_blank" rel="noopener noreferrer">Phanes official bot links</a>. Use only exports you have permission to process.</p>
+   <label for="phanes-workbook">Phanes leaderboard export (.xlsx, max 1.5MB)</label><input id="phanes-workbook" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="ext-input"/>
+   <div class="ext-actions"><button class="btn btn-primary" onclick="importPhanesLeaderboard()">Import workbook into Talos</button></div>
+   <div class="ext-status" id="phanes-output" role="status" style="margin-top:12px">Import requires a connected Research Plane Admin token. Exported ATH/current multiples are informational, not realized trade returns. No Telegram or market account is connected by uploading a workbook.</div>
+  </div>
+ </section>
+</section>
+<section id="sentiment-view" class="canvas extension-view hide" aria-label="News and social sentiment integrations"><div class="eyebrow">INTEGRATIONS / RESEARCH INPUTS</div><div class="intro"><div><h1>News & social <span class="accent-text">sentiment inputs.</span></h1><p>Optional local AI inference after ingestion, not an automatic trade signal. Source timestamp, first observed, asset mapping, model ID and confidence must be recorded per event.</p></div></div><div class="ext-grid"><section class="panel"><div class="panelhead"><div><h3>Suggested signal pipeline</h3><p>Designed for bounded local inference</p></div></div><div class="ext-pad"><table class="ext-table"><tr><th>Step</th><th>Control</th></tr><tr><td>Ingest</td><td>Approved RSS / licensed provider / Telegram archive; rate limits</td></tr><tr><td>Normalize</td><td>UTC first-observed timestamp, author, revision ID, language</td></tr><tr><td>Deduplicate</td><td>Content and near-duplicate group; preserve edits</td></tr><tr><td>Infer</td><td>Versioned English/Arabic model, neutral class, confidence</td></tr><tr><td>Validate</td><td>Next-session/lagged effect, fees, uncertainty, walk-forward</td></tr><tr><td>Approve</td><td>Research → paper only; live gated separately</td></tr></table><p class="ext-small">This panel describes a proposed connector architecture. No social platform account, feed subscription or NLP model is installed by opening this HTML.</p></div></section><section class="panel"><div class="panelhead"><div><h3>Candidate projects</h3><p>Use with explicit license and domain checks</p></div></div><div class="ext-pad"><div class="ext-card"><b>VADER</b><p class="ext-small">Low CPU English social sentiment baseline · MIT.</p></div><div class="ext-card"><b>FinGPT</b><p class="ext-small">Research-oriented financial LLM workflows · heavier; review component licenses.</p></div><div class="ext-card"><b>FinBERT</b><p class="ext-small">Financial English sentiment. Hugging Face weights are non-commercial; not safe for commercial deployment without permission.</p></div><div class="ext-card"><b>CardiffNLP Twitter-RoBERTa</b><p class="ext-small">Social English sentiment · CC BY 4.0 weights. Test domain shift and attribution.</p></div><div class="ext-card"><b>GDELT + FinNLP + Trafilatura</b><p class="ext-small">Discovery, finance-source adapters, article extraction; follow source terms and robots rules.</p></div><div class="ext-status">Integration status: CANDIDATE ONLY — no model weights bundled, no inference quality claim.</div></div></section></div>
+ <section class="panel" style="margin-top:19px"><div class="panelhead"><div><h3>Trend Following × Sentiment — research comparison</h3><p>EMA baseline versus point-in-time, versioned sentiment. No model download; no live execution.</p></div><span class="pill amber">REFERENCE ONLY</span></div><div class="ext-pad">
+ <label for="sentiment-symbol">Symbol</label><input id="sentiment-symbol" class="ext-input" value="AAPL" maxlength="31"/>
+ <label for="sentiment-dataset">Uploaded dataset SHA-256</label><input id="sentiment-dataset" class="ext-input" placeholder="Existing daily OHLCV dataset ID"/>
+ <label for="sentiment-file">Versioned observation scores (JSON list)</label><input type="file" accept=".json,application/json" id="sentiment-file" class="ext-input"/>
+ <div class="lab-two"><div><label for="sentiment-fast">Fast EMA</label><input id="sentiment-fast" class="ext-input" type="number" value="20" min="2" max="200"/></div><div><label for="sentiment-slow">Slow EMA</label><input id="sentiment-slow" class="ext-input" type="number" value="80" min="3" max="500"/></div></div>
+ <div class="lab-two"><div><label for="sentiment-threshold">Minimum sentiment score</label><input id="sentiment-threshold" class="ext-input" type="number" value="0.15" min="0" max="1" step="0.05"/></div><div><label for="sentiment-articles">Minimum observed articles</label><input id="sentiment-articles" class="ext-input" type="number" value="2" min="1" max="100"/></div></div>
+ <button class="btn btn-primary" onclick="runTalosTrendSentiment()">Compare trend-only vs trend + sentiment</button>
+ <div id="sentiment-run-output" role="status" class="ext-status" style="margin-top:13px">Import OHLCV and versioned sentiment records before running. Sample/backfilled current sentiment must not be used as historical evidence.</div>
+ <p class="ext-small">Each observation requires source, post_id, first_observed_at, symbol, score [-1,1], model, model_version. The next session is eligible only after observation; slow EMA requires history. Scores alone do not validate publication authenticity.</p>
+ </div></section>
+</section>
+
+</main>
+</div>
+<div class="modal" id="modal"><div class="dialog"><div class="eyebrow" id="modal-tag">DEMO INTERACTION</div><h2 id="modal-title">New strategy</h2><p id="modal-description">Create a strategy in this mockup. This does not submit a trade or connect to a backend.</p><div id="modal-form"><label for="strategy-name">Strategy name</label><input id="strategy-name" placeholder="e.g., Momentum v1" maxlength="64"/><label for="strategy-kind">Research family</label><select id="strategy-kind"><option>General / custom</option><option>Momentum / trend</option><option>Mean reversion</option><option>Portfolio allocation</option><option>Event-driven</option><option>External signals</option></select></div><div class="modal-actions"><button class="btn btn-secondary" onclick="closeModal()">Close</button><button class="btn btn-primary" id="modal-submit" onclick="createStrategy()">Add to workspace</button></div></div></div>
+<div class="modal" id="connect-modal" role="dialog" aria-modal="true" aria-label="Connect backend"><div class="dialog">
+  <div class="eyebrow">TALOS CONTROL PLANE</div><h2>Connect Backend</h2>
+  <p>Connect using the Research Admin token. The token stays in this tab's memory and is not stored or placed in the URL.</p>
+  <label for="backend-token">Access token</label><input type="password" autocomplete="off" id="backend-token" placeholder="Bearer token"/>
+  <p class="connection-help" id="connection-help">When running offline, serve this page from the Talos API to allow same-origin requests.</p>
+  <div class="modal-actions"><button class="btn btn-secondary" type="button" onclick="closeConnection()">Cancel</button><button class="btn btn-primary" type="button" onclick="connectBackend()">Connect</button></div>
+  </div></div><div id="toast"></div>
+<script>
+const modal=document.getElementById('modal'),form=document.getElementById('modal-form'),submit=document.getElementById('modal-submit');let modalType='strategy';
+const modalContent={strategy:['Import a strategy','Add an algorithm to the research workspace. This prototype stores it in page memory only.'],experiment:['New experiment','An experiment selects a strategy, data snapshot, costs, risks and a fixed research budget. No backtest is executed in this visual prototype.'],evidence:['Evidence review','An evidence package would include the original hypothesis, reproduced baseline, out-of-sample validation, trading costs, drawdown, failure cases and promotion approval.'],notebook:['Research history','The Evidence Registry preserves accepted, rejected and inconclusive hypotheses. This prevents us from repeatedly chasing misleading historical winners.'],search:['Global command search','The final Talos command palette will search strategies, datasets, experiments, jobs, integrations and historical research decisions.']};
+function openModal(type='strategy'){modalType=type;let d=modalContent[type]||modalContent.strategy;document.getElementById('modal-title').textContent=d[0];document.getElementById('modal-description').textContent=d[1];form.classList.toggle('hide',type!=='strategy');submit.classList.toggle('hide',type!=='strategy');modal.classList.add('on');if(type==='strategy')setTimeout(()=>document.getElementById('strategy-name').focus(),60)}function closeModal(){modal.classList.remove('on')}modal.addEventListener('click',e=>{if(e.target===modal)closeModal()});function toast(txt){const t=document.getElementById('toast');t.textContent=txt;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
+async function createStrategy(){
+ let n=document.getElementById('strategy-name').value.trim();
+ if(!n){document.getElementById('strategy-name').focus();return;}
+ // A strategy draft is local UI state; it is NOT persisted or an executable plugin.
+ let card=document.createElement('div');card.className='research-item';
+ let ico=document.createElement('div');ico.className='r-ico';ico.textContent='⌘';
+ let body=document.createElement('div'),title=document.createElement('div');title.className='r-title';title.textContent=n;
+ let meta=document.createElement('div');meta.className='r-meta';meta.textContent='Draft · local only · not executable';body.append(title,meta);
+ let badge=document.createElement('span');badge.className='pill';badge.textContent='Draft';
+ card.append(ico,body,badge);document.getElementById('research-list').prepend(card);
+ document.getElementById('strategy-name').value='';closeModal();toast('Local draft only; submit runnable research via Strategies.');
+}
+
+function navigateTo(name){document.getElementById('location').textContent=name;document.querySelectorAll('.nav-item').forEach(x=>x.classList.toggle('active',x.dataset.name===name));const views={'Command Center':'home-view','Strategy Studio':'strategies-view','Strategies':'strategies-view','Replay & Verification':'replay-view','Research Lab':'backtest-view','Sentiment Inputs':'sentiment-view'};const target=views[name]||'home-view';for(const id of ['home-view','backtest-view','strategies-view','replay-view','sentiment-view'])document.getElementById(id).classList.toggle('hide',id!==target);if(!views[name])toast(name+' is planned for a separate integration stage.');};document.querySelectorAll('.nav-item').forEach(x=>x.addEventListener('click',()=>navigateTo(x.dataset.name)));document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openModal('search')}});
+
+function toggleDetails(){
+  const expanded=document.body.classList.toggle('show-more');
+  const btn=document.getElementById('details-toggle');
+  btn.setAttribute('aria-expanded',String(expanded));
+  btn.innerHTML=expanded?'Hide additional details <span aria-hidden="true">⌃</span>':'Show more research details <span aria-hidden="true">⌄</span>';
+}
+(function launchIntro(){
+  const splash=document.getElementById('intro-overlay');
+  if(!splash)return;
+  if(new URLSearchParams(location.search).has('nointro') || window.matchMedia('(prefers-reduced-motion: reduce)').matches){splash.remove();return;}
+  const big=document.getElementById('intro-vector');
+  const small=document.querySelector('.brand-icon');
+  requestAnimationFrame(()=>splash.classList.add('grow'));
+  setTimeout(()=>{
+    const before=big.getBoundingClientRect(), after=small.getBoundingClientRect();
+    const cx=before.left+before.width/2,cy=before.top+before.height/2;
+    const dx=after.left+after.width/2-cx,dy=after.top+after.height/2-cy;
+    big.style.setProperty('--dock-x',dx+'px');big.style.setProperty('--dock-y',dy+'px');
+    big.style.setProperty('--dock-scale',String(after.width/before.width));
+    splash.classList.add('dock');
+  },1050);
+  setTimeout(()=>splash.classList.add('out'),1950);
+  setTimeout(()=>splash.remove(),2350);
+})();
+
+
+
+// Experimental reference bridge: simple CSV data, no network data-provider assumptions.
+let lastReferenceRun=null;
+function parseOHLCVCSV(text){
+  const rows=[];
+  for(let raw of text.replace(/\r/g,'').split('\n')){
+    if(!raw.trim())continue;
+    let cells=[],acc='',quote=false;
+    for(let i=0;i<raw.length;i++){const ch=raw[i];if(ch==='"'){if(quote&&raw[i+1]==='"'){acc+='"';i++}else quote=!quote}else if(ch===','&&!quote){cells.push(acc.trim());acc=''}else acc+=ch;}
+    if(quote)throw Error('Unsupported multiline CSV cell');cells.push(acc.trim());rows.push(cells);
+  }
+  if(!rows.length)throw Error('CSV is empty');
+  const columns=rows.shift().map(x=>x.toLowerCase().trim());
+  const take=(row,key)=>{let i=columns.indexOf(key);if(i<0){if(key==='volume')return 0;throw Error('Missing CSV column: '+key)}return row[i]};
+  if(rows.length>2000)throw Error('The reference engine accepts no more than 2,000 rows');
+  if(rows.length<5)throw Error('At least five candles are required');
+  return rows.map((r,i)=>{
+    const time=take(r,'time');if(!/(Z|[+-]\d{2}:\d{2})$/i.test(time))throw Error('Timestamp '+(i+2)+' must include UTC offset');
+    let d=new Date(time);if(isNaN(d.getTime()))throw Error('Invalid timestamp at row '+(i+2));
+    const data={time:d.toISOString()};
+    for(const key of ['open','high','low','close','volume']){const v=Number(take(r,key));if(!Number.isFinite(v))throw Error('Non-finite '+key+' at row '+(i+2));data[key]=v;}
+    return data;
+  });
+}
+function labError(message){let e=document.getElementById('lab-error');e.textContent=message;e.classList.remove('hide')}
+async function runReferenceBacktest(){
+ const err=document.getElementById('lab-error');err.classList.add('hide');
+ if(!window.talosSessionToken){labError('Connect Talos Research API with Admin token first.');return;}
+ const file=document.getElementById('lab-csv').files[0];if(!file){labError('Select historical OHLCV CSV first.');return;}
+ const fast=Number(document.getElementById('lab-fast').value),slow=Number(document.getElementById('lab-slow').value);
+ if(!Number.isInteger(fast)||!Number.isInteger(slow)||fast<2||fast>=slow){labError('Fast and slow periods must be valid integers with fast < slow.');return;}
+ const btn=document.getElementById('lab-run');btn.disabled=true;btn.textContent='Queueing backtest…';
+ try{
+   const candles=parseOHLCVCSV(await file.text());
+   const symbol=document.getElementById('lab-symbol').value.trim().toUpperCase();if(!symbol)throw Error('Instrument cannot be empty');
+   const bars=candles.map(c=>({date:c.time.slice(0,10),open:c.open,high:c.high,low:c.low,close:c.close,volume:c.volume}));
+   const ds=await talosV2('/api/v2/research/datasets','POST',{symbol,bars});
+   const plugin=document.getElementById('lab-kind').value;
+   const req={kind:'research',request:{engine:'reference',
+       data:{source:'dataset',dataset_id:ds.dataset_id,symbol,interval:'1d',start:bars[0].date,end:bars[bars.length-1].date},
+       strategy:{plugin,short:fast,long:slow},
+       risk:{initial_cash:Number(document.getElementById('lab-cash').value),fee_bps:Number(document.getElementById('lab-fees').value),
+       slippage_bps:Number(document.getElementById('lab-slippage').value)},walk_forward:false,monte_carlo:0}};
+   const job=await talosV2('/api/v2/research/jobs','POST',req);lastReferenceRun=job.id;
+   const el=document.getElementById('lab-result');el.replaceChildren();
+   const desc=document.createElement('p');desc.className='lab-caption';desc.textContent='Queued job '+job.id+' · Dataset '+ds.dataset_id+' · Worker must be running. No live orders.';el.append(desc);
+   const refresh=document.createElement('button');refresh.className='btn btn-primary';refresh.textContent='Refresh results';
+   refresh.onclick=()=>refreshReferenceBacktest();el.append(refresh);
+   toast('Dataset imported and backtest queued.');
+ }catch(e){labError(e.message||String(e));}finally{btn.disabled=false;btn.textContent='Run backtest';}
+}
+async function refreshReferenceBacktest(){
+ if(!lastReferenceRun){labError('Submit a backtest first.');return;}
+ try{
+   const job=await talosV2('/api/v2/research/jobs/'+encodeURIComponent(lastReferenceRun));
+   const el=document.getElementById('lab-result');el.replaceChildren();
+   const txt=document.createElement('p');txt.className='lab-caption';txt.textContent='Job '+job.id+' · '+job.status+(job.error?' · '+job.error:'');el.append(txt);
+   if(job.status==='complete'&&job.result){
+     const metric=job.result.backtest?.metric||{};
+     const grid=document.createElement('div');grid.className='lab-metric-grid';
+     for(const [key,val] of Object.entries(metric).slice(0,12)){
+       const c=document.createElement('div');c.className='lab-metric',l=document.createElement('span'),b=document.createElement('b');
+       l.textContent=key;b.textContent=String(val);c.append(l,b);grid.append(c);
+     }
+     el.append(grid);
+     const b=document.createElement('button');b.className='btn btn-secondary';b.textContent='Export evidence JSON';
+     b.onclick=()=>downloadBacktest(job.id,'json');el.append(b);
+   }else{const refresh=document.createElement('button');refresh.className='btn btn-primary';refresh.textContent='Refresh results';refresh.onclick=()=>refreshReferenceBacktest();el.append(refresh);}
+ }catch(e){labError('Fetch results failed: '+e.message)}
+}
+async function downloadBacktest(runId,format='json'){
+ try{
+   const job=await talosV2('/api/v2/research/jobs/'+encodeURIComponent(runId));
+   if(job.status!=='complete'||!job.result)throw Error('Job has not completed');
+   const blob=new Blob([JSON.stringify(job.result,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+   a.href=url;a.download='talos_research_'+runId+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ }catch(e){labError('Export failed: '+e.message)}
+}
+
+// Optional control-plane connection. Offline HTML remains a non-persistent preview.
+window.talosSessionToken=null;
+function openConnection(){document.getElementById('connect-modal').classList.add('on');document.getElementById('backend-token').focus()}
+function closeConnection(){document.getElementById('connect-modal').classList.remove('on')}
+async function connectBackend(){
+  const token=document.getElementById('backend-token').value.trim();
+  if(!token){document.getElementById('connection-help').textContent='Enter the token configured on the backend.';return}
+  try{
+    const r=await fetch('/api/v2/integration/status',{headers:{'Authorization':'Bearer '+token},cache:'no-store'});
+    if(!r.ok){document.getElementById('connection-help').textContent='Connection rejected (HTTP '+r.status+'). Check token and server.';return}
+    const x=await r.json();window.talosSessionToken=token;
+    // Do not leave the secret in the DOM once accepted.
+    document.getElementById('backend-token').value='';
+    const rows=document.querySelectorAll('.side-meter .resource-row b');
+    if(rows.length>=3){
+      rows[0].textContent='Research API';
+      rows[1].textContent='Research DB';
+      rows[2].textContent='running '+(x.running_jobs??0)+' / queued '+(x.queued_jobs??0);
+    }
+    const status=document.querySelector('.preview-status');
+    if(status)status.innerHTML='<span class="preview-dot connected"></span>Backend connected';
+    if(typeof x.strategy_count==='number')document.getElementById('count-strategies').textContent=String(x.strategy_count);
+    closeConnection();toast('Connected to Talos control plane');
+  }catch(error){document.getElementById('connection-help').textContent='Network error. Open the page through Talos Backend (same origin).'}
+}
+document.getElementById('connect-modal').addEventListener('click',e=>{if(e.target.id==='connect-modal')closeConnection()});
+</script>
+<script>
+// Same-origin Research Plane v1.2 bridge. No token stored; requires authenticated /api/v2 proxy.
+let talosReplayEvidence=null;
+async function talosV2(path,method='GET',body=null){
+ if(!window.talosSessionToken)throw Error('Connect the Research Plane Admin token first (not legacy-only token).');
+ const res=await fetch(path,{method,headers:{Authorization:'Bearer '+window.talosSessionToken,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});
+ const raw=await res.text();let data;try{data=JSON.parse(raw)}catch{data={detail:raw.slice(0,300)}}
+ if(!res.ok)throw Error('HTTP '+res.status+': '+JSON.stringify(data.detail||data).slice(0,350));return data;
+}
+function prepareTalosStrategy(s){document.getElementById('ext-plugin').value=s;document.getElementById('ext-job-status').textContent=s==='telegram_signal'?'Telegram Strategy selected: add an immutable archive ID and an OHLCV dataset.':'Selected '+s+'. Review source, dates and cost settings.';}
+async function submitTalosResearch(){const el=document.getElementById('ext-job-status');el.textContent='Validating and submitting...';try{
+ const plugin=document.getElementById('ext-plugin').value,source=document.getElementById('ext-source').value,dataset=document.getElementById('ext-dataset').value.trim(),archive=document.getElementById('ext-archive').value.trim();
+ if(source==='dataset'&&!/^[a-f0-9]{64}$/.test(dataset))throw Error('Dataset ID must be a 64-character SHA-256. Import OHLCV in Research Plane first.');
+ if(plugin==='telegram_signal'&&!archive)throw Error('Telegram strategy requires an immutable archive ID.');
+ const robust=document.getElementById('ext-robustness').checked;const sims=Number(document.getElementById('ext-robust-sims').value);
+ if(robust && !['ema_cross','sma_cross','rsi_reversion'].includes(plugin))throw Error('Robustness requires EMA/SMA/RSI reference strategy.');
+ if(robust && (!Number.isInteger(sims)||sims<5||sims>200))throw Error('Robustness simulations must be 5–200 per parameter set.');
+ const req={kind:'research',request:{engine:'reference',data:{source,dataset_id:source==='dataset'?dataset:null,symbol:document.getElementById('ext-symbol').value.trim().toUpperCase(),interval:'1d',start:document.getElementById('ext-start').value,end:document.getElementById('ext-end').value},strategy:{plugin,short:10,long:40,parameters:plugin==='telegram_signal'?{archive_id:archive}:{}},risk:{initial_cash:10000,max_allocation:0.9,fee_bps:10,slippage_bps:2},walk_forward:plugin!=='telegram_signal',monte_carlo:plugin==='telegram_signal'?0:200,robustness:robust,robustness_simulations:robust?sims:25}};
+ const x=await talosV2('/api/v2/research/jobs','POST',req);el.textContent='Queued: '+x.id+'\nRun the authenticated local Worker. This page does not execute trades.';
+ }catch(e){el.textContent='Not queued: '+e.message}}
+async function refreshTalosJobs(){const el=document.getElementById('ext-job-status');try{
+ let jobs=await talosV2('/api/v2/research/jobs');let summary={jobs:jobs.slice(0,8).map(x=>({id:x.id,status:x.status,kind:x.kind}))};
+ let completed=jobs.find(x=>x.status==='complete'&&x.kind==='research');
+ if(completed){let record=await talosV2('/api/v2/research/jobs/'+completed.id);
+ let report=record.result||{};summary.last_completed={id:completed.id,metrics:report.backtest?.metric,
+   timings_ms:report.performance,robustness:report.robustness?.status==='RESEARCH_ONLY'?{
+   status:report.robustness.status,sets:report.robustness.sets_evaluated,
+   monte_carlo_total:report.robustness.monte_carlo_runs_total,
+   clusters:report.robustness.train_only_stability_clusters,
+   is_selected_index:report.robustness.in_sample_selected_parameter_index,
+   oos_start:report.robustness.oos_start,
+   warning:'Research diagnostics only; no proof of alpha or native execution'}:report.robustness?.status};}
+ el.textContent=JSON.stringify(summary,null,2)
+ }catch(e){el.textContent=e.message}}
+async function runTalosReplay(){const out=document.getElementById('replay-output');out.textContent='Validating inputs...';try{
+ const f=document.getElementById('replay-file').files[0];if(!f)throw Error('Select historical events JSON.');if(f.size>1200000)throw Error('JSON archive exceeds 1.2MB; use paginated imports.');
+ const events=JSON.parse(await f.text());if(!Array.isArray(events)||events.length<1||events.length>500)throw Error('Expected 1–500 events in an array.');
+ const dataset_id=document.getElementById('replay-dataset').value.trim();if(!/^[a-f0-9]{64}$/.test(dataset_id))throw Error('Valid OHLCV dataset SHA-256 ID required.');
+ const req={source_kind:document.getElementById('replay-source').value,source_label:document.getElementById('replay-label').value.trim(),symbol:document.getElementById('replay-symbol').value.trim().toUpperCase(),dataset_id,horizon_sessions:Number(document.getElementById('replay-horizon').value),fee_bps:Number(document.getElementById('replay-cost').value),slippage_bps:2,events};
+ talosReplayEvidence=await talosV2('/api/v2/replay/verify','POST',req);
+ out.textContent=JSON.stringify({summary:talosReplayEvidence.summary,authenticity_verified:talosReplayEvidence.source_authenticated,warnings:talosReplayEvidence.warnings,recommendations:talosReplayEvidence.recommendations,excluded:talosReplayEvidence.excluded,revisions:talosReplayEvidence.revisions},null,2);
+ }catch(e){talosReplayEvidence=null;out.textContent='Verification not completed: '+e.message}}
+function downloadTalosReplay(){if(!talosReplayEvidence){document.getElementById('replay-output').textContent='Run verification first.';return;}const b=new Blob([JSON.stringify(talosReplayEvidence,null,2)],{type:'application/json'});const url=URL.createObjectURL(b);const a=document.createElement('a');a.href=url;a.download='talos_replay_evidence.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+</script>
+<script>
+// Stage 1.5: signal ledger handoff is NOT native execution; do not mislabel it.
+let lastTalosNativePlan=null;
+async function prepareTalosNativeReplay(){
+ const out=document.getElementById('native-plan-output');out.textContent='Preparing immutable native input ledger...';
+ try{
+  const f=document.getElementById('replay-file').files[0];if(!f)throw Error('Upload dated historical JSON first.');
+  if(f.size>1200000)throw Error('Archive exceeds 1.2MB; use paginated imports.');
+  const events=JSON.parse(await f.text());if(!Array.isArray(events)||events.length<1||events.length>500)throw Error('Expected 1 to 500 events.');
+  const dataset_id=document.getElementById('replay-dataset').value.trim();if(!/^[a-f0-9]{64}$/.test(dataset_id))throw Error('Need existing dataset SHA-256.');
+  const req={source_kind:document.getElementById('replay-source').value,source_label:document.getElementById('replay-label').value.trim(),symbol:document.getElementById('replay-symbol').value.trim().toUpperCase(),dataset_id,horizon_sessions:Number(document.getElementById('replay-horizon').value),fee_bps:Number(document.getElementById('replay-cost').value),slippage_bps:2,events,engine:document.getElementById('replay-native-engine').value};
+  lastTalosNativePlan=await talosV2('/api/v2/replay/native-plan','POST',req);
+  out.textContent='STATUS: '+lastTalosNativePlan.execution_status+'\nEngine: '+lastTalosNativePlan.native_engine_requested+'\nSignals: '+lastTalosNativePlan.signal_events.length+'\nSHA-256: '+lastTalosNativePlan.plan_sha256+'\nThis is a prepared native input contract, NOT a verified native engine backtest.';
+  const blob=new Blob([JSON.stringify(lastTalosNativePlan,null,2)],{type:'application/json'});
+  const a=document.createElement('a');const uri=URL.createObjectURL(blob);a.href=uri;a.download='talos_native_replay_PLAN_ONLY.json';a.click();setTimeout(()=>URL.revokeObjectURL(uri),1000);
+ }catch(e){lastTalosNativePlan=null;out.textContent='Could not prepare native input: '+e.message;}
+}
+async function runTalosTrendSentiment(){
+ const out=document.getElementById('sentiment-run-output');out.textContent='Evaluating point-in-time candidate...';
+ try{
+  const file=document.getElementById('sentiment-file').files[0];if(!file)throw Error('Select versioned observations JSON.');
+  if(file.size>900000)throw Error('Observation file exceeds 900KB; paginate.');
+  const observations=JSON.parse(await file.text());if(!Array.isArray(observations)||observations.length<1||observations.length>3000)throw Error('Expected 1–3000 sentiment records.');
+  const dataset_id=document.getElementById('sentiment-dataset').value.trim();if(!/^[a-f0-9]{64}$/.test(dataset_id))throw Error('Existing dataset SHA-256 required.');
+  const req={symbol:document.getElementById('sentiment-symbol').value.trim().toUpperCase(),dataset_id,fast_ema:Number(document.getElementById('sentiment-fast').value),slow_ema:Number(document.getElementById('sentiment-slow').value),minimum_articles:Number(document.getElementById('sentiment-articles').value),sentiment_threshold:Number(document.getElementById('sentiment-threshold').value),observations};
+  const x=await talosV2('/api/v2/research/trend-sentiment/evaluate','POST',req);
+  out.textContent='REFERENCE ONLY; no native or live execution.\nTrend-only ending equity: $'+x.trend_only_baseline.ending_equity.toLocaleString()+'\nTrend + sentiment ending equity: $'+x.sentiment_confirmed.ending_equity.toLocaleString()+'\nTrend-only drawdown: '+x.trend_only_baseline.max_drawdown_pct+'%\nSentiment confirmed drawdown: '+x.sentiment_confirmed.max_drawdown_pct+'%\nBeware in-sample selection, fees, data leakage, news availability and corporate actions.';
+ }catch(e){out.textContent='Reference research failed: '+e.message;}
+}
+</script>
+
+<script>
+// User-approved import; no automation against third-party Phanes.
+async function importPhanesLeaderboard(){
+ const out=document.getElementById('phanes-output');out.textContent='Reading XLSX file...';
+ try{
+  const f=document.getElementById('phanes-workbook').files[0];
+  if(!f)throw Error('Select the Phanes /elb Excel workbook.');
+  if(!f.name.toLowerCase().endsWith('.xlsx')||f.size>1500000||f.size===0)throw Error('Expected a non-empty .xlsx no larger than 1.5MB.');
+  const buf=await f.arrayBuffer(),bytes=new Uint8Array(buf);
+  let bin='';const chunk=16384;
+  for(let i=0;i<bytes.length;i+=chunk)bin+=String.fromCharCode(...bytes.subarray(i,i+chunk));
+  const data=await talosV2('/api/v2/replay/phanes/import','POST',{filename:f.name,xlsx_base64:btoa(bin)});
+  out.textContent='IMPORTED (unverified external source)\nCalls: '+data.call_count+'\nArchive ID: '+data.archive_id+'\nSHA-256: '+data.file_sha256+'\nSheets: '+data.sheet_names.join(', ')+'\n\nThese are Phanes-provided historical leaderboard entries. They are not authenticated original Telegram messages, real brokerage fills, or verified ROI. Compare against source archives and dated market data before assigning Caller Reliability Scores.';
+ }catch(e){out.textContent='Import failed: '+e.message;}
+}
+</script>
+</body></html>

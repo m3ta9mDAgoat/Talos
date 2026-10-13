@@ -1,0 +1,20 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.db
+*.sqlite3
+*.sqlite3-*
+*.log
+.env
+.env.local
+.local_auth.json
+datasets/cache/
+outputs/
+
+# Unified bot secrets and mutable state
+bot_config.json
+.bot_runtime.sqlite3*
+.remote_agent.json
+.remote_connect.json
+*.zip

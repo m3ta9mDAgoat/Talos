@@ -1,0 +1,2302 @@
+{
+  "schema": "talos.cross_engine.parity.v2",
+  "strict_parity_passed": true,
+  "status": "PASS",
+  "assets": [
+    {
+      "symbol": "AAPL",
+      "status": "PASS",
+      "errors": [],
+      "orders_lean": 8,
+      "orders_nautilus": 8,
+      "matched_orders": 8,
+      "months_compared": 114,
+      "max_abs_monthly_equity_difference_usd": "0.0103943",
+      "end_equity_lean_usd": "83670.03",
+      "end_equity_nautilus_usd": "83670.0400",
+      "end_equity_abs_difference_usd": "0.0100",
+      "source_sha256": {
+        "lean_log": "52961d4c53da265255804f2833f0d0c814d08495bf8859cc7d7564ae6cff37b4",
+        "nautilus_fills": "434b0fc0c54edd5ff7aa17767a69e1352cff91d119c496f754e5b21f2785d420",
+        "nautilus_account": "feae84e1bfedcbb498584b077f062b295e9c8b8c7d18384c1a5d69a940c95fca",
+        "monthly_input": "cfdb8ae67f8792ef363a25331f39e69d018dab026c1dc61b3699bb82d6fb1a61"
+      },
+      "fills": [
+        {
+          "number": 1,
+          "lean": {
+            "date": "2013-09-30",
+            "side": "BUY",
+            "quantity": "666",
+            "price": "14.9691"
+          },
+          "nautilus": {
+            "date": "2013-09-30",
+            "side": "BUY",
+            "quantity": "666",
+            "price": "14.9691",
+            "fees": "9.97"
+          },
+          "match": true
+        },
+        {
+          "number": 2,
+          "lean": {
+            "date": "2015-09-30",
+            "side": "SELL",
+            "quantity": "666",
+            "price": "25.2135"
+          },
+          "nautilus": {
+            "date": "2015-09-30",
+            "side": "SELL",
+            "quantity": "666",
+            "price": "25.2135",
+            "fees": "16.79"
+          },
+          "match": true
+        },
+        {
+          "number": 3,
+          "lean": {
+            "date": "2016-08-31",
+            "side": "BUY",
+            "quantity": "679",
+            "price": "24.6385"
+          },
+          "nautilus": {
+            "date": "2016-08-31",
+            "side": "BUY",
+            "quantity": "679",
+            "price": "24.6385",
+            "fees": "16.73"
+          },
+          "match": true
+        },
+        {
+          "number": 4,
+          "lean": {
+            "date": "2018-12-31",
+            "side": "SELL",
+            "quantity": "679",
+            "price": "38.1778"
+          },
+          "nautilus": {
+            "date": "2018-12-31",
+            "side": "SELL",
+            "quantity": "679",
+            "price": "38.1778",
+            "fees": "25.92"
+          },
+          "match": true
+        },
+        {
+          "number": 5,
+          "lean": {
+            "date": "2019-05-31",
+            "side": "BUY",
+            "quantity": "607",
+            "price": "42.5539"
+          },
+          "nautilus": {
+            "date": "2019-05-31",
+            "side": "BUY",
+            "quantity": "607",
+            "price": "42.5539",
+            "fees": "25.83"
+          },
+          "match": true
+        },
+        {
+          "number": 6,
+          "lean": {
+            "date": "2019-06-30",
+            "side": "SELL",
+            "quantity": "607",
+            "price": "48.2933"
+          },
+          "nautilus": {
+            "date": "2019-06-30",
+            "side": "SELL",
+            "quantity": "607",
+            "price": "48.2933",
+            "fees": "29.31"
+          },
+          "match": true
+        },
+        {
+          "number": 7,
+          "lean": {
+            "date": "2019-07-31",
+            "side": "BUY",
+            "quantity": "563",
+            "price": "51.9826"
+          },
+          "nautilus": {
+            "date": "2019-07-31",
+            "side": "BUY",
+            "quantity": "563",
+            "price": "51.9826",
+            "fees": "29.27"
+          },
+          "match": true
+        },
+        {
+          "number": 8,
+          "lean": {
+            "date": "2022-05-31",
+            "side": "SELL",
+            "quantity": "563",
+            "price": "148.6216"
+          },
+          "nautilus": {
+            "date": "2022-05-31",
+            "side": "SELL",
+            "quantity": "563",
+            "price": "148.6216",
+            "fees": "83.67"
+          },
+          "match": true
+        }
+      ],
+      "monthly_equity": [
+        {
+          "month": "2012-12",
+          "nautilus_equity": "10000.0000",
+          "lean_equity": "10000.0",
+          "delta": "0.0000",
+          "cash": "10000",
+          "shares": 0
+        },
+        {
+          "month": "2013-01",
+          "nautilus_equity": "10000.0000",
+          "lean_equity": "10000.0",
+          "delta": "0.0000",
+          "cash": "10000",
+          "shares": 0
+        },
+        {
+          "month": "2013-02",
+          "nautilus_equity": "10000.0000",
+          "lean_equity": "10000.0",
+          "delta": "0.0000",
+          "cash": "10000",
+          "shares": 0
+        },
+        {
+          "month": "2013-03",
+          "nautilus_equity": "10000.0000",
+          "lean_equity": "10000.0",
+          "delta": "0.0000",
+          "cash": "10000",
+          "shares": 0
+        },
+        {
+          "month": "2013-04",
+          "nautilus_equity": "10000.0000",
+          "lean_equity": "10000.0",
+          "delta": "0.0000",
+          "cash": "10000",
+          "shares": 0
+        },
+        {
+          "month": "2013-05",
+          "nautilus_equity": "10000.0000",
+          "lean_equity": "10000.0",
+          "delta": "0.0000",
+          "cash": "10000",
+          "shares": 0
+        },
+        {
+          "month": "2013-06",
+          "nautilus_equity": "10000.0000",
+          "lean_equity": "10000.0",
+          "delta": "0.0000",
+          "cash": "10000",
+          "shares": 0
+        },
+        {
+          "month": "2013-07",
+          "nautilus_equity": "10000.0000",
+          "lean_equity": "10000.0",
+          "delta": "0.0000",
+          "cash": "10000",
+          "shares": 0
+        },
+        {
+          "month": "2013-08",
+          "nautilus_equity": "10000.0000",
+          "lean_equity": "10000.0",
+          "delta": "0.0000",
+          "cash": "10000",
+          "shares": 0
+        },
+        {
+          "month": "2013-09",
+          "nautilus_equity": "9990.0306",
+          "lean_equity": "9990.0305794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2013-10",
+          "nautilus_equity": "10950.8688",
+          "lean_equity": "10950.8687794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2013-11",
+          "nautilus_equity": "11648.7036",
+          "lean_equity": "11648.7035794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2013-12",
+          "nautilus_equity": "11820.6648",
+          "lean_equity": "11820.6647794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2014-01",
+          "nautilus_equity": "10549.8702",
+          "lean_equity": "10549.8701794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2014-02",
+          "nautilus_equity": "11089.1304",
+          "lean_equity": "11089.1303794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2014-03",
+          "nautilus_equity": "11377.5750",
+          "lean_equity": "11377.5749794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2014-04",
+          "nautilus_equity": "12506.4450",
+          "lean_equity": "12506.4449794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2014-05",
+          "nautilus_equity": "13414.3362",
+          "lean_equity": "13414.3361794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2014-06",
+          "nautilus_equity": "13861.7550",
+          "lean_equity": "13861.7549794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2014-07",
+          "nautilus_equity": "14259.4236",
+          "lean_equity": "14259.4235794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2014-08",
+          "nautilus_equity": "15287.1282",
+          "lean_equity": "15287.1281794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2014-09",
+          "nautilus_equity": "15101.1144",
+          "lean_equity": "15101.1143794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2014-10",
+          "nautilus_equity": "16186.2948",
+          "lean_equity": "16186.2947794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2014-11",
+          "nautilus_equity": "17822.3238",
+          "lean_equity": "17822.3237794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2014-12",
+          "nautilus_equity": "16614.1998",
+          "lean_equity": "16614.1997794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2015-01",
+          "nautilus_equity": "17633.4462",
+          "lean_equity": "17633.4461794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2015-02",
+          "nautilus_equity": "19332.1458",
+          "lean_equity": "19332.1457794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2015-03",
+          "nautilus_equity": "18800.1450",
+          "lean_equity": "18800.1449794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2015-04",
+          "nautilus_equity": "18908.8362",
+          "lean_equity": "18908.8361794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2015-05",
+          "nautilus_equity": "19683.0612",
+          "lean_equity": "19683.0611794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2015-06",
+          "nautilus_equity": "19030.1814",
+          "lean_equity": "19030.1813794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2015-07",
+          "nautilus_equity": "18404.208",
+          "lean_equity": "18404.2079794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2015-08",
+          "nautilus_equity": "17109.9702",
+          "lean_equity": "17109.9701794",
+          "delta": "0.0000206",
+          "cash": "20.61",
+          "shares": 666
+        },
+        {
+          "month": "2015-09",
+          "nautilus_equity": "16796.0100",
+          "lean_equity": "16796.0087884",
+          "delta": "0.0012116",
+          "cash": "16796.01",
+          "shares": 0
+        },
+        {
+          "month": "2015-10",
+          "nautilus_equity": "16796.0100",
+          "lean_equity": "16796.0087884",
+          "delta": "0.0012116",
+          "cash": "16796.01",
+          "shares": 0
+        },
+        {
+          "month": "2015-11",
+          "nautilus_equity": "16796.0100",
+          "lean_equity": "16796.0087884",
+          "delta": "0.0012116",
+          "cash": "16796.01",
+          "shares": 0
+        },
+        {
+          "month": "2015-12",
+          "nautilus_equity": "16796.0100",
+          "lean_equity": "16796.0087884",
+          "delta": "0.0012116",
+          "cash": "16796.01",
+          "shares": 0
+        },
+        {
+          "month": "2016-01",
+          "nautilus_equity": "16796.0100",
+          "lean_equity": "16796.0087884",
+          "delta": "0.0012116",
+          "cash": "16796.01",
+          "shares": 0
+        },
+        {
+          "month": "2016-02",
+          "nautilus_equity": "16796.010",
+          "lean_equity": "16796.0087884",
+          "delta": "0.0012116",
+          "cash": "16796.01",
+          "shares": 0
+        },
+        {
+          "month": "2016-03",
+          "nautilus_equity": "16796.0100",
+          "lean_equity": "16796.0087884",
+          "delta": "0.0012116",
+          "cash": "16796.01",
+          "shares": 0
+        },
+        {
+          "month": "2016-04",
+          "nautilus_equity": "16796.0100",
+          "lean_equity": "16796.0087884",
+          "delta": "0.0012116",
+          "cash": "16796.01",
+          "shares": 0
+        },
+        {
+          "month": "2016-05",
+          "nautilus_equity": "16796.0100",
+          "lean_equity": "16796.0087884",
+          "delta": "0.0012116",
+          "cash": "16796.01",
+          "shares": 0
+        },
+        {
+          "month": "2016-06",
+          "nautilus_equity": "16796.0100",
+          "lean_equity": "16796.0087884",
+          "delta": "0.0012116",
+          "cash": "16796.01",
+          "shares": 0
+        },
+        {
+          "month": "2016-07",
+          "nautilus_equity": "16796.0100",
+          "lean_equity": "16796.0087884",
+          "delta": "0.0012116",
+          "cash": "16796.01",
+          "shares": 0
+        },
+        {
+          "month": "2016-08",
+          "nautilus_equity": "16779.2815",
+          "lean_equity": "16779.2792469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2016-09",
+          "nautilus_equity": "17971.6734",
+          "lean_equity": "17971.6711469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2016-10",
+          "nautilus_equity": "18049.351",
+          "lean_equity": "18049.3487469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2016-11",
+          "nautilus_equity": "17570.5881",
+          "lean_equity": "17570.5858469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2016-12",
+          "nautilus_equity": "18505.0958",
+          "lean_equity": "18505.0935469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2017-01",
+          "nautilus_equity": "19386.302",
+          "lean_equity": "19386.2997469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2017-02",
+          "nautilus_equity": "21878.4357",
+          "lean_equity": "21878.4334469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2017-03",
+          "nautilus_equity": "23040.5442",
+          "lean_equity": "23040.5419469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2017-04",
+          "nautilus_equity": "23038.9146",
+          "lean_equity": "23038.9123469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2017-05",
+          "nautilus_equity": "24496.8634",
+          "lean_equity": "24496.8611469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2017-06",
+          "nautilus_equity": "23193.2513",
+          "lean_equity": "23193.2490469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2017-07",
+          "nautilus_equity": "23950.1326",
+          "lean_equity": "23950.1303469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2017-08",
+          "nautilus_equity": "26403.9707",
+          "lean_equity": "26403.9684469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2017-09",
+          "nautilus_equity": "24913.5657",
+          "lean_equity": "24913.5634469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2017-10",
+          "nautilus_equity": "27320.5528",
+          "lean_equity": "27320.5505469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2017-11",
+          "nautilus_equity": "27773.9211",
+          "lean_equity": "27773.9188469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2017-12",
+          "nautilus_equity": "27449.3591",
+          "lean_equity": "27449.3568469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2018-01",
+          "nautilus_equity": "27157.9323",
+          "lean_equity": "27157.9300469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2018-02",
+          "nautilus_equity": "28888.7033",
+          "lean_equity": "28888.7010469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2018-03",
+          "nautilus_equity": "27325.3737",
+          "lean_equity": "27325.3714469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2018-04",
+          "nautilus_equity": "26915.6651",
+          "lean_equity": "26915.6628469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2018-05",
+          "nautilus_equity": "30428.7432",
+          "lean_equity": "30428.7409469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2018-06",
+          "nautilus_equity": "30258.6537",
+          "lean_equity": "30258.6514469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2018-07",
+          "nautilus_equity": "31104.0087",
+          "lean_equity": "31104.0064469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2018-08",
+          "nautilus_equity": "37197.6942",
+          "lean_equity": "37197.6919469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2018-09",
+          "nautilus_equity": "37018.5061",
+          "lean_equity": "37018.5038469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2018-10",
+          "nautilus_equity": "35891.7735",
+          "lean_equity": "35891.7712469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2018-11",
+          "nautilus_equity": "29295.2206",
+          "lean_equity": "29295.2183469",
+          "delta": "0.0022531",
+          "cash": "49.74",
+          "shares": 679
+        },
+        {
+          "month": "2018-12",
+          "nautilus_equity": "25946.5500",
+          "lean_equity": "25946.5412207",
+          "delta": "0.0087793",
+          "cash": "25946.55",
+          "shares": 0
+        },
+        {
+          "month": "2019-01",
+          "nautilus_equity": "25946.5500",
+          "lean_equity": "25946.5412207",
+          "delta": "0.0087793",
+          "cash": "25946.55",
+          "shares": 0
+        },
+        {
+          "month": "2019-02",
+          "nautilus_equity": "25946.5500",
+          "lean_equity": "25946.5412207",
+          "delta": "0.0087793",
+          "cash": "25946.55",
+          "shares": 0
+        },
+        {
+          "month": "2019-03",
+          "nautilus_equity": "25946.5500",
+          "lean_equity": "25946.5412207",
+          "delta": "0.0087793",
+          "cash": "25946.55",
+          "shares": 0
+        },
+        {
+          "month": "2019-04",
+          "nautilus_equity": "25946.5500",
+          "lean_equity": "25946.5412207",
+          "delta": "0.0087793",
+          "cash": "25946.55",
+          "shares": 0
+        },
+        {
+          "month": "2019-05",
+          "nautilus_equity": "25920.7173",
+          "lean_equity": "25920.7110034",
+          "delta": "0.0062966",
+          "cash": "90.50",
+          "shares": 607
+        },
+        {
+          "month": "2019-06",
+          "nautilus_equity": "29375.2200",
+          "lean_equity": "29375.2127703",
+          "delta": "0.0072297",
+          "cash": "29375.22",
+          "shares": 0
+        },
+        {
+          "month": "2019-07",
+          "nautilus_equity": "29345.9538",
+          "lean_equity": "29345.9465665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2019-08",
+          "nautilus_equity": "28755.2542",
+          "lean_equity": "28755.2469665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2019-09",
+          "nautilus_equity": "30964.3536",
+          "lean_equity": "30964.3463665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2019-10",
+          "nautilus_equity": "34382.8333",
+          "lean_equity": "34382.8260665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2019-11",
+          "nautilus_equity": "36932.4914",
+          "lean_equity": "36932.4841665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2019-12",
+          "nautilus_equity": "40694.5137",
+          "lean_equity": "40694.5064665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2020-01",
+          "nautilus_equity": "42888.1306",
+          "lean_equity": "42888.1233665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2020-02",
+          "nautilus_equity": "37888.2402",
+          "lean_equity": "37888.2329665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2020-03",
+          "nautilus_equity": "35334.1344",
+          "lean_equity": "35334.1271665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2020-04",
+          "nautilus_equity": "40811.7303",
+          "lean_equity": "40811.7230665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2020-05",
+          "nautilus_equity": "44158.4838",
+          "lean_equity": "44158.4765665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2020-06",
+          "nautilus_equity": "50791.975",
+          "lean_equity": "50791.9677665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2020-07",
+          "nautilus_equity": "59166.1496",
+          "lean_equity": "59166.1423665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2020-08",
+          "nautilus_equity": "71833.0866",
+          "lean_equity": "71833.0793665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2020-09",
+          "nautilus_equity": "64592.5688",
+          "lean_equity": "64592.5615665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2020-10",
+          "nautilus_equity": "60721.043",
+          "lean_equity": "60721.0357665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2020-11",
+          "nautilus_equity": "66397.4342",
+          "lean_equity": "66397.4269665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2020-12",
+          "nautilus_equity": "74123.258",
+          "lean_equity": "74123.2507665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2021-01",
+          "nautilus_equity": "73715.8712",
+          "lean_equity": "73715.8639665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2021-02",
+          "nautilus_equity": "67745.0873",
+          "lean_equity": "67745.0800665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2021-03",
+          "nautilus_equity": "68343.5563",
+          "lean_equity": "68343.5490665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2021-04",
+          "nautilus_equity": "73546.5208",
+          "lean_equity": "73546.5135665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2021-05",
+          "nautilus_equity": "69718.346",
+          "lean_equity": "69718.3387665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2021-06",
+          "nautilus_equity": "76750.216",
+          "lean_equity": "76750.2087665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2021-07",
+          "nautilus_equity": "81732.4282",
+          "lean_equity": "81732.4209665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2021-08",
+          "nautilus_equity": "85074.4525",
+          "lean_equity": "85074.4452665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2021-09",
+          "nautilus_equity": "79410.391",
+          "lean_equity": "79410.3837665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2021-10",
+          "nautilus_equity": "84063.6986",
+          "lean_equity": "84063.6913665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2021-11",
+          "nautilus_equity": "92753.6036",
+          "lean_equity": "92753.5963665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2021-12",
+          "nautilus_equity": "99777.9857",
+          "lean_equity": "99777.9784665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2022-01",
+          "nautilus_equity": "98211.4945",
+          "lean_equity": "98211.4872665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2022-02",
+          "nautilus_equity": "92787.834",
+          "lean_equity": "92787.8267665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2022-03",
+          "nautilus_equity": "98240.9394",
+          "lean_equity": "98240.9321665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2022-04",
+          "nautilus_equity": "88706.4781",
+          "lean_equity": "88706.4708665",
+          "delta": "0.0072335",
+          "cash": "79.75",
+          "shares": 563
+        },
+        {
+          "month": "2022-05",
+          "nautilus_equity": "83670.0400",
+          "lean_equity": "83670.0296057",
+          "delta": "0.0103943",
+          "cash": "83670.04",
+          "shares": 0
+        }
+      ],
+      "simulation_limitation": "Synthetic month-end adjusted close snapshots; not market-executable prices."
+    },
+    {
+      "symbol": "MSFT",
+      "status": "PASS",
+      "errors": [],
+      "orders_lean": 16,
+      "orders_nautilus": 16,
+      "matched_orders": 16,
+      "months_compared": 114,
+      "max_abs_monthly_equity_difference_usd": "0.0181120",
+      "end_equity_lean_usd": "84561.06",
+      "end_equity_nautilus_usd": "84561.0400",
+      "end_equity_abs_difference_usd": "0.0200",
+      "source_sha256": {
+        "lean_log": "5fb5c26939034f53c352a9f13a98b36a91a69c743999c22c764cec3f246c0185",
+        "nautilus_fills": "e2219d995898cfa498cfe324b80eff28dd361c6df443e265179576f1361df91a",
+        "nautilus_account": "a9a1222ca15410a11621fa4f4a948336f205f97fbce563cda2026360eb7ae1e8",
+        "monthly_input": "9bb819e494608128c5100dbbd9c821dd4ceb03064a2864f9f8662da86d1559e7"
+      },
+      "fills": [
+        {
+          "number": 1,
+          "lean": {
+            "date": "2013-04-30",
+            "side": "BUY",
+            "quantity": "360",
+            "price": "27.6554"
+          },
+          "nautilus": {
+            "date": "2013-04-30",
+            "side": "BUY",
+            "quantity": "360",
+            "price": "27.6554",
+            "fees": "9.96"
+          },
+          "match": true
+        },
+        {
+          "number": 2,
+          "lean": {
+            "date": "2015-02-28",
+            "side": "SELL",
+            "quantity": "360",
+            "price": "38.4609"
+          },
+          "nautilus": {
+            "date": "2015-02-28",
+            "side": "SELL",
+            "quantity": "360",
+            "price": "38.4609",
+            "fees": "13.85"
+          },
+          "match": true
+        },
+        {
+          "number": 3,
+          "lean": {
+            "date": "2015-05-31",
+            "side": "BUY",
+            "quantity": "333",
+            "price": "41.3935"
+          },
+          "nautilus": {
+            "date": "2015-05-31",
+            "side": "BUY",
+            "quantity": "333",
+            "price": "41.3935",
+            "fees": "13.78"
+          },
+          "match": true
+        },
+        {
+          "number": 4,
+          "lean": {
+            "date": "2015-07-31",
+            "side": "SELL",
+            "quantity": "333",
+            "price": "41.5203"
+          },
+          "nautilus": {
+            "date": "2015-07-31",
+            "side": "SELL",
+            "quantity": "333",
+            "price": "41.5203",
+            "fees": "13.83"
+          },
+          "match": true
+        },
+        {
+          "number": 5,
+          "lean": {
+            "date": "2015-08-31",
+            "side": "BUY",
+            "quantity": "357",
+            "price": "38.693"
+          },
+          "nautilus": {
+            "date": "2015-08-31",
+            "side": "BUY",
+            "quantity": "357",
+            "price": "38.6930",
+            "fees": "13.81"
+          },
+          "match": true
+        },
+        {
+          "number": 6,
+          "lean": {
+            "date": "2015-09-30",
+            "side": "SELL",
+            "quantity": "357",
+            "price": "39.6104"
+          },
+          "nautilus": {
+            "date": "2015-09-30",
+            "side": "SELL",
+            "quantity": "357",
+            "price": "39.6104",
+            "fees": "14.14"
+          },
+          "match": true
+        },
+        {
+          "number": 7,
+          "lean": {
+            "date": "2015-10-31",
+            "side": "BUY",
+            "quantity": "300",
+            "price": "47.1101"
+          },
+          "nautilus": {
+            "date": "2015-10-31",
+            "side": "BUY",
+            "quantity": "300",
+            "price": "47.1101",
+            "fees": "14.13"
+          },
+          "match": true
+        },
+        {
+          "number": 8,
+          "lean": {
+            "date": "2016-05-31",
+            "side": "SELL",
+            "quantity": "300",
+            "price": "48.0948"
+          },
+          "nautilus": {
+            "date": "2016-05-31",
+            "side": "SELL",
+            "quantity": "300",
+            "price": "48.0948",
+            "fees": "14.43"
+          },
+          "match": true
+        },
+        {
+          "number": 9,
+          "lean": {
+            "date": "2016-06-30",
+            "side": "BUY",
+            "quantity": "308",
+            "price": "46.759"
+          },
+          "nautilus": {
+            "date": "2016-06-30",
+            "side": "BUY",
+            "quantity": "308",
+            "price": "46.7590",
+            "fees": "14.40"
+          },
+          "match": true
+        },
+        {
+          "number": 10,
+          "lean": {
+            "date": "2016-07-31",
+            "side": "SELL",
+            "quantity": "308",
+            "price": "51.794"
+          },
+          "nautilus": {
+            "date": "2016-07-31",
+            "side": "SELL",
+            "quantity": "308",
+            "price": "51.7940",
+            "fees": "15.95"
+          },
+          "match": true
+        },
+        {
+          "number": 11,
+          "lean": {
+            "date": "2016-08-31",
+            "side": "BUY",
+            "quantity": "303",
+            "price": "52.5068"
+          },
+          "nautilus": {
+            "date": "2016-08-31",
+            "side": "BUY",
+            "quantity": "303",
+            "price": "52.5068",
+            "fees": "15.91"
+          },
+          "match": true
+        },
+        {
+          "number": 12,
+          "lean": {
+            "date": "2019-01-31",
+            "side": "SELL",
+            "quantity": "303",
+            "price": "100.5406"
+          },
+          "nautilus": {
+            "date": "2019-01-31",
+            "side": "SELL",
+            "quantity": "303",
+            "price": "100.5406",
+            "fees": "30.46"
+          },
+          "match": true
+        },
+        {
+          "number": 13,
+          "lean": {
+            "date": "2019-02-28",
+            "side": "BUY",
+            "quantity": "281",
+            "price": "107.8576"
+          },
+          "nautilus": {
+            "date": "2019-02-28",
+            "side": "BUY",
+            "quantity": "281",
+            "price": "107.8576",
+            "fees": "30.31"
+          },
+          "match": true
+        },
+        {
+          "number": 14,
+          "lean": {
+            "date": "2022-03-31",
+            "side": "SELL",
+            "quantity": "281",
+            "price": "307.5936"
+          },
+          "nautilus": {
+            "date": "2022-03-31",
+            "side": "SELL",
+            "quantity": "281",
+            "price": "307.5936",
+            "fees": "86.43"
+          },
+          "match": true
+        },
+        {
+          "number": 15,
+          "lean": {
+            "date": "2022-04-30",
+            "side": "BUY",
+            "quantity": "311",
+            "price": "276.8751"
+          },
+          "nautilus": {
+            "date": "2022-04-30",
+            "side": "BUY",
+            "quantity": "311",
+            "price": "276.8751",
+            "fees": "86.11"
+          },
+          "match": true
+        },
+        {
+          "number": 16,
+          "lean": {
+            "date": "2022-05-31",
+            "side": "SELL",
+            "quantity": "311",
+            "price": "271.2383"
+          },
+          "nautilus": {
+            "date": "2022-05-31",
+            "side": "SELL",
+            "quantity": "311",
+            "price": "271.2383",
+            "fees": "84.36"
+          },
+          "match": true
+        }
+      ],
+      "monthly_equity": [
+        {
+          "month": "2012-12",
+          "nautilus_equity": "10000.0000",
+          "lean_equity": "10000.0",
+          "delta": "0.0000",
+          "cash": "10000",
+          "shares": 0
+        },
+        {
+          "month": "2013-01",
+          "nautilus_equity": "10000.0000",
+          "lean_equity": "10000.0",
+          "delta": "0.0000",
+          "cash": "10000",
+          "shares": 0
+        },
+        {
+          "month": "2013-02",
+          "nautilus_equity": "10000.0000",
+          "lean_equity": "10000.0",
+          "delta": "0.0000",
+          "cash": "10000",
+          "shares": 0
+        },
+        {
+          "month": "2013-03",
+          "nautilus_equity": "10000.000",
+          "lean_equity": "10000.0",
+          "delta": "0.000",
+          "cash": "10000",
+          "shares": 0
+        },
+        {
+          "month": "2013-04",
+          "nautilus_equity": "9990.0440",
+          "lean_equity": "9990.044056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2013-05",
+          "nautilus_equity": "10531.4840",
+          "lean_equity": "10531.484056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2013-06",
+          "nautilus_equity": "10496.0240",
+          "lean_equity": "10496.024056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2013-07",
+          "nautilus_equity": "9678.2120",
+          "lean_equity": "9678.212056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2013-08",
+          "nautilus_equity": "10150.7480",
+          "lean_equity": "10150.748056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2013-09",
+          "nautilus_equity": "10185.4160",
+          "lean_equity": "10185.416056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2013-10",
+          "nautilus_equity": "10835.1440",
+          "lean_equity": "10835.144056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2013-11",
+          "nautilus_equity": "11664.8000",
+          "lean_equity": "11664.800056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2013-12",
+          "nautilus_equity": "11531.7440",
+          "lean_equity": "11531.744056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2014-01",
+          "nautilus_equity": "11663.900",
+          "lean_equity": "11663.900056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2014-02",
+          "nautilus_equity": "11808.3320",
+          "lean_equity": "11808.332056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2014-03",
+          "nautilus_equity": "12726.4760",
+          "lean_equity": "12726.476056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2014-04",
+          "nautilus_equity": "12543.7760",
+          "lean_equity": "12543.776056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2014-05",
+          "nautilus_equity": "12710.9960",
+          "lean_equity": "12710.996056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2014-06",
+          "nautilus_equity": "13037.4080",
+          "lean_equity": "13037.408056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2014-07",
+          "nautilus_equity": "13492.700",
+          "lean_equity": "13492.700056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2014-08",
+          "nautilus_equity": "14200.5320",
+          "lean_equity": "14200.532056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2014-09",
+          "nautilus_equity": "14580.8360",
+          "lean_equity": "14580.836056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2014-10",
+          "nautilus_equity": "14765.9840",
+          "lean_equity": "14765.984056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2014-11",
+          "nautilus_equity": "15035.8040",
+          "lean_equity": "15035.804056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2014-12",
+          "nautilus_equity": "14701.0040",
+          "lean_equity": "14701.004056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2015-01",
+          "nautilus_equity": "12790.6640",
+          "lean_equity": "12790.664056",
+          "delta": "-0.000056",
+          "cash": "34.10",
+          "shares": 360
+        },
+        {
+          "month": "2015-02",
+          "nautilus_equity": "13866.1700",
+          "lean_equity": "13866.178132",
+          "delta": "-0.008132",
+          "cash": "13866.17",
+          "shares": 0
+        },
+        {
+          "month": "2015-03",
+          "nautilus_equity": "13866.1700",
+          "lean_equity": "13866.178132",
+          "delta": "-0.008132",
+          "cash": "13866.17",
+          "shares": 0
+        },
+        {
+          "month": "2015-04",
+          "nautilus_equity": "13866.1700",
+          "lean_equity": "13866.178132",
+          "delta": "-0.008132",
+          "cash": "13866.17",
+          "shares": 0
+        },
+        {
+          "month": "2015-05",
+          "nautilus_equity": "13852.3855",
+          "lean_equity": "13852.3940965",
+          "delta": "-0.0085965",
+          "cash": "68.35",
+          "shares": 333
+        },
+        {
+          "month": "2015-06",
+          "nautilus_equity": "13139.6323",
+          "lean_equity": "13139.6408965",
+          "delta": "-0.0085965",
+          "cash": "68.35",
+          "shares": 333
+        },
+        {
+          "month": "2015-07",
+          "nautilus_equity": "13880.7800",
+          "lean_equity": "13880.7922366",
+          "delta": "-0.0122366",
+          "cash": "13880.78",
+          "shares": 0
+        },
+        {
+          "month": "2015-08",
+          "nautilus_equity": "13866.971",
+          "lean_equity": "13866.9788356",
+          "delta": "-0.0078356",
+          "cash": "53.57",
+          "shares": 357
+        },
+        {
+          "month": "2015-09",
+          "nautilus_equity": "14180.3400",
+          "lean_equity": "14180.3497228",
+          "delta": "-0.0097228",
+          "cash": "14180.34",
+          "shares": 0
+        },
+        {
+          "month": "2015-10",
+          "nautilus_equity": "14166.2100",
+          "lean_equity": "14166.2166928",
+          "delta": "-0.0066928",
+          "cash": "33.18",
+          "shares": 300
+        },
+        {
+          "month": "2015-11",
+          "nautilus_equity": "14625.3000",
+          "lean_equity": "14625.3066928",
+          "delta": "-0.0066928",
+          "cash": "33.18",
+          "shares": 300
+        },
+        {
+          "month": "2015-12",
+          "nautilus_equity": "15029.1000",
+          "lean_equity": "15029.1066928",
+          "delta": "-0.0066928",
+          "cash": "33.18",
+          "shares": 300
+        },
+        {
+          "month": "2016-01",
+          "nautilus_equity": "14923.680",
+          "lean_equity": "14923.6866928",
+          "delta": "-0.0066928",
+          "cash": "33.18",
+          "shares": 300
+        },
+        {
+          "month": "2016-02",
+          "nautilus_equity": "13785.7500",
+          "lean_equity": "13785.7566928",
+          "delta": "-0.0066928",
+          "cash": "33.18",
+          "shares": 300
+        },
+        {
+          "month": "2016-03",
+          "nautilus_equity": "15068.7000",
+          "lean_equity": "15068.7066928",
+          "delta": "-0.0066928",
+          "cash": "33.18",
+          "shares": 300
+        },
+        {
+          "month": "2016-04",
+          "nautilus_equity": "13609.5300",
+          "lean_equity": "13609.5366928",
+          "delta": "-0.0066928",
+          "cash": "33.18",
+          "shares": 300
+        },
+        {
+          "month": "2016-05",
+          "nautilus_equity": "14447.1900",
+          "lean_equity": "14447.1982528",
+          "delta": "-0.0082528",
+          "cash": "14447.19",
+          "shares": 0
+        },
+        {
+          "month": "2016-06",
+          "nautilus_equity": "14432.792",
+          "lean_equity": "14432.7964808",
+          "delta": "-0.0044808",
+          "cash": "31.02",
+          "shares": 308
+        },
+        {
+          "month": "2016-07",
+          "nautilus_equity": "15967.620",
+          "lean_equity": "15967.6239288",
+          "delta": "-0.0039288",
+          "cash": "15967.62",
+          "shares": 0
+        },
+        {
+          "month": "2016-08",
+          "nautilus_equity": "15951.7104",
+          "lean_equity": "15951.7143684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2016-09",
+          "nautilus_equity": "16089.8481",
+          "lean_equity": "16089.8520684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2016-10",
+          "nautilus_equity": "16736.2077",
+          "lean_equity": "16736.2116684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2016-11",
+          "nautilus_equity": "16830.9558",
+          "lean_equity": "16830.9597684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2016-12",
+          "nautilus_equity": "17471.6796",
+          "lean_equity": "17471.6835684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2017-01",
+          "nautilus_equity": "18175.7001",
+          "lean_equity": "18175.7040684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2017-02",
+          "nautilus_equity": "17987.7795",
+          "lean_equity": "17987.7834684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2017-03",
+          "nautilus_equity": "18627.0792",
+          "lean_equity": "18627.0831684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2017-04",
+          "nautilus_equity": "19360.7937",
+          "lean_equity": "19360.7976684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2017-05",
+          "nautilus_equity": "19750.2093",
+          "lean_equity": "19750.2132684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2017-06",
+          "nautilus_equity": "19604.8905",
+          "lean_equity": "19604.8944684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2017-07",
+          "nautilus_equity": "20674.8441",
+          "lean_equity": "20674.8480684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2017-08",
+          "nautilus_equity": "21262.3308",
+          "lean_equity": "21262.3347684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2017-09",
+          "nautilus_equity": "21295.5093",
+          "lean_equity": "21295.5132684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2017-10",
+          "nautilus_equity": "23774.928",
+          "lean_equity": "23774.9319684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2017-11",
+          "nautilus_equity": "24057.3846",
+          "lean_equity": "24057.3885684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2017-12",
+          "nautilus_equity": "24570.8484",
+          "lean_equity": "24570.8523684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2018-01",
+          "nautilus_equity": "27286.3647",
+          "lean_equity": "27286.3686684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2018-02",
+          "nautilus_equity": "26930.7942",
+          "lean_equity": "26930.7981684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2018-03",
+          "nautilus_equity": "26336.8536",
+          "lean_equity": "26336.8575684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2018-04",
+          "nautilus_equity": "26985.0918",
+          "lean_equity": "26985.0957684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2018-05",
+          "nautilus_equity": "28517.7567",
+          "lean_equity": "28517.7606684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2018-06",
+          "nautilus_equity": "28574.6298",
+          "lean_equity": "28574.6337684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2018-07",
+          "nautilus_equity": "30736.05",
+          "lean_equity": "30736.0539684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2018-08",
+          "nautilus_equity": "32544.4752",
+          "lean_equity": "32544.4791684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2018-09",
+          "nautilus_equity": "33262.1004",
+          "lean_equity": "33262.1043684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2018-10",
+          "nautilus_equity": "31066.2291",
+          "lean_equity": "31066.2330684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2018-11",
+          "nautilus_equity": "32251.2924",
+          "lean_equity": "32251.2963684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2018-12",
+          "nautilus_equity": "29671.6413",
+          "lean_equity": "29671.6452684",
+          "delta": "-0.0039684",
+          "cash": "42.15",
+          "shares": 303
+        },
+        {
+          "month": "2019-01",
+          "nautilus_equity": "30475.4900",
+          "lean_equity": "30475.4919666",
+          "delta": "-0.0019666",
+          "cash": "30475.49",
+          "shares": 0
+        },
+        {
+          "month": "2019-02",
+          "nautilus_equity": "30445.1756",
+          "lean_equity": "30445.1839810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2019-03",
+          "nautilus_equity": "32180.2944",
+          "lean_equity": "32180.3027810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2019-04",
+          "nautilus_equity": "35619.903",
+          "lean_equity": "35619.9113810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2019-05",
+          "nautilus_equity": "33739.7882",
+          "lean_equity": "33739.7965810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2019-06",
+          "nautilus_equity": "36667.4991",
+          "lean_equity": "36667.5074810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2019-07",
+          "nautilus_equity": "37297.4168",
+          "lean_equity": "37297.4251810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2019-08",
+          "nautilus_equity": "37730.9998",
+          "lean_equity": "37731.0081810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2019-09",
+          "nautilus_equity": "38176.3005",
+          "lean_equity": "38176.3088810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2019-10",
+          "nautilus_equity": "39363.7503",
+          "lean_equity": "39363.7586810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2019-11",
+          "nautilus_equity": "41555.2974",
+          "lean_equity": "41555.3057810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2019-12",
+          "nautilus_equity": "43431.2815",
+          "lean_equity": "43431.2898810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2020-01",
+          "nautilus_equity": "46871.2273",
+          "lean_equity": "46871.2356810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2020-02",
+          "nautilus_equity": "44614.5444",
+          "lean_equity": "44614.5527810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2020-03",
+          "nautilus_equity": "43552.3082",
+          "lean_equity": "43552.3165810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2020-04",
+          "nautilus_equity": "49470.9269",
+          "lean_equity": "49470.9352810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2020-05",
+          "nautilus_equity": "50583.0687",
+          "lean_equity": "50583.0770810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2020-06",
+          "nautilus_equity": "56316.3679",
+          "lean_equity": "56316.3762810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2020-07",
+          "nautilus_equity": "56730.4495",
+          "lean_equity": "56730.4578810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2020-08",
+          "nautilus_equity": "62395.0161",
+          "lean_equity": "62395.0244810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2020-09",
+          "nautilus_equity": "58339.3993",
+          "lean_equity": "58339.4076810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2020-10",
+          "nautilus_equity": "56164.375",
+          "lean_equity": "56164.3833810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2020-11",
+          "nautilus_equity": "59374.3223",
+          "lean_equity": "59374.3306810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2020-12",
+          "nautilus_equity": "61846.0545",
+          "lean_equity": "61846.0628810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2021-01",
+          "nautilus_equity": "64492.8497",
+          "lean_equity": "64492.8580810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2021-02",
+          "nautilus_equity": "64609.3804",
+          "lean_equity": "64609.3887810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2021-03",
+          "nautilus_equity": "65700.5596",
+          "lean_equity": "65700.5679810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2021-04",
+          "nautilus_equity": "70263.8872",
+          "lean_equity": "70263.8955810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2021-05",
+          "nautilus_equity": "69568.6932",
+          "lean_equity": "69568.7015810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2021-06",
+          "nautilus_equity": "75643.5479",
+          "lean_equity": "75643.5562810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2021-07",
+          "nautilus_equity": "79548.4644",
+          "lean_equity": "79548.4727810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2021-08",
+          "nautilus_equity": "84278.3969",
+          "lean_equity": "84278.4052810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2021-09",
+          "nautilus_equity": "78865.522",
+          "lean_equity": "78865.5303810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2021-10",
+          "nautilus_equity": "92744.6178",
+          "lean_equity": "92744.6261810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2021-11",
+          "nautilus_equity": "92456.9862",
+          "lean_equity": "92456.9945810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2021-12",
+          "nautilus_equity": "94228.9722",
+          "lean_equity": "94228.9805810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2022-01",
+          "nautilus_equity": "87139.6232",
+          "lean_equity": "87139.6315810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2022-02",
+          "nautilus_equity": "83729.2386",
+          "lean_equity": "83729.2469810",
+          "delta": "-0.0083810",
+          "cash": "137.19",
+          "shares": 281
+        },
+        {
+          "month": "2022-03",
+          "nautilus_equity": "86484.5600",
+          "lean_equity": "86484.5661794",
+          "delta": "-0.0061794",
+          "cash": "86484.56",
+          "shares": 0
+        },
+        {
+          "month": "2022-04",
+          "nautilus_equity": "86398.4461",
+          "lean_equity": "86398.4580233",
+          "delta": "-0.0119233",
+          "cash": "290.29",
+          "shares": 311
+        },
+        {
+          "month": "2022-05",
+          "nautilus_equity": "84561.0400",
+          "lean_equity": "84561.0581120",
+          "delta": "-0.0181120",
+          "cash": "84561.04",
+          "shares": 0
+        }
+      ],
+      "simulation_limitation": "Synthetic month-end adjusted close snapshots; not market-executable prices."
+    }
+  ],
+  "models": {
+    "position_size": "floor(free_cash*0.998/(rounded_price*1.001))",
+    "fee_bps": 10,
+    "bar_price_decimals": 4,
+    "whole_shares": true,
+    "same_close_synthetic": true
+  },
+  "research_only": true,
+  "live_trading_enabled": false,
+  "methodology": "Verify real native logs: signals, fills, shares, fees-influenced equity. Compare finite 1USD tolerance.",
+  "limitations": [
+    "Only close-only synthetic monthly data",
+    "Does not establish next-session market fill realism",
+    "Does not establish identical LEAN/Nautilus order-book microstructure"
+  ]
+}

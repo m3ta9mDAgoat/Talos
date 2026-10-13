@@ -1,0 +1,10 @@
+{
+  "bot_token": "PASTE_NEW_BOTFATHER_TOKEN_LOCALLY",
+  "owner_user_ids": [],
+  "source_chat_ids": [],
+  "talos_url": "http://127.0.0.1:8018",
+  "research_root": "C:\\TalosEngines\\TalosFinal",
+  "poll_seconds": 20,
+  "auto_archive_seconds": 120,
+  "notify_job_results": true
+}

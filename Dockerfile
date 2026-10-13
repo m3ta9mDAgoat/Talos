@@ -1,18 +1,11 @@
-# One portable production image: React frontend + FastAPI backend.
-# Local development may still run the services separately with docker-compose.
-FROM node:22-alpine AS frontend-build
-WORKDIR /frontend
-COPY frontend/package.json ./
-RUN npm install
-COPY frontend/ ./
-RUN npm run build && test -s dist/index.html && test -s dist/talos-splash-2x.png
-
-FROM python:3.12-slim AS app
+FROM python:3.12-slim
+ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 TALOS_MODE=hosted
 WORKDIR /app
-COPY backend/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
-COPY backend/app ./app
-COPY --from=frontend-build /frontend/dist ./static
-RUN test -s /app/static/index.html && test -s /app/static/talos-splash-2x.png
-ENV PORT=8000
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt "psycopg[binary]>=3.2,<4"
+COPY core/ ./core/
+COPY server/ ./server/
+COPY web/ ./web/
+COPY artifacts/ ./artifacts/
+EXPOSE 8018
+CMD ["sh", "-c", "python -m server.deployment && exec uvicorn server.api:app --host 0.0.0.0 --port ${PORT:-8018} --workers 1"]
