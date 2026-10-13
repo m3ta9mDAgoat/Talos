@@ -1,3 +1,18 @@
+# Talos v4.7.8 Frontend — Strategies / Replay IA Patch
+
+The exact approved original helmet PNG, splash entry and theme CSS are preserved.
+
+- Top-level legacy navigation **Telegram Replay** is renamed **Replay & Verification**.
+- Telegram / Sentiment appears as a **branch within Strategies**, not as a new top-level trading product.
+- Legacy Telegram replay adapters/endpoints remain unchanged. Cross-source imported observation verification is reached through `/lab` on the Research Plane.
+- No original backend jobs/bot sessions or live broker calls are changed by this frontend package.
+
+Validation: local TypeScript/TSX syntax transpilation passed. Full Vite/React build has NOT been verified because dependencies were not fetched here; verify `npm ci` / `npm run build` locally before production.
+
+**There is no new Render service required to run local tests. Do not deploy over the existing frontend without a staging/snapshot and successful build.**
+
+---
+
 # Talos v4.7.8 — Sequential Telegram Replay, ETA and BingX
 
 This release builds on the v4.7.7 replay-worker optimizations and retains the existing parser, Telegram archive, adaptive live-simulation horizon, and notification system.

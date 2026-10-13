@@ -35,3 +35,9 @@ These tests verify functionality of local code and mocked adapters, not exchange
 - Persisted result rows are the source of truth. Cancelling the old #22 job does not delete source Telegram messages.
 - A trade with unavailable candles records `no_market_data`; this is not a winning or losing trade. Examine individual `fetch_errors` for the venue that failed.
 - If the proxy continues to return 502, Render logs and Events are needed to distinguish process OOM, network timeout, application exception or database outage. This software patch is not a guarantee against provider limitations.
+
+## v1.1 Identity / Research Lab routing
+- Original artwork unchanged; helmet added to original sidebar and original picture displayed in Research Lab.
+- Original base palette conserved; Research Lab receives same tokens and UI identity.
+- `frontend/nginx.conf` now forwards `/lab` to backend rather than SPA fallback.
+- Full React/Vite npm build still requires independent testing in staging.

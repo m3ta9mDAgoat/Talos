@@ -67,3 +67,13 @@ aside nav{flex:1;min-height:0;overflow-y:auto;padding-bottom:18px;scrollbar-widt
 .signal-inspector summary { cursor:pointer; font-weight:650; }
 .signal-inspector-fields { margin-top:12px; overflow-wrap:anywhere; }
 .signal-inspector-fields pre { max-height:260px; overflow:auto; padding:12px; }
+
+/* Identity-preserving patch: original pixel art remains the source asset. */
+.brand{display:flex;align-items:center;gap:9px;white-space:nowrap}
+.brand b{font:inherit;font-weight:900;color:#f5efe6}
+.brand-helmet{flex:0 0 39px;width:39px;height:41px;display:inline-block;background-image:url('/talos-splash.png');background-size:166px auto;background-position:center 34%;background-repeat:no-repeat;filter:drop-shadow(0 0 3px rgba(249,100,153,.15))}
+.brand span:not(.brand-helmet){margin-left:auto}
+/* The existing splash asset also includes text. Crop via scale so only the central helmet is seen. */
+.talos-splash:not(.zoom) img{transform:scale(2.16)}
+.talos-splash.zoom img{transform:scale(8.3)}
+@media(prefers-reduced-motion:reduce){.talos-splash:not(.zoom) img{transform:scale(2.16)}.talos-splash.zoom img{transform:scale(2.16)}}
