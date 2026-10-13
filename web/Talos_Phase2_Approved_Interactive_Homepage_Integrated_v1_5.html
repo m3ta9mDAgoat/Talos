@@ -421,8 +421,8 @@ async function refreshReferenceBacktest(){
      const metric=job.result.backtest?.metric||{};
      const grid=document.createElement('div');grid.className='lab-metric-grid';
      for(const [key,val] of Object.entries(metric).slice(0,12)){
-       const c=document.createElement('div');c.className='lab-metric',l=document.createElement('span'),b=document.createElement('b');
-       l.textContent=key;b.textContent=String(val);c.append(l,b);grid.append(c);
+       const c=document.createElement('div');c.className='lab-metric';const l=document.createElement('span');const metricValue=document.createElement('b');
+       l.textContent=key;metricValue.textContent=String(val);c.append(l,metricValue);grid.append(c);
      }
      el.append(grid);
      const b=document.createElement('button');b.className='btn btn-secondary';b.textContent='Export evidence JSON';
